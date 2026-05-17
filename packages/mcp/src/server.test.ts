@@ -76,7 +76,7 @@ describe("Glyph MCP server", () => {
     rmSync(tempMemoryDir, { recursive: true, force: true });
   });
 
-  it("lists the thirty-six tools", async () => {
+  it("lists the thirty-nine tools", async () => {
     const r = await client.listTools();
     const names = r.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -93,6 +93,7 @@ describe("Glyph MCP server", () => {
       "glyph_explain",
       "glyph_forecast",
       "glyph_handles",
+      "glyph_handles_gc",
       "glyph_import",
       "glyph_lineage",
       "glyph_linked_await",
@@ -108,12 +109,14 @@ describe("Glyph MCP server", () => {
       "glyph_publish",
       "glyph_query",
       "glyph_render",
+      "glyph_spec_diff",
       "glyph_story_await_checkpoint",
       "glyph_story_execute",
       "glyph_story_get",
       "glyph_story_list",
       "glyph_story_plan",
       "glyph_subscribe",
+      "glyph_suggest_scale",
       "glyph_trust",
       "glyph_whyboard",
     ]);
@@ -141,6 +144,7 @@ describe("Glyph MCP server", () => {
       "glyph_explain",
       "glyph_forecast",
       "glyph_handles",
+      "glyph_handles_gc",
       "glyph_import",
       "glyph_lineage",
       "glyph_linked_await",
@@ -156,12 +160,14 @@ describe("Glyph MCP server", () => {
       "glyph_publish",
       "glyph_query",
       "glyph_render",
+      "glyph_spec_diff",
       "glyph_story_await_checkpoint",
       "glyph_story_execute",
       "glyph_story_get",
       "glyph_story_list",
       "glyph_story_plan",
       "glyph_subscribe",
+      "glyph_suggest_scale",
       "glyph_trust",
       "glyph_whyboard",
     ]);

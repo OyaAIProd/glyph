@@ -394,7 +394,6 @@ export function renderFrames(scene: Scene): ReadonlyArray<string> {
   return a.frames.map((frame) => {
     // Strip the animation field via destructure so the per-frame scene is
     // a plain static Scene.
-    // biome-ignore lint/correctness/noUnusedVariables: destructured to drop.
     const { animation: _animation, ...rest } = scene;
     const frameScene: Scene = {
       ...rest,

@@ -155,7 +155,6 @@ function rewriteEncoding(encoding: Encoding): Encoding {
 function rewriteChannel(c: Channel): Channel {
   if (typeof c === "string") return c;
   if (c.metric === undefined) return c;
-  // biome-ignore lint/correctness/noUnusedVariables: destructured to drop `metric` from the rest.
   const { metric, ...rest } = c as ChannelObjectShape;
   return { ...rest, field: metricColumnName(metric ?? "") } as Channel;
 }

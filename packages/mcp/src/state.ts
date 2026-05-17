@@ -32,6 +32,12 @@ export class ServerState {
   private readonly handles = new Map<string, DataHandle>();
   /** Secondary index: gdf:// uri → handle id. Populated when handles are stored. */
   private readonly handlesByUri = new Map<string, string>();
+  /** PR60 item 1.6 — last-access timestamps (ms) for TTL-based auto-GC. */
+  private readonly handleLastAccess = new Map<string, number>();
+  /** PR60 item 1.6 — handles that explicitly opted out of GC (via memory.save or pinHandle). */
+  private readonly pinnedHandles = new Set<string>();
+  /** PR60 item 1.6 — TTL in ms; default 30 min. Configurable via constructor option. */
+  private readonly handleTtlMs: number;
   /** Per-session id for minted URIs. Random per ServerState instance. */
   readonly sessionId: string;
   private readonly svgsByHandle = new Map<string, string>();
@@ -55,11 +61,14 @@ export class ServerState {
       sessionId?: string;
       /** Override the persistent-memory file path. Tests pass a temp file. */
       memoryPath?: string;
+      /** PR60 item 1.6 — TTL for auto-GC of unused derived handles (ms). Default 1800_000 (30 min). */
+      handleTtlMs?: number;
     } = {},
   ) {
     this.previewOptions = options.preview ?? {};
     this.sessionId = options.sessionId ?? randomUUID().replace(/-/g, "").slice(0, 16);
     this.memory = new MemoryStore(options.memoryPath ?? defaultMemoryPath());
+    this.handleTtlMs = options.handleTtlMs ?? 30 * 60 * 1000;
   }
 
   async getEngine(): Promise<ComputeEngine> {
@@ -76,10 +85,50 @@ export class ServerState {
     if (h.uri) {
       this.handlesByUri.set(h.uri, h.id);
     }
+    this.handleLastAccess.set(handle.id, Date.now());
   }
 
   getHandle(id: string): DataHandle | undefined {
-    return this.handles.get(id);
+    const h = this.handles.get(id);
+    if (h) this.handleLastAccess.set(id, Date.now());
+    return h;
+  }
+
+  /** PR60 item 1.6 — pin a handle so the TTL reaper won't evict it. */
+  pinHandle(id: string): void {
+    this.pinnedHandles.add(id);
+  }
+
+  /**
+   * PR60 item 1.6 — drop handles untouched for `handleTtlMs`. Pinned
+   * handles and ones with descendant handles in the session are spared.
+   * Returns the ids that were evicted.
+   */
+  reapStaleHandles(now: number = Date.now()): ReadonlyArray<string> {
+    const cutoff = now - this.handleTtlMs;
+    // Build the "has descendant" set in one pass.
+    const hasChild = new Set<string>();
+    for (const h of this.handles.values()) {
+      for (const p of h.lineage?.parents ?? []) {
+        const parentId = this.handlesByUri.get(p.uri);
+        if (parentId) hasChild.add(parentId);
+      }
+    }
+    const evicted: string[] = [];
+    for (const [id, last] of this.handleLastAccess) {
+      if (last >= cutoff) continue;
+      if (this.pinnedHandles.has(id)) continue;
+      if (hasChild.has(id)) continue;
+      const h = this.handles.get(id);
+      if (!h) continue;
+      this.handles.delete(id);
+      if (h.uri) this.handlesByUri.delete(h.uri);
+      this.handleLastAccess.delete(id);
+      this.actionsByHandle.delete(id);
+      this.svgsByHandle.delete(id);
+      evicted.push(id);
+    }
+    return evicted;
   }
 
   /** Lookup a handle by its gdf:// URI. */

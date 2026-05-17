@@ -58,12 +58,14 @@ import {
   compileSpec,
   decomposeVariance,
   detectAnomalies,
+  diffSpecs,
   explainHandle,
   getCapabilities,
   isTranslateError,
   renderSvg,
   safeParseSpec,
   seasonalNaiveForecast,
+  suggestScale,
   validateMetric,
   vegaLiteToGlyph,
 } from "@glyph/core";
@@ -132,6 +134,10 @@ const MCP_TOOLS = [
   { name: "glyph_linked_handles", since: "0.0.10" },
   // ---- Whyboard (PR48, Innovation #5) ----------------------------------
   { name: "glyph_whyboard", since: "0.0.11" },
+  // ---- PR60 starter batch (PLAN.md items 1.7, 2.6, 1.6) ----------------
+  { name: "glyph_spec_diff", since: "0.0.12" },
+  { name: "glyph_suggest_scale", since: "0.0.12" },
+  { name: "glyph_handles_gc", since: "0.0.12" },
 ] as const;
 
 /** Best-effort browser launcher. Returns true on success. */
@@ -363,7 +369,7 @@ export function createServer(state: ServerState = new ServerState()): {
     {
       title: "Query a rendered chart",
       description:
-        "Run follow-up SQL against the view that backs a previously rendered chart. Pass the handle_id from glyph_render's result. The `where` argument is appended verbatim (e.g. 'WHERE rides > 1000 ORDER BY rides DESC LIMIT 5').",
+        "Run follow-up SQL against the view that backs a previously rendered chart. Pass the handle_id from glyph_render's result. The `where` argument is appended verbatim (e.g. 'WHERE rides > 1000 ORDER BY rides DESC LIMIT 5'). Use `limit_rows` to cap returned rows when the result set is large — the response carries a `truncated: true` sentinel + the full `total` count.",
       inputSchema: {
         handle_id: z.string().describe("The handle_id returned by glyph_render."),
         where: z
@@ -372,9 +378,18 @@ export function createServer(state: ServerState = new ServerState()): {
           .describe(
             "Optional SQL clause appended to SELECT * FROM <view>. Typically starts with WHERE.",
           ),
+        limit_rows: z
+          .number()
+          .int()
+          .min(1)
+          .max(100_000)
+          .optional()
+          .describe(
+            "PR60 item 1.3 — cap returned rows for context-budget safety. Default unlimited.",
+          ),
       },
     },
-    async ({ handle_id, where }) =>
+    async ({ handle_id, where, limit_rows }) =>
       state.serial(async () => {
         const handle = state.getHandle(handle_id);
         if (!handle) {
@@ -390,6 +405,10 @@ export function createServer(state: ServerState = new ServerState()): {
         }
         const engine = await state.getEngine();
         const result = await engine.queryHandle(handle, where);
+        // PR60 item 1.3: truncate in JS post-query so we can return the
+        // truthful total. SQL-level pushdown is a follow-up optimization.
+        const truncated = limit_rows !== undefined && result.rows.length > limit_rows;
+        const returnedRows = truncated ? result.rows.slice(0, limit_rows) : result.rows;
         return {
           content: [
             {
@@ -398,7 +417,10 @@ export function createServer(state: ServerState = new ServerState()): {
                 jsonSafe({
                   columns: result.columns.map((c) => c.name),
                   rowCount: result.rowCount,
-                  rows: result.rows,
+                  rows: returnedRows,
+                  ...(truncated
+                    ? { truncated: true, total: result.rowCount, returned: returnedRows.length }
+                    : {}),
                 }),
                 null,
                 2,
@@ -2331,6 +2353,104 @@ export function createServer(state: ServerState = new ServerState()): {
           };
         }
       }),
+  );
+
+  // ====== PR60 starter batch (PLAN.md) ====================================
+
+  // ----- glyph_spec_diff (PLAN.md item 1.7) -------------------------------
+  server.registerTool(
+    "glyph_spec_diff",
+    {
+      title: "Structural diff between two specs",
+      description:
+        "Pure-fn diff between two Glyph specs. Returns { added, removed, changed, summary } where the summary is a one-sentence narrative naming the most impactful diff. Use before glyph_render to preview what your edit will change, or after to audit what the agent actually modified.",
+      inputSchema: {
+        spec_a: z.unknown().describe("The before spec."),
+        spec_b: z.unknown().describe("The after spec."),
+      },
+    },
+    async ({ spec_a, spec_b }) => {
+      const diff = diffSpecs(spec_a, spec_b);
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(diff, null, 2) }],
+      };
+    },
+  );
+
+  // ----- glyph_suggest_scale (PLAN.md item 2.6) ---------------------------
+  server.registerTool(
+    "glyph_suggest_scale",
+    {
+      title: "Suggest scale-type changes for a chart",
+      description:
+        "Inspect a handle's rows for distribution shape (multi-order-of-magnitude ratios, sign-crossing values, long tails) and return scale-type suggestions ranked by confidence. Use after glyph_render when a chart 'looks wrong' — log scale for $100→$10M, diverging for ±50 around 0, sqrt for long tails.",
+      inputSchema: {
+        handle_id: z.string().describe("Handle from glyph_render."),
+        field: z
+          .string()
+          .optional()
+          .describe(
+            "Limit to a single field (usually the y channel). Default: every quantitative column.",
+          ),
+      },
+    },
+    async ({ handle_id, field }) =>
+      state.serial(async () => {
+        const h = state.getHandle(handle_id);
+        if (!h) {
+          return {
+            isError: true,
+            content: [{ type: "text" as const, text: `Unknown handle_id: ${handle_id}` }],
+          };
+        }
+        const engine = await state.getEngine();
+        const result = await engine.queryHandle(h);
+        const suggestions = suggestScale({
+          schema: h.schema,
+          rows: result.rows,
+          ...(field !== undefined ? { field } : {}),
+        });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ count: suggestions.length, suggestions }, null, 2),
+            },
+          ],
+        };
+      }),
+  );
+
+  // ----- glyph_handles_gc (PLAN.md item 1.6) ------------------------------
+  server.registerTool(
+    "glyph_handles_gc",
+    {
+      title: "Reap stale handles (TTL auto-GC)",
+      description:
+        "Drop handles that have been unaccessed past the session's TTL (default 30 min) AND have no descendant handles AND aren't pinned. Returns the evicted ids. Normally called automatically by ServerState; this verb is for manual inspection / forcing during long sessions.",
+      inputSchema: {
+        force: z
+          .boolean()
+          .optional()
+          .describe(
+            "If true, reap regardless of TTL — useful for testing. Pinned handles still survive.",
+          ),
+      },
+    },
+    async ({ force }) => {
+      // For force=true, set "now" far enough in the future that every
+      // handle is past its TTL.
+      const now = force ? Date.now() + 365 * 24 * 60 * 60 * 1000 : Date.now();
+      const evicted = state.reapStaleHandles(now);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ count: evicted.length, evicted_ids: evicted }, null, 2),
+          },
+        ],
+      };
+    },
   );
 
   // ----- glyph_handles (PR33 / Phase 3 Tier A) ----------------------------

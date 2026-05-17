@@ -1083,9 +1083,12 @@ function buildBoxplot(
     const inBounds = sorted.filter((v) => v >= loBound && v <= hiBound);
     // biome-ignore lint/style/noNonNullAssertion: inBounds is non-empty (Q1/Q3 are inside).
     const loWhisker = inBounds.length > 0 ? inBounds[0]! : sorted[0]!;
-    // biome-ignore lint/style/noNonNullAssertion: same.
     const hiWhisker =
-      inBounds.length > 0 ? inBounds[inBounds.length - 1]! : sorted[sorted.length - 1]!;
+      inBounds.length > 0
+        ? // biome-ignore lint/style/noNonNullAssertion: same.
+          inBounds[inBounds.length - 1]!
+        : // biome-ignore lint/style/noNonNullAssertion: same.
+          sorted[sorted.length - 1]!;
     const outliers = sorted.filter((v) => v < loBound || v > hiBound);
 
     const xCenter = xScale.apply(groupKey) + cellW / 2;

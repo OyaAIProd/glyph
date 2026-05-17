@@ -22,3 +22,5 @@ export * from "./explain/index.js";
 export * from "./diagnostics/index.js";
 export * from "./metrics/index.js";
 export * from "./geo/index.js";
+export * from "./scales-suggest/index.js";
+export * from "./spec-diff/index.js";
