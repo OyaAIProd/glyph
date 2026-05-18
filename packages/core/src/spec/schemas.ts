@@ -48,9 +48,17 @@ export const GridDataSchema = z
   .object({
     rows: z.number().int().min(2),
     cols: z.number().int().min(2),
-    values: z.array(z.number()).min(4),
+    // Each value must be finite — NaN sneaks through `z.number()` and
+    // would non-deterministically reorder the median sort (PR75 review).
+    values: z.array(z.number().refine(Number.isFinite, "grid values must be finite")).min(4),
   })
-  .strict();
+  .strict()
+  .refine(
+    (g) => g.values.length === g.rows * g.cols,
+    (g) => ({
+      message: `grid.values.length must equal rows*cols (${g.rows * g.cols}), got ${g.values.length}`,
+    }),
+  );
 
 /**
  * PR68 — D3 Gap 5: graph data shape. Inline node/edge list for the

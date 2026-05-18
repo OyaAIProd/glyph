@@ -77,16 +77,58 @@ describe("marchingSquares", () => {
     expect(segs.every((s) => s.threshold === 0.5)).toBe(true);
   });
 
-  it("handles a saddle (case 5) deterministically", () => {
-    // TL high, BR high, TR low, BL low → saddle case 5+10.
-    const grid: ContourGrid = {
-      rows: 2,
-      cols: 2,
-      values: [1, 0, 0, 1],
-    };
+  it("handles case 10 saddle (TL+BR high) deterministically — N→E + W→S", () => {
+    // Bit layout: TL=8, TR=4, BR=2, BL=1. TL+BR high → code = 8+2 = 10.
+    // Corner avg = (1+0+1+0)/4 = 0.5; threshold also 0.5 → avg >= t.
+    // Decider says contour segments connect the "above" diagonal:
+    // N→E (isolating TR low) + W→S (isolating BL low).
+    const grid: ContourGrid = { rows: 2, cols: 2, values: [1, 0, 0, 1] };
     const segs = marchingSquares(grid, [0.5]);
-    // Saddle emits two segments.
     expect(segs.length).toBe(2);
+    // Sort the endpoints for assertion stability: each segment's endpoints
+    // are at the midpoints of two edges of the 1×1 cell.
+    // N edge midpoint: (0.5, 0). E edge: (1, 0.5). S edge: (0.5, 1). W edge: (0, 0.5).
+    const endpoints = new Set<string>();
+    for (const s of segs) {
+      endpoints.add(`${s.x1},${s.y1}`);
+      endpoints.add(`${s.x2},${s.y2}`);
+    }
+    expect(endpoints.has("0.5,0")).toBe(true); // N
+    expect(endpoints.has("1,0.5")).toBe(true); // E
+    expect(endpoints.has("0.5,1")).toBe(true); // S
+    expect(endpoints.has("0,0.5")).toBe(true); // W
+  });
+
+  it("handles case 5 saddle (TR+BL high) deterministically — different connectivity from case 10", () => {
+    // TR+BL high → code = 4+1 = 5. The opposite diagonal from case 10.
+    const grid5: ContourGrid = { rows: 2, cols: 2, values: [0, 1, 1, 0] };
+    const segs5 = marchingSquares(grid5, [0.5]);
+    expect(segs5.length).toBe(2);
+    // The case-5 connectivity must differ from case-10's at the same
+    // threshold and avg level. With avg=0.5 in both, case 5 connects
+    // N-W + S-E (separating the two "above" corners TR+BL). The set of
+    // edge endpoints is the same 4 midpoints, but the *pairing* differs.
+    const grid10: ContourGrid = { rows: 2, cols: 2, values: [1, 0, 0, 1] };
+    const segs10 = marchingSquares(grid10, [0.5]);
+    // Pair each segment's endpoints into a canonical key, then compare.
+    const pairs = (segs: typeof segs5): Set<string> => {
+      const out = new Set<string>();
+      for (const s of segs) {
+        const a = `${s.x1},${s.y1}`;
+        const b = `${s.x2},${s.y2}`;
+        out.add([a, b].sort().join(" | "));
+      }
+      return out;
+    };
+    const p5 = pairs(segs5);
+    const p10 = pairs(segs10);
+    // The set of pair-strings MUST differ between case 5 and case 10
+    // (different connectivity). If a future refactor flips the decider's
+    // >= to <, both cases would produce the same connectivity and this
+    // assertion would fail.
+    let differs = false;
+    for (const k of p5) if (!p10.has(k)) differs = true;
+    expect(differs).toBe(true);
   });
 
   it("rejects an undersized grid", () => {

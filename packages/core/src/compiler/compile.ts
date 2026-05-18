@@ -1201,7 +1201,13 @@ function compileContour(input: CompileInput): Scene {
 
   // Default thresholds: a single isoline at the median of the grid.
   const defaultThresholds = (): number[] => {
-    const sorted = [...grid.values].sort((a, b) => a - b);
+    // Defense-in-depth — the schema rejects non-finite values, but if
+    // the compiler is reached via a direct compileSpec call (no spec
+    // parse), NaN would non-deterministically reorder the sort (PR75
+    // review).
+    const finite = grid.values.filter((v) => Number.isFinite(v));
+    if (finite.length === 0) return [];
+    const sorted = [...finite].sort((a, b) => a - b);
     const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
     return [median];
   };
