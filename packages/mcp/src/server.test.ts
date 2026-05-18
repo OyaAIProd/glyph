@@ -76,7 +76,7 @@ describe("Glyph MCP server", () => {
     rmSync(tempMemoryDir, { recursive: true, force: true });
   });
 
-  it("lists the forty-nine tools", async () => {
+  it("lists the fifty tools", async () => {
     const r = await client.listTools();
     const names = r.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -110,6 +110,7 @@ describe("Glyph MCP server", () => {
       "glyph_memory_save",
       "glyph_metrics",
       "glyph_metrics_register",
+      "glyph_modality_sync",
       "glyph_preview",
       "glyph_publish",
       "glyph_query",
@@ -171,6 +172,7 @@ describe("Glyph MCP server", () => {
       "glyph_memory_save",
       "glyph_metrics",
       "glyph_metrics_register",
+      "glyph_modality_sync",
       "glyph_preview",
       "glyph_publish",
       "glyph_query",
@@ -2007,6 +2009,105 @@ describe("Glyph MCP server", () => {
       const g = JSON.parse(r.text);
       expect(g.nodes.length).toBeGreaterThanOrEqual(2);
       expect(g.edges).toContainEqual({ from: "new_customers", to: "mrr" });
+    });
+  });
+
+  describe("multi-modal sync (PR73 / PLAN 2.1)", () => {
+    it("glyph_render with modalities=['chart','table'] returns rows-sample bundle", async () => {
+      const r = await callText(client, "glyph_render", {
+        spec: {
+          data: { source: fixture, format: "csv" },
+          layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+        },
+        modalities: ["chart", "table"],
+        modality_sample_rows: 5,
+      });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.text);
+      expect(out.modalities).toBeDefined();
+      expect(out.modalities.table).toBeDefined();
+      expect(out.modalities.table.columns).toEqual(["pickup_hour", "fare", "rides"]);
+      expect(out.modalities.table.rows.length).toBeLessThanOrEqual(5);
+    });
+
+    it("modalities=['chart','narrative'] returns auto-generated narrative", async () => {
+      const r = await callText(client, "glyph_render", {
+        spec: {
+          data: { source: fixture, format: "csv" },
+          layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+        },
+        modalities: ["chart", "narrative"],
+      });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.text);
+      expect(out.modalities).toBeDefined();
+      expect(out.modalities.narrative).toBeDefined();
+      // The narrative shape mirrors glyph_explain — must have a headline.
+      expect(typeof out.modalities.narrative.headline).toBe("string");
+    });
+
+    it("default render (no modalities) returns no modality bundle (back-compat)", async () => {
+      const r = await callText(client, "glyph_render", {
+        spec: {
+          data: { source: fixture, format: "csv" },
+          layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+        },
+      });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.text);
+      expect(out.modalities).toBeUndefined();
+    });
+
+    it("glyph_modality_sync publishes a modality-tagged event consumable via await", async () => {
+      const group = "mm-group-1";
+      const pub = await callText(client, "glyph_modality_sync", {
+        group,
+        predicate: "region = 'us'",
+        modality: "table",
+        source_handle: "h_table",
+      });
+      expect(pub.isError).toBeFalsy();
+      const ev = JSON.parse(pub.text);
+      expect(ev.modality).toBe("table");
+      expect(ev.predicate).toBe("region = 'us'");
+
+      // Subscriber long-poll: the event must be visible.
+      const sub = await callText(client, "glyph_linked_await", {
+        group,
+        since: 0,
+        timeout_ms: 500,
+      });
+      const out = JSON.parse(sub.text);
+      expect(out.event).not.toBeNull();
+      expect(out.event.modality).toBe("table");
+    });
+
+    it("subscribers can filter out their own modality (echo filter)", async () => {
+      const group = "mm-group-2";
+      // Publish two events from different modalities.
+      await callText(client, "glyph_modality_sync", {
+        group,
+        predicate: "x = 1",
+        modality: "chart",
+      });
+      await callText(client, "glyph_modality_sync", {
+        group,
+        predicate: "x = 2",
+        modality: "table",
+      });
+      // A subscriber that only cares about non-table events scans the
+      // bus and filters by `event.modality !== 'table'`.
+      const r = await callText(client, "glyph_linked_handles", { group });
+      const out = JSON.parse(r.text);
+      // recent_events carries the full event list including modality.
+      const tableEvents = (
+        (out.recent_events as ReadonlyArray<{ modality?: string }>) ?? []
+      ).filter((e) => e.modality === "table");
+      const chartEvents = (
+        (out.recent_events as ReadonlyArray<{ modality?: string }>) ?? []
+      ).filter((e) => e.modality === "chart");
+      expect(tableEvents.length).toBe(1);
+      expect(chartEvents.length).toBe(1);
     });
   });
 

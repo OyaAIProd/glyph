@@ -25,6 +25,16 @@ export interface LinkedEvent {
   readonly source_handle?: string | undefined;
   /** Optional human-friendly summary (for the narrator agent). */
   readonly summary?: string | undefined;
+  /**
+   * PR73 (PLAN 2.1) — which modality originated the event. Lets a
+   * subscriber filter out events from its own surface (e.g. the table
+   * pane ignores `modality: "table"` events to avoid echoing user
+   * clicks back into the same view).
+   *
+   * "chart" | "table" | "narrative" | host-defined. Optional — older
+   * publishers don't supply it; subscribers that don't care can ignore.
+   */
+  readonly modality?: string | undefined;
   readonly at: string;
 }
 
@@ -67,6 +77,8 @@ export class LinkGroupStore {
     readonly predicate: string;
     readonly source_handle?: string | undefined;
     readonly summary?: string | undefined;
+    /** PR73 (PLAN 2.1) — originating modality, for echo filtering. */
+    readonly modality?: string | undefined;
   }): LinkedEvent {
     const event: LinkedEvent = {
       id: randomUUID().replace(/-/g, "").slice(0, 16),
@@ -74,6 +86,7 @@ export class LinkGroupStore {
       predicate: args.predicate,
       ...(args.source_handle !== undefined ? { source_handle: args.source_handle } : {}),
       ...(args.summary !== undefined ? { summary: args.summary } : {}),
+      ...(args.modality !== undefined ? { modality: args.modality } : {}),
       at: new Date().toISOString(),
     };
     let ring = this.events.get(args.group);

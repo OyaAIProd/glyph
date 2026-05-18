@@ -178,6 +178,8 @@ const MCP_TOOLS = [
   // ---- PR71 (PLAN 1.5) — local-only engagement signals ----------------
   { name: "glyph_engagement_record", since: "0.0.19" },
   { name: "glyph_engagement_query", since: "0.0.19" },
+  // ---- PR73 (PLAN 2.1) — multi-modal sync -----------------------------
+  { name: "glyph_modality_sync", since: "0.0.20" },
 ] as const;
 
 /** Best-effort browser launcher. Returns true on success. */
@@ -283,7 +285,7 @@ export function createServer(state: ServerState = new ServerState()): {
     {
       title: "Render a Glyph chart",
       description:
-        "Compile and render a Glyph spec. Pass `spec` (Glyph) OR `vegaLite` (a Vega-Lite spec to translate first). Returns SVG + PNG + handle_id you can pass to glyph_query / glyph_drill. Marks: bar, point, line, area, rule.",
+        "Compile and render a Glyph spec. Pass `spec` (Glyph) OR `vegaLite` (a Vega-Lite spec to translate first). Returns SVG + PNG + handle_id you can pass to glyph_query / glyph_drill. Marks: bar, point, line, area, rule.\n\nPR73 — Pass `modalities` to multi-modal-bundle the response. Supported entries: 'chart' (default; the SVG) | 'table' (first N rows + columns) | 'narrative' (auto-generated glyph_explain narrative). When set, the result envelope adds a `modalities` field carrying each requested companion artifact alongside the SVG.",
       inputSchema: {
         spec: z
           .unknown()
@@ -297,9 +299,22 @@ export function createServer(state: ServerState = new ServerState()): {
           .describe(
             "A Vega-Lite spec — the server translates it to Glyph and renders. Use this when you already know VL.",
           ),
+        modalities: z
+          .array(z.enum(["chart", "table", "narrative"]))
+          .optional()
+          .describe(
+            "PR73 (PLAN 2.1) — multi-modal bundle. Include 'table' to get rows-sample + columns, 'narrative' to get auto-generated explanation. 'chart' is always included.",
+          ),
+        modality_sample_rows: z
+          .number()
+          .int()
+          .min(1)
+          .max(1000)
+          .optional()
+          .describe("PR73 — when 'table' is in modalities, cap the sample rows. Default 20."),
       },
     },
-    async ({ spec, vegaLite }, extra) =>
+    async ({ spec, vegaLite, modalities, modality_sample_rows }, extra) =>
       state.serial(async () => {
         // PR72 — progress streaming. When the client requested progress
         // via `_meta.progressToken`, emit milestones at parse / materialize
@@ -408,6 +423,41 @@ export function createServer(state: ServerState = new ServerState()): {
         // display the chart directly (Claude Code, Cursor, IDE previews).
         const pngB64 = svgToPngBase64(svg);
         await sendProgress(extra, { progress: 4, total: 4, message: "rendered svg" });
+
+        // PR73 (PLAN 2.1) — multi-modal companion artifacts. The chart
+        // (SVG) is always returned; agents that opt into "table" or
+        // "narrative" get those alongside in one envelope.
+        const requestedModalities = new Set(modalities ?? ["chart"]);
+        const modalityBundle: Record<string, unknown> = {};
+        if (requestedModalities.has("table")) {
+          const cap = modality_sample_rows ?? 20;
+          modalityBundle.table = {
+            columns: m.handle.schema.map((c) => c.name),
+            rowCount: m.result.rowCount,
+            rows: jsonSafe(m.result.rows.slice(0, cap)),
+            truncated: m.result.rows.length > cap,
+          };
+        }
+        if (requestedModalities.has("narrative")) {
+          try {
+            // explainHandle takes { schema, rows } — same shape glyph_explain
+            // wires up internally.
+            const narrative = explainHandle({
+              schema: m.handle.schema.map((c) => ({
+                name: c.name,
+                type: c.type,
+                ...(c.suggested !== undefined ? { suggested: c.suggested } : {}),
+              })),
+              rows: m.result.rows,
+            });
+            modalityBundle.narrative = jsonSafe(narrative);
+          } catch (err) {
+            // Narrative is a nice-to-have; failing it shouldn't fail the
+            // render. Report the error in-band so the caller can see why.
+            modalityBundle.narrative_error = (err as Error).message ?? String(err);
+          }
+        }
+
         const textBlock = {
           type: "text" as const,
           text: JSON.stringify(
@@ -417,6 +467,7 @@ export function createServer(state: ServerState = new ServerState()): {
               view_name: m.handle.viewName,
               schema: m.handle.schema,
               row_count: m.result.rowCount,
+              ...(Object.keys(modalityBundle).length > 0 ? { modalities: modalityBundle } : {}),
             }),
             null,
             2,
@@ -2437,6 +2488,47 @@ export function createServer(state: ServerState = new ServerState()): {
       const event = state.links.publish({
         group,
         predicate,
+        ...(source_handle !== undefined ? { source_handle } : {}),
+        ...(summary !== undefined ? { summary } : {}),
+      });
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(event, null, 2) }],
+      };
+    },
+  );
+
+  // ----- glyph_modality_sync (PR73 / PLAN item 2.1) -------------------------
+  // Companion to glyph_linked_publish that tags the event with the
+  // originating modality so subscribers can avoid echoing user gestures
+  // back into the surface that produced them.
+  server.registerTool(
+    "glyph_modality_sync",
+    {
+      title: "Broadcast a multi-modal selection across chart / table / narrative",
+      description:
+        "Publish a selection (SQL predicate) onto a link_group, tagged with the modality that originated it ('chart' | 'table' | 'narrative' | host-defined). Subscribers receive the event via glyph_linked_await and can filter out their own modality to avoid echoes.\n\nThis is functionally a superset of glyph_linked_publish — the existing verb stays for back-compat; new multi-pane UIs should use this one.",
+      inputSchema: {
+        group: z.string().min(1).describe("The shared link_group name."),
+        predicate: z
+          .string()
+          .min(1)
+          .describe("SQL predicate to broadcast (e.g. \"region = 'us'\")."),
+        modality: z
+          .string()
+          .min(1)
+          .describe("Originating modality. Convention: 'chart' | 'table' | 'narrative'."),
+        source_handle: z
+          .string()
+          .optional()
+          .describe("Handle that originated the event (echo filter)."),
+        summary: z.string().optional().describe("Human-readable summary."),
+      },
+    },
+    async ({ group, predicate, modality, source_handle, summary }) => {
+      const event = state.links.publish({
+        group,
+        predicate,
+        modality,
         ...(source_handle !== undefined ? { source_handle } : {}),
         ...(summary !== undefined ? { summary } : {}),
       });
