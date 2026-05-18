@@ -344,12 +344,12 @@ The "right call" has been executed:
 | Gap 2 — Hierarchy data shape | ✅ shipped | PR67 | `data.hierarchy: { name, value?, children?[] }`. Marks `treemap` + `sunburst`. Squarified treemap (Bruls et al. 2000) + radial partition. Hierarchy specs bypass DuckDB. |
 | Gap 5 — Force simulation | ✅ shipped | PR68 | `data.graph: { nodes, edges }`. `mark: "force"`. Seeded `mulberry32` PRNG keyed off `spec.seed` (default 42). Velocity-Verlet integration with 5 forces. Also exports `simulateBeeswarm` for 1D collision-resolved scatter. |
 | Gap 6 — Custom marks | ❌ skipped | — | Per user direction. Breaks spec-only JSON. D3 stays the right answer here. |
-| Gap 3 — Morph transitions | ⏳ open | — | Architectural; defer. |
-| Gap 4 — Contour / density | ⏳ open | — | Medium-sized; defer. |
-| Gap 7 — 3D / WebGL | ⏳ open | — | Distribution play, not architecture. |
+| Gap 3 — Morph transitions | ✅ shipped | PR74 | New `morphScenes(from, to, {duration_ms?})` pure-fn + `Scene.animation.kind = "morph"` variant. Renderer emits SMIL `<animate>` on each mark interpolating geometric attrs. New `glyph_morph_render(spec_a, spec_b)` MCP verb. v0 supports rect / circle / line. |
+| Gap 4 — Contour / density | ✅ shipped | PR75 | New `@glyph/core/contour` module with marching-squares pure-fn (16 cases, asymptotic-decider saddles). New `data.grid: { rows, cols, values }` + `mark: "contour"` + `thresholds[]` spec primitives. Median fallback when thresholds unset. |
+| Gap 7 — 3D / WebGL | 🟡 covered for high-N 2D (PR76) | 76 | `@glyph/canvas` (existed since PR53) renders the same Scene IR via HTMLCanvasElement, comfortably ≥10k rects per frame. PR76 added `arc` mark support so polar charts work through canvas too. **Open follow-up**: actual WebGL pipeline for >1M-mark scatter / volumetric viz. The canvas renderer closes the practical user-facing gap; full WebGL is a perf-headroom decision, not a feature decision. |
 | Gap 8 — Interaction primitives (zoom/pan/lasso/voronoi) | ⏳ open | — | Browser-side; needs preview-server UI work. |
 
-After PR68: **558 tests, ~85% D3 gallery coverage by architectural reach** — every chart family the original analysis flagged as "right-call" is now reachable.
+After PR68: **558 tests, ~85% D3 gallery coverage by architectural reach** — every chart family the original analysis flagged as "right-call" is now reachable. After PR74–76 (morph + contour + canvas arc): ~95%.
 
 ---
 

@@ -205,6 +205,62 @@ describe("parsePathD", () => {
   });
 });
 
+describe("renderCanvas — arc marks (PR76 / D3 Gap 7)", () => {
+  it("pie slice (innerRadius=0) emits beginPath + outer arc + lineTo center + fill", () => {
+    const scene = {
+      width: 200,
+      height: 200,
+      background: "#fff",
+      plotArea: { x: 0, y: 0, width: 200, height: 200 },
+      axes: [],
+      marks: [
+        {
+          type: "arc" as const,
+          cx: 100,
+          cy: 100,
+          innerRadius: 0,
+          outerRadius: 80,
+          startAngle: 0,
+          endAngle: Math.PI / 2,
+          fill: "#1f77b4",
+        },
+      ],
+    } as Parameters<typeof renderCanvas>[0];
+    const ctx = new MockCanvasContext2D();
+    renderCanvas(scene, ctx);
+    const arcCalls = ctx.calls.filter((c) => c.startsWith("arc"));
+    expect(arcCalls.length).toBe(1);
+    expect(ctx.calls.some((c) => c.startsWith("fill["))).toBe(true);
+  });
+
+  it("donut slice (innerRadius>0) emits two arcs", () => {
+    const scene = {
+      width: 200,
+      height: 200,
+      background: "#fff",
+      plotArea: { x: 0, y: 0, width: 200, height: 200 },
+      axes: [],
+      marks: [
+        {
+          type: "arc" as const,
+          cx: 100,
+          cy: 100,
+          innerRadius: 30,
+          outerRadius: 80,
+          startAngle: Math.PI / 2,
+          endAngle: Math.PI,
+          fill: "#ff7f0e",
+        },
+      ],
+    } as Parameters<typeof renderCanvas>[0];
+    const ctx = new MockCanvasContext2D();
+    renderCanvas(scene, ctx);
+    const arcCalls = ctx.calls.filter((c) => c.startsWith("arc"));
+    // Outer + inner arcs.
+    expect(arcCalls.length).toBe(2);
+  });
+});
+
 describe("performance — 10k rect marks", () => {
   it("renders 10,000 fake rects in well under 100 ms on the mock context", () => {
     // Build a synthetic scene by hand — bypass the compiler so we can

@@ -51,7 +51,14 @@ export interface CanvasContext2D {
   closePath(): void;
   moveTo(x: number, y: number): void;
   lineTo(x: number, y: number): void;
-  arc(x: number, y: number, r: number, startAngle: number, endAngle: number): void;
+  arc(
+    x: number,
+    y: number,
+    r: number,
+    startAngle: number,
+    endAngle: number,
+    counterclockwise?: boolean,
+  ): void;
   rect(x: number, y: number, w: number, h: number): void;
   fill(): void;
   stroke(): void;
@@ -162,6 +169,34 @@ function renderMark(m: SceneMark, ctx: CanvasContext2D): void {
       ctx.textBaseline = mapBaseline(m.baseline);
       ctx.fillText(m.text, m.x, m.y);
       return;
+    case "arc": {
+      // PR76 (D3 Gap 7) — arc mark added in PR66 (polar). The canvas
+      // renderer needs to mirror the SVG path emission. Use ctx.arc with
+      // the same clockwise-from-12-o'clock convention.
+      const a0 = m.startAngle - Math.PI / 2;
+      const a1 = m.endAngle - Math.PI / 2;
+      ctx.beginPath();
+      // Outer arc (going forward).
+      ctx.arc(m.cx, m.cy, m.outerRadius, a0, a1, false);
+      if (m.innerRadius > 0) {
+        // Line in to inner radius, then arc back.
+        ctx.lineTo(m.cx + m.innerRadius * Math.cos(a1), m.cy + m.innerRadius * Math.sin(a1));
+        ctx.arc(m.cx, m.cy, m.innerRadius, a1, a0, true);
+        ctx.closePath();
+      } else {
+        // Pie slice — close back to center.
+        ctx.lineTo(m.cx, m.cy);
+        ctx.closePath();
+      }
+      ctx.fillStyle = m.fill;
+      ctx.fill();
+      if (m.stroke) {
+        ctx.strokeStyle = m.stroke;
+        ctx.lineWidth = m.strokeWidth ?? 1;
+        ctx.stroke();
+      }
+      return;
+    }
   }
 }
 
@@ -408,7 +443,8 @@ export class MockCanvasContext2D implements CanvasContext2D {
   lineTo(x: number, y: number): void {
     this.calls.push(`lineTo(${fmt(x)},${fmt(y)})`);
   }
-  arc(x: number, y: number, r: number, sa: number, ea: number): void {
+  arc(x: number, y: number, r: number, sa: number, ea: number, ccw?: boolean): void {
+    void ccw;
     this.calls.push(`arc(${fmt(x)},${fmt(y)},${fmt(r)},${fmt(sa)},${fmt(ea)})`);
   }
   rect(x: number, y: number, w: number, h: number): void {
