@@ -9,6 +9,10 @@
 
 A TypeScript chart-and-compute library where charts are JSON specs an LLM can author, diff, and patch. Compilation is a pure function. SVG output is identical across runs, OSes, and Node versions. The 50-verb MCP server is the primary API.
 
+**[Quickstart](#quickstart)** · **[Interactive docs](./site/index.html)** · **[Examples](#examples)** · **[Comparison](#comparison)** · **[Packages](#packages)**
+
+> 🌐 **Want the full tour?** Open [`site/index.html`](./site/index.html) in your browser — it's a single static page with a playground, 8 animated demos, 9 visualized innovations, a 16-row comparison matrix, and side-by-side Claude / Codex setup. No build step, no server. See [Interactive docs](#interactive-docs) below for one-line ways to open it.
+
 ## Quickstart
 
 ### 1. Use it with Claude Code
@@ -59,6 +63,37 @@ const scene = compileSpec({
 
 const svg = renderSvg(scene); // identical bytes, every time
 ```
+
+## Interactive docs
+
+The README covers the essentials. For the rich version — playground, animated demos, full comparison matrix — open the single-file HTML site:
+
+```bash
+# Open it directly (macOS)
+open site/index.html
+
+# Open it directly (Linux)
+xdg-open site/index.html
+
+# Or serve it locally on http://localhost:8000
+python3 -m http.server -d site
+#   or
+npx -y serve site
+```
+
+It's a single static HTML file. No build step, no server required for `file://` opening. Deploys to GitHub Pages, Vercel, Netlify, or any static host with zero config.
+
+What's there that isn't here:
+
+| Section in [`site/index.html`](./site/index.html) | What you'll find |
+| ------------------------------------------------- | ---------------- |
+| **Playground**       | 5 preset charts (bar/line/area/scatter/pie). Click to swap the spec and the compiled SVG. |
+| **8 visual demos**   | Streamgraph morph, cross-agent lineage, chart+table+narrative triptych, racing bars, chart auditor, JSON Patch live edit, geo map + anomaly overlay, causal DAG with cycle refusal. All animated SVG, no JS. |
+| **Examples gallery** | 15 chart types side-by-side with their specs: heatmap, choropleth, treemap, sunburst, force graph, contour, radial line, ... |
+| **Use cases**        | 6 agent-native scenarios with verb snippets: analysis loop, multi-agent collab, audit-grade reporting, reproducible research, interactive notebooks, PR review for data. |
+| **9 innovation cards** | Visualized: byte-stability, uncertainty rendering, spec diff/patch, streaming progress, disambiguation, local-only telemetry, handle TTL + reaper, macro replay, LLM-pluggable story agent. |
+| **55-capability matrix** | Full taxonomy of what Glyph ships that nobody else does, by tier (Architectural / Capability / Ergonomics). |
+| **Comparison**       | Same matrix as below, expanded to 16 rows with legend + notes. |
 
 ## Why
 
@@ -207,12 +242,15 @@ Full 16-row matrix at [`site/index.html#compare`](./site/index.html).
 
 ## Documentation
 
-- **[Landing page](./site/index.html)** — interactive playground, 8 wow demos, 55-capability matrix
-- **[`INNOVATION.md`](./INNOVATION.md)** — the 18 shipped innovations
-- **[`D3-COMPARISON.md`](./D3-COMPARISON.md)** — architectural comparison with D3
-- **[`AUDIT.md`](./AUDIT.md)** — competitive scorecard
-- **[`ROADMAP.md`](./ROADMAP.md)** — what's next
-- **[`skills/`](./skills)** — IDE skill files for Claude, Cursor, Copilot CLI, Gemini
+**Primary**: [`site/index.html`](./site/index.html) — the full interactive docs. Run `open site/index.html` or `npx -y serve site`. See [Interactive docs](#interactive-docs) above for what's in there.
+
+**Specs and reference**:
+
+- [`INNOVATION.md`](./INNOVATION.md) — the 18 shipped innovations
+- [`D3-COMPARISON.md`](./D3-COMPARISON.md) — architectural comparison with D3
+- [`AUDIT.md`](./AUDIT.md) — competitive scorecard
+- [`ROADMAP.md`](./ROADMAP.md) — what's next
+- [`skills/`](./skills) — IDE skill files for Claude, Cursor, Copilot CLI, Gemini
 
 ## Status
 
