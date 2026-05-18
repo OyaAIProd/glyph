@@ -322,11 +322,45 @@ export function createServer(state: ServerState = new ServerState()): {
         const engine = await state.getEngine();
         let m: Awaited<ReturnType<typeof materializeSpec>>;
         try {
-          m = await materializeSpec(engine, parsed.spec, {
-            sessionId: state.sessionId,
-            resolveHandleByUri: (uri) => state.getHandleByUri(uri),
-            metricResolver: (name) => state.getMetric(name),
-          });
+          // PR67 — hierarchy-shape data bypasses DuckDB. Synthesize a
+          // minimal MaterializedSpec the rest of the path can consume.
+          if (parsed.spec.data?.hierarchy) {
+            const handleId = randomUUID().replace(/-/g, "").slice(0, 12);
+            const uri = `gdf://${state.sessionId}/${handleId}`;
+            m = {
+              handle: {
+                id: handleId,
+                viewName: `__hierarchy_${handleId}`,
+                schema: [],
+                uri,
+                version: 1,
+                lineage: {
+                  parents: [],
+                  sql: "(inline hierarchy — no SQL)",
+                  producer: {
+                    agent: "@glyph/mcp",
+                    tool: "materializeHierarchy",
+                    sessionId: state.sessionId,
+                    at: new Date().toISOString(),
+                  },
+                },
+                provenance: {
+                  freshness: new Date().toISOString(),
+                  sampleRows: 1,
+                  filteredOut: 0,
+                  confidence: "high",
+                },
+              },
+              result: { rows: [], columns: [], rowCount: 0 },
+              effectiveSpec: parsed.spec,
+            };
+          } else {
+            m = await materializeSpec(engine, parsed.spec, {
+              sessionId: state.sessionId,
+              resolveHandleByUri: (uri) => state.getHandleByUri(uri),
+              metricResolver: (name) => state.getMetric(name),
+            });
+          }
         } catch (err) {
           return {
             isError: true,

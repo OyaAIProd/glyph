@@ -18,10 +18,35 @@ import { z } from "zod";
 
 export const DataFormatSchema = z.enum(["parquet", "csv", "json", "arrow"]);
 
+/**
+ * PR67 — D3 Gap 2: hierarchical data shape. A recursive `{ name, value?,
+ * children?[] }` tree. Compiled by the layout module (treemap / sunburst /
+ * partition) — not materialized through DuckDB. Inline-only in v0;
+ * file-based hierarchical sources can land later via `data.source` +
+ * `data.shape: "hierarchy"` if a use-case demands it.
+ *
+ * `value` is required at the leaves; interior nodes inherit
+ * sum-of-children values (D3.hierarchy semantics).
+ */
+// biome-ignore lint/suspicious/noExplicitAny: zod recursive schemas need 'any'.
+export const HierarchyNodeSchema: z.ZodType<any> = z.lazy(() =>
+  z
+    .object({
+      name: z.string().min(1),
+      value: z.number().nonnegative().optional(),
+      children: z.array(HierarchyNodeSchema).optional(),
+    })
+    .strict(),
+);
+
 export const DataSourceSchema = z
   .object({
-    /** Path, URL, or named registered table. Required. */
-    source: z.string().min(1),
+    /**
+     * Path, URL, or named registered table for tabular data. Optional when
+     * `hierarchy` is set (PR67), otherwise required at runtime by the
+     * materializer.
+     */
+    source: z.string().min(1).optional(),
     /** File format hint. Inferred from extension when omitted. */
     format: DataFormatSchema.optional(),
     /**
@@ -29,8 +54,20 @@ export const DataSourceSchema = z
      * The result of this query becomes the materialized view backing the chart.
      */
     transform: z.string().optional(),
+    /**
+     * PR67 (D3 Gap 2) — inline hierarchical data tree. When set, the
+     * compiler skips DuckDB and dispatches to `compileHierarchy`, which
+     * runs a layout algorithm (treemap, sunburst) and emits rect / arc
+     * marks. Mutually exclusive with `source` in practice — when both are
+     * set, hierarchy wins.
+     */
+    hierarchy: HierarchyNodeSchema.optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (d) => d.source !== undefined || d.hierarchy !== undefined,
+    "data needs either a 'source' or a 'hierarchy'",
+  );
 
 // ---------------------------------------------------------------------------
 // Marks — what gets drawn per row
@@ -62,6 +99,11 @@ export const MarkSchema = z.enum([
   // (x, y) with the value of encoding.text. Composes with other marks
   // via multi-layer specs (e.g. bars + text labels).
   "text",
+  // PR67 (D3 Gap 2) — hierarchical viz marks. `treemap` runs the
+  // squarified algorithm and emits one rect per leaf; `sunburst` runs a
+  // partition layout and emits one arc per node (root excluded).
+  "treemap",
+  "sunburst",
 ]);
 
 /**

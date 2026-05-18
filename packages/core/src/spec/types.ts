@@ -66,6 +66,16 @@ export type InteractiveConfig = z.infer<typeof InteractiveSchema>;
 /** PR66 — polar-coordinate config (see CoordinatesSchema). */
 export type Coordinates = z.infer<typeof CoordinatesSchema>;
 
+/**
+ * PR67 (D3 Gap 2) — recursive hierarchy node. Inline JSON tree consumed
+ * by treemap / sunburst / partition layouts.
+ */
+export interface HierarchyNode {
+  readonly name: string;
+  readonly value?: number;
+  readonly children?: ReadonlyArray<HierarchyNode>;
+}
+
 /** Full theme tokens. Spec.theme accepts this or the built-in 'light'/'dark'. */
 export type ThemeConfig = z.infer<typeof ThemeConfigSchema>;
 

@@ -39,6 +39,8 @@ function readSpec(path: string): GlyphSpec {
 /** Rewrite the spec's top-level data.source to be absolute relative to the spec file. */
 function resolveSourcePaths(spec: GlyphSpec, specPath: string): GlyphSpec {
   if (!spec.data) return spec;
+  // PR67 — hierarchy-only specs have no `source` to resolve.
+  if (spec.data.source === undefined) return spec;
   const specDir = resolve(specPath, "..");
   return {
     ...spec,
@@ -81,11 +83,17 @@ async function cmdRender(args: string[]): Promise<number> {
   }
   const spec = resolveSourcePaths(readSpec(specPath), specPath);
 
-  const svg = await withEngine(async (engine) => {
-    const m = await materializeSpec(engine, spec);
-    const scene = compileSpec({ spec, rows: m.result.rows, schema: m.handle.schema });
-    return renderSvg(scene);
-  });
+  // PR67 — hierarchy data bypasses DuckDB.
+  let svg: string;
+  if (spec.data?.hierarchy) {
+    svg = renderSvg(compileSpec({ spec, rows: [], schema: [] }));
+  } else {
+    svg = await withEngine(async (engine) => {
+      const m = await materializeSpec(engine, spec);
+      const scene = compileSpec({ spec, rows: m.result.rows, schema: m.handle.schema });
+      return renderSvg(scene);
+    });
+  }
 
   if (outPath) {
     const { writeFileSync } = await import("node:fs");

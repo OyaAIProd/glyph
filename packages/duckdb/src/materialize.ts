@@ -125,6 +125,11 @@ async function registerOrResolve(
   sourceName: string,
   resolveHandleByUri: HandleResolver | undefined,
 ): Promise<{ parentUri: string | undefined }> {
+  if (source.source === undefined) {
+    // PR67 — hierarchy-only data carries no tabular source; the caller
+    // should have short-circuited before reaching here.
+    throw new Error("registerOrResolve: source.source is undefined (hierarchy data?)");
+  }
   if (source.source.startsWith(GDF_PREFIX)) {
     if (!resolveHandleByUri) {
       throw new Error(

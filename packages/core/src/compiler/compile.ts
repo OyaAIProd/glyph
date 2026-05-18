@@ -19,6 +19,12 @@ import {
   projector,
   topoToGeo,
 } from "../geo/index.js";
+import {
+  flattenArcs,
+  flattenRects,
+  partitionLayout,
+  squarifiedTreemap,
+} from "../layout/hierarchy.js";
 import type {
   AxisTick,
   LegendEntry,
@@ -35,6 +41,7 @@ import type {
   DataProvenance,
   Encoding,
   GlyphSpec,
+  HierarchyNode,
   InteractiveConfig,
 } from "../spec/types.js";
 import {
@@ -349,6 +356,11 @@ export function compileSpec(input: CompileInput): Scene {
   // x → angle, y → radius. Marks emit arc / point / radial-path.
   if (spec.coordinates?.type === "polar") {
     return compilePolar(input);
+  }
+  // PR67 — hierarchy data shape. Skips DuckDB entirely; the layout
+  // algorithm reads the inline tree and emits rect / arc marks.
+  if (spec.data?.hierarchy) {
+    return compileHierarchy(input);
   }
   const width = spec.width ?? DEFAULT_WIDTH;
   const height = spec.height ?? DEFAULT_HEIGHT;
@@ -882,6 +894,137 @@ function collectColorDomain(
     }
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// PR67 — Hierarchy data shape (treemap / sunburst)
+// ---------------------------------------------------------------------------
+
+/**
+ * Compile a spec whose data is an inline hierarchy. Dispatches on the
+ * layer mark:
+ *   - "treemap"  → squarifiedTreemap → rect marks (one per node).
+ *                  Leaves get the deepest fill color; interior nodes get
+ *                  a translucent outline so the hierarchy is visible.
+ *   - "sunburst" → partitionLayout   → arc marks (one per node).
+ *
+ * Only the first layer's mark is honored in v0 (hierarchical viz is
+ * inherently single-mark — overlays would be added in a follow-up).
+ *
+ * Determinism: layout algorithms use no clock / no RNG. Re-rendering
+ * the same spec produces the same SVG bytes.
+ */
+function compileHierarchy(input: CompileInput): Scene {
+  const { spec } = input;
+  // The Zod schema declares hierarchy as recursively-typed `any` to avoid
+  // exactOptionalPropertyTypes friction; cast back to the public type
+  // since the materializer would have validated shape upfront.
+  const hierarchy = spec.data?.hierarchy as HierarchyNode | undefined;
+  if (!hierarchy) {
+    throw new Error("compileHierarchy called without spec.data.hierarchy");
+  }
+  const width = spec.width ?? DEFAULT_WIDTH;
+  const height = spec.height ?? DEFAULT_HEIGHT;
+  const theme = resolveTheme(spec.theme);
+  const inset = 16;
+  const plotArea = input.plotAreaOverride ?? {
+    x: inset,
+    y: inset,
+    width: width - inset * 2,
+    height: height - inset * 2,
+  };
+  if (spec.layers.length === 0) throw new Error("Spec has no layers");
+  const layer = spec.layers[0];
+  if (!layer) throw new Error("Spec has no first layer");
+  const mark = layer.mark;
+  const marks: SceneMark[] = [];
+
+  if (mark === "treemap") {
+    const root = squarifiedTreemap(
+      hierarchy,
+      plotArea.x,
+      plotArea.y,
+      plotArea.x + plotArea.width,
+      plotArea.y + plotArea.height,
+    );
+    const all = flattenRects(root);
+    // Leaves get filled rects; interior nodes (depth > 0 but with children)
+    // get outline-only rects so the hierarchy structure stays visible.
+    for (const node of all) {
+      if (node.depth === 0) continue; // skip root rectangle (would cover the chart)
+      const w = node.x1 - node.x0;
+      const h = node.y1 - node.y0;
+      if (w <= 0 || h <= 0) continue;
+      const isLeaf = !node.children || node.children.length === 0;
+      const palette = theme.marks;
+      const fill = isLeaf ? (palette[(node.depth - 1) % palette.length] ?? "#000") : "transparent";
+      const rectMark: SceneMark = {
+        type: "rect",
+        x: roundPx(node.x0),
+        y: roundPx(node.y0),
+        width: roundPx(w),
+        height: roundPx(h),
+        fill,
+        stroke: theme.background ?? "#fff",
+        strokeWidth: 1,
+      };
+      marks.push(rectMark);
+      // Add a text label for leaves big enough to fit.
+      if (isLeaf && w > 50 && h > 16) {
+        marks.push({
+          type: "text",
+          x: roundPx(node.x0 + 4),
+          y: roundPx(node.y0 + 14),
+          text: node.name,
+          fontSize: 11,
+          fill: "#fff",
+          anchor: "start",
+          baseline: "alphabetic",
+        });
+      }
+    }
+  } else if (mark === "sunburst") {
+    const cx = plotArea.x + plotArea.width / 2;
+    const cy = plotArea.y + plotArea.height / 2;
+    const radius = Math.min(plotArea.width, plotArea.height) / 2 - 4;
+    const root = partitionLayout(hierarchy, 0, radius);
+    const all = flattenArcs(root);
+    const palette = theme.marks;
+    for (const node of all) {
+      if (node.depth === 0) continue; // skip root (would be a point)
+      if (node.endAngle - node.startAngle <= 0) continue;
+      const fill = palette[(node.depth - 1) % palette.length] ?? "#000";
+      marks.push({
+        type: "arc",
+        cx: roundPx(cx),
+        cy: roundPx(cy),
+        innerRadius: roundPx(node.innerRadius),
+        outerRadius: roundPx(node.outerRadius),
+        startAngle: node.startAngle,
+        endAngle: node.endAngle,
+        fill,
+        stroke: theme.background ?? "#fff",
+        strokeWidth: 1,
+      });
+    }
+  } else {
+    throw new Error(
+      `Hierarchy data shape requires a "treemap" or "sunburst" mark on the first layer, got "${mark}"`,
+    );
+  }
+
+  const uncertainty = deriveUncertainty(input.provenance, spec.interactive);
+
+  return {
+    width,
+    height,
+    background: theme.background,
+    plotArea,
+    axes: [],
+    marks,
+    ...(spec.title ? { title: spec.title } : {}),
+    ...(uncertainty ? { uncertainty } : {}),
+  };
 }
 
 function buildSceneAnimation(

@@ -46,6 +46,9 @@ function inferFormat(source: string): "parquet" | "csv" | "json" | undefined {
 
 /** Build the DuckDB read function call for a source file. */
 function readerFor(src: DataSource): string {
+  if (src.source === undefined) {
+    throw new Error("readerFor: DataSource has no `source` (hierarchy-only data?)");
+  }
   const fmt = src.format ?? inferFormat(src.source);
   const path = src.source.replace(/'/g, "''");
   switch (fmt) {
