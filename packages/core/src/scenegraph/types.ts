@@ -159,6 +159,14 @@ export interface SceneSchema {
   readonly fields: Readonly<Record<string, string>>;
   /** When set, the SVG carries `data-handle="<id>"` for `@glyph/live` to find. */
   readonly handleId?: string;
+  /**
+   * PR77 (D3 Gap 8) — declarative interaction flags. The renderer emits
+   * `data-glyph-zoom / lasso / voronoi="true"` on the SVG root so
+   * `@glyph/live` knows what hydration to apply. Pure-fn → byte-stable.
+   */
+  readonly zoomable?: boolean;
+  readonly lassoable?: boolean;
+  readonly voronoiHover?: boolean;
 }
 
 /** A single legend entry — one row of color/label. */

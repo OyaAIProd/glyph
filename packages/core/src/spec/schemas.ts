@@ -409,6 +409,28 @@ export const InteractiveSchema = z
      * provenance plumbing).
      */
     uncertainty: z.boolean().optional(),
+    /**
+     * PR77 (D3 Gap 8) — declarative zoom/pan. When true, the renderer
+     * wraps the marks group in `<g class="glyph-zoomable" data-glyph-zoom="true">`.
+     * Browser-side hydration (`@glyph/live`) attaches wheel + drag-pan
+     * handlers that update the SVG viewBox.
+     */
+    zoomable: z.boolean().optional(),
+    /**
+     * PR77 (D3 Gap 8) — declarative lasso. When true, the renderer adds
+     * `data-glyph-lasso="true"` to the SVG root. `@glyph/live` draws a
+     * lasso path on drag and emits a selection event with the enclosed
+     * mark keys.
+     */
+    lassoable: z.boolean().optional(),
+    /**
+     * PR77 (D3 Gap 8) — voronoi-hover targeting. When true, the
+     * renderer adds `data-glyph-voronoi="true"` so `@glyph/live` knows
+     * to use nearest-neighbor hover (any pointer position highlights
+     * the closest mark, not just direct hits). Helpful for dense
+     * scatter plots where tiny circles are hard to hit.
+     */
+    voronoi: z.boolean().optional(),
   })
   .strict();
 

@@ -329,6 +329,11 @@ function renderSceneAttrs(scene: Scene): string {
     if (f) out += ` data-${k}-field="${esc(f)}"`;
   }
   if (s.handleId) out += ` data-handle="${esc(s.handleId)}"`;
+  // PR77 (D3 Gap 8) — declarative interaction hooks. `@glyph/live` keys
+  // on these attrs to attach the right hydration handlers.
+  if (s.zoomable === true) out += ` data-glyph-zoom="true"`;
+  if (s.lassoable === true) out += ` data-glyph-lasso="true"`;
+  if (s.voronoiHover === true) out += ` data-glyph-voronoi="true"`;
   return out;
 }
 

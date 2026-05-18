@@ -684,7 +684,14 @@ export function compileSpec(input: CompileInput): Scene {
     };
     const cf = fieldOf(firstLayer.encoding.color);
     if (cf) fields.color = cf;
-    sceneSchema = { fields };
+    sceneSchema = {
+      fields,
+      // PR77 (D3 Gap 8) — surface the declarative interaction flags so
+      // the renderer can emit data-glyph-* attrs for @glyph/live.
+      ...(spec.interactive.zoomable === true ? { zoomable: true } : {}),
+      ...(spec.interactive.lassoable === true ? { lassoable: true } : {}),
+      ...(spec.interactive.voronoi === true ? { voronoiHover: true } : {}),
+    };
   }
 
   // PR61 — uncertainty signals from optional provenance.
