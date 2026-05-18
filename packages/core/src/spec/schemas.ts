@@ -65,6 +65,53 @@ export const MarkSchema = z.enum([
 ]);
 
 /**
+ * PR66 — polar coordinates. When `spec.coordinates.type === "polar"`,
+ * the compiler reinterprets each layer's encoding:
+ *   - `encoding.x` → angle  (band scale around the circle, or linear ∈ [0, 2π])
+ *   - `encoding.y` → radius (linear from innerRadius → outerRadius)
+ * Marks translate to a cartesian arc / point / path at render time via
+ * `(angle, radius) → (cx + r·cos(θ - π/2), cy + r·sin(θ - π/2))` (rotated
+ * so angle=0 points up, matching D3.arc's convention).
+ *
+ * Pie / donut: a `mark: "bar"` with `coordinates.type: "polar"` and an
+ * angle encoding from the categorical field produces a ring of arcs.
+ * Set `coordinates.innerRadius > 0` for a donut.
+ *
+ * Radial line: a `mark: "line"` with polar coordinates traces a closed
+ * loop in the (angle, radius) plane.
+ *
+ * Skipping snapshot regressions: when `coordinates` is unset (every
+ * existing test path), the compiler takes the cartesian branch — output
+ * is byte-identical to prior baselines.
+ */
+export const CoordinatesSchema = z
+  .object({
+    type: z.literal("polar"),
+    /**
+     * Inner radius as a fraction of the smaller plot dimension (0 = pie,
+     * 0.5 = donut with 50% hole). Defaults to 0.
+     */
+    innerRadius: z.number().min(0).max(0.95).optional(),
+    /**
+     * Outer radius as a fraction of the smaller plot dimension. Defaults
+     * to 0.45 (leaves ~10% padding inside the plot area).
+     */
+    outerRadius: z.number().min(0).max(1).optional(),
+    /**
+     * Starting angle in degrees, measured clockwise from 12-o'clock.
+     * Defaults to 0 (top). Useful for pie charts where you want the
+     * largest slice to start at the top.
+     */
+    startAngle: z.number().min(-360).max(360).optional(),
+    /**
+     * Total sweep in degrees (default 360 for a full circle). Set < 360
+     * for a partial arc (e.g. 180 for a semi-circle gauge).
+     */
+    endAngle: z.number().min(-360).max(360).optional(),
+  })
+  .strict();
+
+/**
  * Projection for `geo-*` marks. v0 supports the two simplest projections —
  * equirectangular (rectangular lat/lon → screen mapping) and Mercator
  * (conformal, web-map style). Both are pure-math; no external GIS dep.
@@ -351,6 +398,13 @@ export const GlyphSpecSchema = z
     actions: z.array(ActionSchema).optional(),
     /** Map projection — required when any layer uses a `geo-*` mark. */
     projection: ProjectionSchema.optional(),
+    /**
+     * PR66 — polar coordinate system. When set, the compiler dispatches
+     * to a polar-aware compilation path: `encoding.x` becomes the angle
+     * channel, `encoding.y` becomes the radius channel. Marks translate
+     * to arc / point / path in cartesian space at render time.
+     */
+    coordinates: CoordinatesSchema.optional(),
     /**
      * GeoJSON FeatureCollection used by `geo-region` marks. Each feature's
      * `properties[idField]` (default: `id`) is matched against the layer's

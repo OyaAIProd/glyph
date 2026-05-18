@@ -86,7 +86,27 @@ export type SceneMark =
       readonly strokeWidth?: number;
       readonly fill?: string;
       readonly opacity?: number;
-    };
+    }
+  | ({
+      /**
+       * PR66 — a single annular sector (pie slice / donut slice / arc).
+       * Drawn by the compiler when polar coordinates are active. Angles
+       * in radians, measured clockwise from 12-o'clock (matches D3.arc).
+       * Renderer emits a single `<path d="…A…">` with the elliptical-arc
+       * SVG command, closed when innerRadius === 0 (pie) or with an
+       * inner arc when > 0 (donut).
+       */
+      readonly type: "arc";
+      readonly cx: number;
+      readonly cy: number;
+      readonly innerRadius: number;
+      readonly outerRadius: number;
+      readonly startAngle: number;
+      readonly endAngle: number;
+      readonly fill: string;
+      readonly stroke?: string;
+      readonly strokeWidth?: number;
+    } & MarkData);
 
 /**
  * PR61 (PLAN item 2.3) — uncertainty signals attached to a Scene. Set by

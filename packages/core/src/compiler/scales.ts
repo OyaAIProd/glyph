@@ -187,6 +187,113 @@ export function quantileScale<T>(
 }
 
 /**
+ * PR66 — angle scale. Maps a categorical or linear domain into radians
+ * around a circle. Categorical mode (default) gives every domain entry
+ * an equal slice; linear mode (when `weights` is supplied) sizes slices
+ * by the per-entry weight (used for pie charts where the bar values
+ * become slice sizes).
+ *
+ * `startAngle` / `endAngle` are in radians, measured clockwise from
+ * 12-o'clock (i.e. 0 = up, π/2 = right). Matches D3.arc convention.
+ */
+export interface AngleScale {
+  readonly type: "angle";
+  readonly domain: ReadonlyArray<string>;
+  readonly startAngle: number;
+  readonly endAngle: number;
+  /** Returns [start, end] in radians for the category. */
+  readonly apply: (v: string) => readonly [number, number];
+}
+
+export function angleScale(
+  domain: ReadonlyArray<string>,
+  startAngle: number,
+  endAngle: number,
+  weights?: ReadonlyArray<number>,
+): AngleScale {
+  const sweep = endAngle - startAngle;
+  const useWeights = weights !== undefined && weights.length === domain.length;
+  const total = useWeights
+    ? (weights ?? []).reduce((s, w) => s + Math.max(0, w), 0)
+    : domain.length;
+  // Pre-compute cumulative start angle per domain entry for deterministic O(1) apply.
+  const starts: number[] = [];
+  let cursor = startAngle;
+  for (let i = 0; i < domain.length; i++) {
+    starts.push(cursor);
+    const weight = useWeights ? Math.max(0, weights?.[i] ?? 0) : 1;
+    cursor += total > 0 ? (weight / total) * sweep : 0;
+  }
+  // Plus one terminal angle so endAngle is reachable.
+  starts.push(endAngle);
+  const index = new Map(domain.map((d, i) => [d, i] as const));
+  const apply = (v: string): readonly [number, number] => {
+    const i = index.get(v);
+    if (i === undefined) return [Number.NaN, Number.NaN];
+    return [starts[i] ?? 0, starts[i + 1] ?? 0] as const;
+  };
+  return { type: "angle", domain, startAngle, endAngle, apply };
+}
+
+/**
+ * PR66 — build an SVG `<path d="…">` string for one annular sector.
+ * Deterministic to 8 decimals via `roundPx`. Handles three cases:
+ *   1. innerRadius === 0 + sweep < 2π: pie slice (wedge to center).
+ *   2. innerRadius > 0:                annular sector (donut slice).
+ *   3. sweep >= 2π and innerRadius === 0: full disc (filled circle).
+ *
+ * Angle convention: clockwise from 12-o'clock (top = 0, right = π/2).
+ * SVG y axis grows downward, so we subtract π/2 internally to rotate.
+ */
+export function arcPathD(
+  cx: number,
+  cy: number,
+  innerRadius: number,
+  outerRadius: number,
+  startAngle: number,
+  endAngle: number,
+): string {
+  // Rotate so 0 rad = up (12 o'clock) instead of right.
+  const a0 = startAngle - Math.PI / 2;
+  const a1 = endAngle - Math.PI / 2;
+  const sweep = endAngle - startAngle;
+  const largeArc = sweep > Math.PI ? 1 : 0;
+  const ox = (r: number, a: number) => roundPx(cx + r * Math.cos(a));
+  const oy = (r: number, a: number) => roundPx(cy + r * Math.sin(a));
+  // Full ring (donut with no gap) — emit two concentric circles.
+  if (sweep >= 2 * Math.PI - 1e-9) {
+    if (innerRadius <= 0) {
+      // Full disc.
+      return `M ${ox(outerRadius, a0)} ${oy(outerRadius, a0)} A ${roundPx(outerRadius)} ${roundPx(outerRadius)} 0 1 1 ${ox(outerRadius, a0 + Math.PI)} ${oy(outerRadius, a0 + Math.PI)} A ${roundPx(outerRadius)} ${roundPx(outerRadius)} 0 1 1 ${ox(outerRadius, a0)} ${oy(outerRadius, a0)} Z`;
+    }
+    // Full ring — even-odd-fill rectangle of two circles.
+    return `M ${ox(outerRadius, a0)} ${oy(outerRadius, a0)} A ${roundPx(outerRadius)} ${roundPx(outerRadius)} 0 1 1 ${ox(outerRadius, a0 + Math.PI)} ${oy(outerRadius, a0 + Math.PI)} A ${roundPx(outerRadius)} ${roundPx(outerRadius)} 0 1 1 ${ox(outerRadius, a0)} ${oy(outerRadius, a0)} Z M ${ox(innerRadius, a0)} ${oy(innerRadius, a0)} A ${roundPx(innerRadius)} ${roundPx(innerRadius)} 0 1 0 ${ox(innerRadius, a0 + Math.PI)} ${oy(innerRadius, a0 + Math.PI)} A ${roundPx(innerRadius)} ${roundPx(innerRadius)} 0 1 0 ${ox(innerRadius, a0)} ${oy(innerRadius, a0)} Z`;
+  }
+  if (innerRadius <= 0) {
+    // Pie slice.
+    return `M ${roundPx(cx)} ${roundPx(cy)} L ${ox(outerRadius, a0)} ${oy(outerRadius, a0)} A ${roundPx(outerRadius)} ${roundPx(outerRadius)} 0 ${largeArc} 1 ${ox(outerRadius, a1)} ${oy(outerRadius, a1)} Z`;
+  }
+  // Annular sector (donut slice).
+  return `M ${ox(innerRadius, a0)} ${oy(innerRadius, a0)} L ${ox(outerRadius, a0)} ${oy(outerRadius, a0)} A ${roundPx(outerRadius)} ${roundPx(outerRadius)} 0 ${largeArc} 1 ${ox(outerRadius, a1)} ${oy(outerRadius, a1)} L ${ox(innerRadius, a1)} ${oy(innerRadius, a1)} A ${roundPx(innerRadius)} ${roundPx(innerRadius)} 0 ${largeArc} 0 ${ox(innerRadius, a0)} ${oy(innerRadius, a0)} Z`;
+}
+
+/**
+ * PR66 — project polar (angle, radius) → cartesian (x, y) with the
+ * clockwise-from-12-o'clock convention. Used for non-arc marks under
+ * polar coordinates (e.g. a point chart in polar space → cartesian
+ * positioned circles).
+ */
+export function polarToCartesian(
+  cx: number,
+  cy: number,
+  angle: number,
+  radius: number,
+): { x: number; y: number } {
+  const a = angle - Math.PI / 2;
+  return { x: roundPx(cx + radius * Math.cos(a)), y: roundPx(cy + radius * Math.sin(a)) };
+}
+
+/**
  * "Nice" round numbers for a linear domain. Used for axis tick generation.
  * Adapted from d3-array's tickStep (BSD license), simplified for Phase 0.
  */

@@ -17,6 +17,7 @@ import type { z } from "zod";
 import type {
   ActionSchema,
   ChannelSchema,
+  CoordinatesSchema,
   DataSourceSchema,
   EncodingSchema,
   GlyphSpecSchema,
@@ -61,6 +62,9 @@ export type Stat = z.infer<typeof StatSchema>;
 
 /** Opt-in interactivity config (see InteractiveSchema for details). */
 export type InteractiveConfig = z.infer<typeof InteractiveSchema>;
+
+/** PR66 — polar-coordinate config (see CoordinatesSchema). */
+export type Coordinates = z.infer<typeof CoordinatesSchema>;
 
 /** Full theme tokens. Spec.theme accepts this or the built-in 'light'/'dark'. */
 export type ThemeConfig = z.infer<typeof ThemeConfigSchema>;

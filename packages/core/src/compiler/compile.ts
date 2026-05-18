@@ -37,7 +37,14 @@ import type {
   GlyphSpec,
   InteractiveConfig,
 } from "../spec/types.js";
-import { bandScale, linearScale, niceTicks, roundPx } from "./scales.js";
+import {
+  angleScale,
+  bandScale,
+  linearScale,
+  niceTicks,
+  polarToCartesian,
+  roundPx,
+} from "./scales.js";
 
 /** Minimal field metadata needed by the compiler. ColumnInfo is a superset. */
 export interface CompileFieldInfo {
@@ -337,6 +344,11 @@ export function compileSpec(input: CompileInput): Scene {
   // the single-panel compilation path below.
   if (spec.facet) {
     return compileFaceted(input);
+  }
+  // PR66 — polar coordinates take a dedicated compilation path; encoding
+  // x → angle, y → radius. Marks emit arc / point / radial-path.
+  if (spec.coordinates?.type === "polar") {
+    return compilePolar(input);
   }
   const width = spec.width ?? DEFAULT_WIDTH;
   const height = spec.height ?? DEFAULT_HEIGHT;
@@ -673,6 +685,205 @@ export function compileSpec(input: CompileInput): Scene {
  * scrub we compute per-mark values across frames so the renderer can emit
  * SMIL `<animate>` elements without re-querying the data.
  */
+// ---------------------------------------------------------------------------
+// PR66 — Polar coordinates
+// ---------------------------------------------------------------------------
+
+/**
+ * Compile a spec under polar coordinates. Encoding x → angle, y → radius.
+ * Supports the main combinations:
+ *   - bar  + polar (band x, quantitative y) → pie / donut / nightingale rose
+ *   - bar  + polar (band x, no y)           → equal-sized pie slices
+ *   - point + polar                          → points at (cx + r·cos θ, cy + r·sin θ)
+ *   - line  + polar                          → closed radial line
+ *
+ * Axes are not emitted in polar v0 (legends still are). Tick rings + radial
+ * gridlines can be added in a follow-up when a use-case demands them.
+ */
+function compilePolar(input: CompileInput): Scene {
+  const { spec, rows, schema } = input;
+  const width = spec.width ?? DEFAULT_WIDTH;
+  const height = spec.height ?? DEFAULT_HEIGHT;
+  const theme = resolveTheme(spec.theme);
+  // Plot area is centered; we don't need left/right axes so just inset.
+  const inset = 16;
+  const plotArea = input.plotAreaOverride ?? {
+    x: inset,
+    y: inset,
+    width: width - inset * 2,
+    height: height - inset * 2,
+  };
+  const cx = plotArea.x + plotArea.width / 2;
+  const cy = plotArea.y + plotArea.height / 2;
+  const radius = Math.min(plotArea.width, plotArea.height) / 2;
+  const coord = spec.coordinates;
+  if (!coord) throw new Error("compilePolar called without spec.coordinates");
+  const innerR = (coord.innerRadius ?? 0) * radius;
+  const outerR = (coord.outerRadius ?? 0.9) * radius;
+  // Default startAngle = 0° (top), endAngle = 360°. Convert deg → rad.
+  const startA = ((coord.startAngle ?? 0) * Math.PI) / 180;
+  const endA = ((coord.endAngle ?? 360) * Math.PI) / 180;
+
+  if (spec.layers.length === 0) throw new Error("Spec has no layers");
+  const marks: SceneMark[] = [];
+  const legends: SceneLegend[] = [];
+
+  for (let li = 0; li < spec.layers.length; li++) {
+    const layer = spec.layers[li];
+    if (!layer) continue;
+    const enc = layer.encoding;
+    const xField = fieldOf(enc.x);
+    const yField = fieldOf(enc.y);
+    if (!xField) {
+      throw new Error(`Layer ${li}: polar coordinates require an x encoding`);
+    }
+    // Collect categories in first-seen order (deterministic).
+    const xi = schema.findIndex((c) => c.name === xField);
+    if (xi < 0) throw new Error(`Layer ${li}: field "${xField}" not in schema`);
+    const yi = yField ? schema.findIndex((c) => c.name === yField) : -1;
+    const seen = new Set<string>();
+    const domain: string[] = [];
+    const weights: number[] = [];
+    for (const r of rows) {
+      const xv = String(r[xi] ?? "");
+      if (!seen.has(xv)) {
+        seen.add(xv);
+        domain.push(xv);
+        weights.push(yi >= 0 ? Number(r[yi]) || 0 : 1);
+      } else if (yi >= 0) {
+        // Sum weights for repeated categories (group-by-x semantics).
+        const idx = domain.indexOf(xv);
+        weights[idx] = (weights[idx] ?? 0) + (Number(r[yi]) || 0);
+      }
+    }
+    // Color: support color encoding (categorical) — same domain as x for pie.
+    const colorField = fieldOf(enc.color);
+    const colorDomain = colorField ? collectColorDomain(rows, schema, colorField) : domain;
+    // Weighted angle scale for pie / donut / rose.
+    const angle = angleScale(domain, startA, endA, weights);
+
+    if (layer.mark === "bar") {
+      // Pie / donut: slice angle is proportional to weight (y or count);
+      // every slice uses the full outerR. Rose / nightingale (radius
+      // varies per slice) can land in a follow-up via a `stat: "rose"`
+      // marker on the layer.
+      for (let i = 0; i < domain.length; i++) {
+        const cat = domain[i] ?? "";
+        const [a0, a1] = angle.apply(cat);
+        if (!Number.isFinite(a0)) continue;
+        const fillColor = colorForCategorical(domain[i] ?? "", colorDomain, theme);
+        const arcMark: SceneMark = {
+          type: "arc",
+          cx: roundPx(cx),
+          cy: roundPx(cy),
+          innerRadius: roundPx(innerR),
+          outerRadius: roundPx(outerR),
+          startAngle: a0,
+          endAngle: a1,
+          fill: fillColor,
+        };
+        marks.push(arcMark);
+      }
+      // Legend.
+      legends.push({
+        kind: "color",
+        title: colorField ?? xField,
+        origin: { x: plotArea.x + plotArea.width + 12, y: plotArea.y },
+        entries: domain.map((d) => ({
+          label: d,
+          color: colorForCategorical(d, colorDomain, theme),
+        })),
+      });
+    } else if (layer.mark === "point") {
+      // Points at (cx + r cos θ, cy + r sin θ). Radius from yField; if no
+      // y encoding, default to outerR.
+      const yMax = yi >= 0 ? Math.max(...weights, 1) : 1;
+      for (let i = 0; i < domain.length; i++) {
+        const cat = domain[i] ?? "";
+        const [a0, a1] = angle.apply(cat);
+        const a = (a0 + a1) / 2;
+        const r = yi >= 0 ? (outerR * (weights[i] ?? 0)) / yMax : outerR;
+        const p = polarToCartesian(cx, cy, a, r);
+        marks.push({
+          type: "circle",
+          cx: p.x,
+          cy: p.y,
+          r: 4,
+          fill: theme.marks[0] ?? "#000",
+        });
+      }
+    } else if (layer.mark === "line") {
+      // Build a closed radial path: connect each category's (angle, radius).
+      const yMax = yi >= 0 ? Math.max(...weights, 1) : 1;
+      const points: string[] = [];
+      for (let i = 0; i < domain.length; i++) {
+        const cat = domain[i] ?? "";
+        const [a0, a1] = angle.apply(cat);
+        const a = (a0 + a1) / 2;
+        const r = yi >= 0 ? (outerR * (weights[i] ?? 0)) / yMax : outerR;
+        const p = polarToCartesian(cx, cy, a, r);
+        points.push(`${i === 0 ? "M" : "L"} ${p.x} ${p.y}`);
+      }
+      // Close the loop.
+      points.push("Z");
+      marks.push({
+        type: "path",
+        d: points.join(" "),
+        stroke: theme.marks[0] ?? "#000",
+        strokeWidth: 2,
+        fill: "none",
+      });
+    } else {
+      // Other marks aren't supported in polar v0 — fall back to no-op.
+      // Renderer-visible: the chart will just show legends.
+    }
+  }
+
+  // Uncertainty (PR61) still works in polar.
+  const uncertainty = deriveUncertainty(input.provenance, spec.interactive);
+
+  return {
+    width,
+    height,
+    background: theme.background,
+    plotArea,
+    axes: [],
+    marks,
+    ...(spec.title ? { title: spec.title } : {}),
+    ...(legends.length > 0 ? { legends } : {}),
+    ...(uncertainty ? { uncertainty } : {}),
+  };
+}
+
+function colorForCategorical(
+  category: string,
+  domain: ReadonlyArray<string>,
+  theme: Theme,
+): string {
+  const idx = domain.indexOf(category);
+  if (idx < 0) return theme.marks[0] ?? "#000";
+  return theme.marks[idx % theme.marks.length] ?? "#000";
+}
+
+function collectColorDomain(
+  rows: ReadonlyArray<ReadonlyArray<unknown>>,
+  schema: ReadonlyArray<CompileFieldInfo>,
+  field: string,
+): string[] {
+  const idx = schema.findIndex((c) => c.name === field);
+  if (idx < 0) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const r of rows) {
+    const v = String(r[idx] ?? "");
+    if (!seen.has(v)) {
+      seen.add(v);
+      out.push(v);
+    }
+  }
+  return out;
+}
+
 function buildSceneAnimation(
   spec: GlyphSpec,
   rows: ReadonlyArray<ReadonlyArray<unknown>>,

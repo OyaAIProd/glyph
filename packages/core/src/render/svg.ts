@@ -127,7 +127,61 @@ function renderMark(m: SceneMark, interactive: boolean): string {
       return `<text x="${m.x}" y="${m.y}" font-size="${m.fontSize}" fill="${esc(
         m.fill,
       )}" text-anchor="${m.anchor}" dominant-baseline="${m.baseline}">${esc(m.text)}</text>`;
+    case "arc": {
+      // PR66 — pie / donut slice. Build the path inline so the renderer
+      // has zero scenegraph→SVG transformation work other than emitting.
+      const d = arcSvgPath(m.cx, m.cy, m.innerRadius, m.outerRadius, m.startAngle, m.endAngle);
+      const stroke = m.stroke ? ` stroke="${esc(m.stroke)}"` : "";
+      const sw = m.strokeWidth !== undefined ? ` stroke-width="${m.strokeWidth}"` : "";
+      if (!interactive) {
+        return `<path d="${d}" fill="${esc(m.fill)}"${stroke}${sw}/>`;
+      }
+      const data = renderDataAttrs(m);
+      const aria = ariaForMark(m);
+      const tooltip = m.tooltip ? `<title>${esc(m.tooltip)}</title>` : "";
+      if (tooltip) {
+        return `<path d="${d}" fill="${esc(m.fill)}"${stroke}${sw}${data}${aria}>${tooltip}</path>`;
+      }
+      return `<path d="${d}" fill="${esc(m.fill)}"${stroke}${sw}${data}${aria}/>`;
+    }
   }
+}
+
+/**
+ * PR66 — emit an SVG path-d string for one annular sector. The compiler
+ * could pre-compute this, but keeping it in the renderer means the
+ * scenegraph stays semantic (cx/cy/innerR/outerR/angles) rather than
+ * a string blob — friendlier to other renderers (canvas/webgl).
+ *
+ * Angle convention: clockwise from 12-o'clock. We subtract π/2 here so
+ * 0 rad points up.
+ */
+function arcSvgPath(
+  cx: number,
+  cy: number,
+  innerR: number,
+  outerR: number,
+  startAngle: number,
+  endAngle: number,
+): string {
+  const a0 = startAngle - Math.PI / 2;
+  const a1 = endAngle - Math.PI / 2;
+  const sweep = endAngle - startAngle;
+  const largeArc = sweep > Math.PI ? 1 : 0;
+  const r = (n: number): number => Math.round(n * 1e8) / 1e8;
+  const ox = (rad: number, a: number): number => r(cx + rad * Math.cos(a));
+  const oy = (rad: number, a: number): number => r(cy + rad * Math.sin(a));
+  if (sweep >= 2 * Math.PI - 1e-9) {
+    // Full ring or disc.
+    if (innerR <= 0) {
+      return `M ${ox(outerR, a0)} ${oy(outerR, a0)} A ${r(outerR)} ${r(outerR)} 0 1 1 ${ox(outerR, a0 + Math.PI)} ${oy(outerR, a0 + Math.PI)} A ${r(outerR)} ${r(outerR)} 0 1 1 ${ox(outerR, a0)} ${oy(outerR, a0)} Z`;
+    }
+    return `M ${ox(outerR, a0)} ${oy(outerR, a0)} A ${r(outerR)} ${r(outerR)} 0 1 1 ${ox(outerR, a0 + Math.PI)} ${oy(outerR, a0 + Math.PI)} A ${r(outerR)} ${r(outerR)} 0 1 1 ${ox(outerR, a0)} ${oy(outerR, a0)} Z M ${ox(innerR, a0)} ${oy(innerR, a0)} A ${r(innerR)} ${r(innerR)} 0 1 0 ${ox(innerR, a0 + Math.PI)} ${oy(innerR, a0 + Math.PI)} A ${r(innerR)} ${r(innerR)} 0 1 0 ${ox(innerR, a0)} ${oy(innerR, a0)} Z`;
+  }
+  if (innerR <= 0) {
+    return `M ${r(cx)} ${r(cy)} L ${ox(outerR, a0)} ${oy(outerR, a0)} A ${r(outerR)} ${r(outerR)} 0 ${largeArc} 1 ${ox(outerR, a1)} ${oy(outerR, a1)} Z`;
+  }
+  return `M ${ox(innerR, a0)} ${oy(innerR, a0)} L ${ox(outerR, a0)} ${oy(outerR, a0)} A ${r(outerR)} ${r(outerR)} 0 ${largeArc} 1 ${ox(outerR, a1)} ${oy(outerR, a1)} L ${ox(innerR, a1)} ${oy(innerR, a1)} A ${r(innerR)} ${r(innerR)} 0 ${largeArc} 0 ${ox(innerR, a0)} ${oy(innerR, a0)} Z`;
 }
 
 function renderAxis(axis: SceneAxis): string {
