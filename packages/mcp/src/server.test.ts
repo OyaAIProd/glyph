@@ -76,7 +76,7 @@ describe("Glyph MCP server", () => {
     rmSync(tempMemoryDir, { recursive: true, force: true });
   });
 
-  it("lists the forty-five tools", async () => {
+  it("lists the forty-six tools", async () => {
     const r = await client.listTools();
     const names = r.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -120,6 +120,7 @@ describe("Glyph MCP server", () => {
       "glyph_story_get",
       "glyph_story_list",
       "glyph_story_plan",
+      "glyph_story_provide_plan",
       "glyph_subscribe",
       "glyph_suggest_scale",
       "glyph_trust",
@@ -177,6 +178,7 @@ describe("Glyph MCP server", () => {
       "glyph_story_get",
       "glyph_story_list",
       "glyph_story_plan",
+      "glyph_story_provide_plan",
       "glyph_subscribe",
       "glyph_suggest_scale",
       "glyph_trust",
@@ -2045,6 +2047,139 @@ describe("Glyph MCP server", () => {
         spec: { not_a_spec: true },
       });
       expect(r.isError).toBe(true);
+    });
+  });
+
+  describe("glyph_story_provide_plan (PR69 / PLAN 1.1)", () => {
+    it("planner_hint='llm' returns awaiting plan with schema context", async () => {
+      const r = await callText(client, "glyph_story_plan", {
+        intent: "what's interesting in this data",
+        source: fixture,
+        planner_hint: "llm",
+      });
+      expect(r.isError).toBe(false);
+      const plan = JSON.parse(r.text);
+      expect(plan.status).toBe("awaiting_planner");
+      expect(plan.nodes).toEqual([]);
+      expect(plan.schema).toBeDefined();
+      expect(plan.schema.length).toBeGreaterThan(0);
+      expect(plan.hint).toContain("glyph_story_provide_plan");
+    });
+
+    it("provide_plan fulfills the awaiting plan and flips to planned", async () => {
+      const r1 = await callText(client, "glyph_story_plan", {
+        intent: "x",
+        source: fixture,
+        planner_hint: "llm",
+      });
+      const planId = JSON.parse(r1.text).plan_id as string;
+
+      const r2 = await callText(client, "glyph_story_provide_plan", {
+        plan_id: planId,
+        nodes: [
+          {
+            id: "n1",
+            kind: "describe",
+            label: "inspect taxi data",
+            args: { source: fixture },
+            dependsOn: [],
+          },
+          {
+            id: "n2",
+            kind: "render",
+            label: "bar chart of rides",
+            args: {
+              spec: {
+                data: { source: fixture, format: "csv" },
+                layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+              },
+            },
+            dependsOn: ["n1"],
+          },
+        ],
+      });
+      expect(r2.isError).toBe(false);
+      const out = JSON.parse(r2.text);
+      expect(out.status).toBe("planned");
+      expect(out.nodes.length).toBe(2);
+    });
+
+    it("provide_plan rejects invalid node shapes with a precise error", async () => {
+      const r1 = await callText(client, "glyph_story_plan", {
+        intent: "x",
+        source: fixture,
+        planner_hint: "llm",
+      });
+      const planId = JSON.parse(r1.text).plan_id as string;
+      const r2 = await callText(client, "glyph_story_provide_plan", {
+        plan_id: planId,
+        nodes: [{ id: "bad", kind: "frobnicate", label: "x", args: {}, dependsOn: [] }],
+      });
+      expect(r2.isError).toBe(true);
+      expect(r2.text).toContain("kind");
+    });
+
+    it("provide_plan rejects duplicate node ids", async () => {
+      const r1 = await callText(client, "glyph_story_plan", {
+        intent: "x",
+        source: fixture,
+        planner_hint: "llm",
+      });
+      const planId = JSON.parse(r1.text).plan_id as string;
+      const r2 = await callText(client, "glyph_story_provide_plan", {
+        plan_id: planId,
+        nodes: [
+          { id: "a", kind: "describe", label: "x", args: {}, dependsOn: [] },
+          { id: "a", kind: "describe", label: "y", args: {}, dependsOn: [] },
+        ],
+      });
+      expect(r2.isError).toBe(true);
+      expect(r2.text).toContain("duplicated");
+    });
+
+    it("provide_plan rejects forward references in dependsOn", async () => {
+      const r1 = await callText(client, "glyph_story_plan", {
+        intent: "x",
+        source: fixture,
+        planner_hint: "llm",
+      });
+      const planId = JSON.parse(r1.text).plan_id as string;
+      const r2 = await callText(client, "glyph_story_provide_plan", {
+        plan_id: planId,
+        nodes: [
+          { id: "a", kind: "describe", label: "x", args: {}, dependsOn: ["b"] },
+          { id: "b", kind: "describe", label: "y", args: {}, dependsOn: [] },
+        ],
+      });
+      expect(r2.isError).toBe(true);
+      expect(r2.text).toContain("unknown");
+    });
+
+    it("provide_plan rejects when the plan is not awaiting (already planned)", async () => {
+      const r1 = await callText(client, "glyph_story_plan", {
+        intent: "x",
+        source: fixture,
+      });
+      // No planner_hint — defaults to heuristic → status='planned'.
+      const planId = JSON.parse(r1.text).plan_id as string;
+      const r2 = await callText(client, "glyph_story_provide_plan", {
+        plan_id: planId,
+        nodes: [{ id: "a", kind: "describe", label: "x", args: {}, dependsOn: [] }],
+      });
+      expect(r2.isError).toBe(true);
+      expect(r2.text).toContain("not awaiting a planner");
+    });
+
+    it("glyph_story_execute refuses to run an awaiting plan", async () => {
+      const r1 = await callText(client, "glyph_story_plan", {
+        intent: "x",
+        source: fixture,
+        planner_hint: "llm",
+      });
+      const planId = JSON.parse(r1.text).plan_id as string;
+      const r2 = await callText(client, "glyph_story_execute", { plan_id: planId });
+      expect(r2.isError).toBe(true);
+      expect(r2.text).toContain("awaiting");
     });
   });
 

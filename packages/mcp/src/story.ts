@@ -122,7 +122,13 @@ export interface StoryPlan {
   readonly sources: ReadonlyArray<string>;
   readonly domain?: string | undefined;
   readonly createdAt: string;
-  status: "planned" | "running" | "complete" | "failed" | "refined";
+  /**
+   * PR69 (PLAN 1.1) — adds "awaiting_planner": the heuristic planner has
+   * been skipped because the host wants to supply a plan via
+   * `glyph_story_provide_plan`. The plan stays in this state until the
+   * host fulfills it; `glyph_story_execute` rejects awaiting plans.
+   */
+  status: "planned" | "running" | "complete" | "failed" | "refined" | "awaiting_planner";
   nodes: StoryNode[];
   storyboard?: StoryBoard | undefined;
   /** Append-only narrative log; useful for live streaming. */
@@ -404,6 +410,67 @@ function basePlan(
     checkpoints: [],
     ...(clarification_questions.length > 0 ? { clarification_questions } : {}),
   };
+}
+
+/**
+ * PR69 (PLAN 1.1) — Build a placeholder plan that the host will fulfill
+ * via `glyph_story_provide_plan`. No nodes; status="awaiting_planner".
+ * The schema + intent are recorded so the host LLM has full context.
+ */
+export function planStoryAwaitingHost(input: PlanInput): StoryPlan {
+  const id = `story_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+  return {
+    id,
+    intent: input.intent,
+    sources: [input.source],
+    ...(input.domain ? { domain: input.domain } : {}),
+    createdAt: new Date().toISOString(),
+    status: "awaiting_planner",
+    nodes: [],
+    checkpoints: [],
+  };
+}
+
+/**
+ * PR69 (PLAN 1.1) — validate a node list supplied by an LLM callback.
+ * Returns an error string when the shape is wrong, undefined on success.
+ * Mirrors the same guard the heuristic planner enforces.
+ */
+export function validateLLMNodes(nodes: unknown): string | undefined {
+  if (!Array.isArray(nodes)) return "nodes must be an array";
+  if (nodes.length === 0) return "nodes must contain at least one entry";
+  const seen = new Set<string>();
+  const allowedKinds = [
+    "describe",
+    "render",
+    "explain",
+    "anomaly",
+    "drift",
+    "forecast",
+    "annotate",
+  ];
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i];
+    if (!n || typeof n !== "object") return `nodes[${i}] must be an object`;
+    const node = n as Record<string, unknown>;
+    if (typeof node.id !== "string" || !node.id) return `nodes[${i}].id is required`;
+    if (seen.has(node.id)) return `nodes[${i}].id "${node.id}" is duplicated`;
+    seen.add(node.id);
+    if (typeof node.kind !== "string" || !allowedKinds.includes(node.kind)) {
+      return `nodes[${i}].kind must be one of ${allowedKinds.join(", ")}`;
+    }
+    if (typeof node.label !== "string" || !node.label) return `nodes[${i}].label is required`;
+    if (node.args === undefined || node.args === null || typeof node.args !== "object") {
+      return `nodes[${i}].args must be an object`;
+    }
+    if (!Array.isArray(node.dependsOn)) return `nodes[${i}].dependsOn must be an array`;
+    for (const dep of node.dependsOn) {
+      if (typeof dep !== "string" || !seen.has(dep)) {
+        return `nodes[${i}].dependsOn references unknown node "${dep}" (must be a previously-listed node id)`;
+      }
+    }
+  }
+  return undefined;
 }
 
 function titleForStory(

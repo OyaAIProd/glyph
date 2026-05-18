@@ -89,8 +89,13 @@ import {
   materializeSpec,
   synthesizeInlineDataHandle,
 } from "./state.js";
-import { executeStoryPlan, planStoryHeuristic } from "./story.js";
-import type { ColumnSummaryLike, StoryPlan } from "./story.js";
+import {
+  executeStoryPlan,
+  planStoryAwaitingHost,
+  planStoryHeuristic,
+  validateLLMNodes,
+} from "./story.js";
+import type { ColumnSummaryLike, StoryNode, StoryPlan } from "./story.js";
 import { buildWhyboard, diffWhyboards } from "./whyboard.js";
 
 export const SERVER_NAME = "glyph-mcp";
@@ -158,6 +163,8 @@ const MCP_TOOLS = [
   { name: "glyph_causal_graph", since: "0.0.15" },
   // ---- PR65 (D3 fix-ups, no-architecture-change) ----------------------
   { name: "glyph_regression", since: "0.0.16" },
+  // ---- PR69 (PLAN 1.1) — LLM-pluggable planner ------------------------
+  { name: "glyph_story_provide_plan", since: "0.0.17" },
 ] as const;
 
 /** Best-effort browser launcher. Returns true on success. */
@@ -1912,22 +1919,37 @@ export function createServer(state: ServerState = new ServerState()): {
           .describe(
             "Optional domain bias for the planner (e.g. 'saas-mrr', 'logistics'). Heuristic v0 records it; LLM-v1 would use it.",
           ),
+        planner_hint: z
+          .enum(["heuristic", "llm"])
+          .optional()
+          .describe(
+            "PR69 (PLAN 1.1) — when 'llm', skip the heuristic planner. The server returns a placeholder plan with status='awaiting_planner' plus the schema + intent context; the host LLM fulfills the plan by calling glyph_story_provide_plan(plan_id, nodes). Default: 'heuristic'.",
+          ),
       },
     },
-    async ({ intent, source, format, domain }) =>
+    async ({ intent, source, format, domain, planner_hint }) =>
       state.serial(async () => {
         try {
-          // Inspect the source so the planner knows the schema.
+          // Inspect the source so the planner (or the host LLM) knows the schema.
           const summary = (await runDescribeInternal(source)) as {
             columns?: ReadonlyArray<ColumnSummaryLike>;
           };
-          const plan = planStoryHeuristic({
-            intent,
-            source,
-            sourceFormat: format,
-            schema: summary.columns ?? [],
-            domain,
-          });
+          const plan =
+            planner_hint === "llm"
+              ? planStoryAwaitingHost({
+                  intent,
+                  source,
+                  sourceFormat: format,
+                  schema: summary.columns ?? [],
+                  domain,
+                })
+              : planStoryHeuristic({
+                  intent,
+                  source,
+                  sourceFormat: format,
+                  schema: summary.columns ?? [],
+                  domain,
+                });
           state.stories.set(plan);
           return {
             content: [
@@ -1951,6 +1973,14 @@ export function createServer(state: ServerState = new ServerState()): {
                     ...(plan.clarification_questions
                       ? { clarification_questions: plan.clarification_questions }
                       : {}),
+                    // PR69 (PLAN 1.1) — schema context for the host LLM
+                    // (only when awaiting). Empty otherwise.
+                    ...(plan.status === "awaiting_planner"
+                      ? {
+                          schema: summary.columns ?? [],
+                          hint: "Call glyph_story_provide_plan(plan_id, nodes) with the LLM's plan.",
+                        }
+                      : {}),
                   },
                   null,
                   2,
@@ -1965,6 +1995,91 @@ export function createServer(state: ServerState = new ServerState()): {
           };
         }
       }),
+  );
+
+  // ----- glyph_story_provide_plan (PR69 / PLAN 1.1) -------------------------
+  server.registerTool(
+    "glyph_story_provide_plan",
+    {
+      title: "Supply LLM-derived plan nodes for an awaiting story plan",
+      description:
+        "When `glyph_story_plan` was called with `planner_hint: 'llm'`, the plan starts in `awaiting_planner` state. The host LLM (which has just been handed the schema + intent) generates a node list and submits it here. The server validates the node shape, attaches the nodes to the plan, and flips status to 'planned' so `glyph_story_execute` will proceed.",
+      inputSchema: {
+        plan_id: z
+          .string()
+          .min(1)
+          .describe("The plan_id returned by glyph_story_plan with planner_hint='llm'."),
+        nodes: z
+          .array(z.unknown())
+          .min(1)
+          .describe(
+            "Array of StoryNode objects. Each must have { id, kind, label, args, dependsOn }. Allowed kinds: describe, render, explain, anomaly, drift, forecast, annotate. dependsOn references previously-listed node ids in topological order.",
+          ),
+      },
+    },
+    async ({ plan_id, nodes }) => {
+      const plan = state.stories.get(plan_id);
+      if (!plan) {
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `Unknown plan_id: ${plan_id}` }],
+        };
+      }
+      if (plan.status !== "awaiting_planner") {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text" as const,
+              text: `Plan ${plan_id} is not awaiting a planner (status: ${plan.status}). Use glyph_story_plan with planner_hint='llm' to enter awaiting state.`,
+            },
+          ],
+        };
+      }
+      const err = validateLLMNodes(nodes);
+      if (err) {
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `Invalid nodes: ${err}` }],
+        };
+      }
+      // Fill nodes with default status="pending" if not provided.
+      const fulfilled: StoryNode[] = (nodes as ReadonlyArray<Record<string, unknown>>).map((n) => ({
+        id: n.id as string,
+        kind: n.kind as StoryNode["kind"],
+        label: n.label as string,
+        args: (n.args as Record<string, unknown>) ?? {},
+        dependsOn: (n.dependsOn as ReadonlyArray<string>) ?? [],
+        status: (n.status as StoryNode["status"]) ?? "pending",
+      }));
+      const updated: StoryPlan = {
+        ...plan,
+        nodes: fulfilled,
+        status: "planned",
+      };
+      state.stories.set(updated);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                plan_id,
+                status: "planned",
+                nodes: fulfilled.map((n) => ({
+                  id: n.id,
+                  kind: n.kind,
+                  label: n.label,
+                  dependsOn: n.dependsOn,
+                })),
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    },
   );
 
   server.registerTool(
@@ -1983,6 +2098,19 @@ export function createServer(state: ServerState = new ServerState()): {
         return {
           isError: true,
           content: [{ type: "text" as const, text: `Unknown plan_id: ${plan_id}` }],
+        };
+      }
+      // PR69 (PLAN 1.1) — refuse to execute a plan still awaiting host
+      // fulfillment via glyph_story_provide_plan.
+      if (plan.status === "awaiting_planner") {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text" as const,
+              text: `Plan ${plan_id} is awaiting host-supplied nodes — call glyph_story_provide_plan(plan_id, nodes) first.`,
+            },
+          ],
         };
       }
       try {
