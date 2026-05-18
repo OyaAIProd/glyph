@@ -11,6 +11,7 @@
  *   - Default colors are picked deterministically from a small fixed palette.
  */
 
+import { type ContourGrid, marchingSquares, segmentsToPathD } from "../contour/index.js";
 import {
   type GeoFeature,
   type Topology,
@@ -43,6 +44,7 @@ import type {
   Encoding,
   GlyphSpec,
   GraphData,
+  GridData,
   HierarchyNode,
   InteractiveConfig,
 } from "../spec/types.js";
@@ -368,6 +370,11 @@ export function compileSpec(input: CompileInput): Scene {
   // the seeded force simulation and emits circle + line marks.
   if (spec.data?.graph) {
     return compileGraph(input);
+  }
+  // PR75 — 2D scalar-field grid for contour / density viz. Skips DuckDB;
+  // runs marching-squares and emits one path mark per threshold.
+  if (spec.data?.grid) {
+    return compileContour(input);
   }
   const width = spec.width ?? DEFAULT_WIDTH;
   const height = spec.height ?? DEFAULT_HEIGHT;
@@ -1140,6 +1147,100 @@ function compileGraph(input: CompileInput): Scene {
       cy: p.y,
       r: p.r,
       fill,
+    });
+  }
+
+  const uncertainty = deriveUncertainty(input.provenance, spec.interactive);
+
+  return {
+    width,
+    height,
+    background: theme.background,
+    plotArea,
+    axes: [],
+    marks,
+    ...(spec.title ? { title: spec.title } : {}),
+    ...(uncertainty ? { uncertainty } : {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// PR75 — Contour / density (D3 Gap 4)
+// ---------------------------------------------------------------------------
+
+/**
+ * Compile a spec whose data is a 2D scalar-field grid. Runs marching
+ * squares at each threshold in `spec.thresholds` (defaults to the
+ * grid's 50th percentile when unset) and emits one `path` SceneMark
+ * per threshold, scaled to the plot area.
+ *
+ * Determinism: marching squares is pure-fn; same grid + thresholds →
+ * same SVG bytes.
+ */
+function compileContour(input: CompileInput): Scene {
+  const { spec } = input;
+  const grid = spec.data?.grid as GridData | undefined;
+  if (!grid) throw new Error("compileContour called without spec.data.grid");
+  const width = spec.width ?? DEFAULT_WIDTH;
+  const height = spec.height ?? DEFAULT_HEIGHT;
+  const theme = resolveTheme(spec.theme);
+  const inset = 16;
+  const plotArea = input.plotAreaOverride ?? {
+    x: inset,
+    y: inset,
+    width: width - inset * 2,
+    height: height - inset * 2,
+  };
+  if (spec.layers.length === 0) throw new Error("Spec has no layers");
+  const layer = spec.layers[0];
+  if (!layer || layer.mark !== "contour") {
+    throw new Error(
+      `Grid data shape requires a "contour" mark on the first layer, got "${layer?.mark}".`,
+    );
+  }
+
+  // Default thresholds: a single isoline at the median of the grid.
+  const defaultThresholds = (): number[] => {
+    const sorted = [...grid.values].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
+    return [median];
+  };
+  const thresholds = spec.thresholds ?? defaultThresholds();
+
+  // Cell-to-pixel scale: the grid's (col, row) span maps to the plot area.
+  const cellW = plotArea.width / Math.max(1, grid.cols - 1);
+  const cellH = plotArea.height / Math.max(1, grid.rows - 1);
+  const scaleFn = (cx: number, cy: number) => ({
+    x: roundPx(plotArea.x + cx * cellW),
+    y: roundPx(plotArea.y + cy * cellH),
+  });
+
+  const marks: SceneMark[] = [];
+  const palette = theme.marks;
+  // Group segments by threshold so each isoline gets one path element.
+  const segments = marchingSquares(
+    { rows: grid.rows, cols: grid.cols, values: grid.values } as ContourGrid,
+    thresholds,
+  );
+  const byThreshold = new Map<number, (typeof segments)[number][]>();
+  for (const s of segments) {
+    const bucket = byThreshold.get(s.threshold);
+    if (bucket) bucket.push(s);
+    else byThreshold.set(s.threshold, [s]);
+  }
+  // Emit in input-threshold order for determinism.
+  for (let i = 0; i < thresholds.length; i++) {
+    const t = thresholds[i];
+    if (t === undefined || !Number.isFinite(t)) continue;
+    const segs = byThreshold.get(t) ?? [];
+    if (segs.length === 0) continue;
+    const d = segmentsToPathD(segs, scaleFn);
+    marks.push({
+      type: "path",
+      d,
+      stroke: palette[i % palette.length] ?? "#000",
+      strokeWidth: 1.5,
+      fill: "none",
     });
   }
 

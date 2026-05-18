@@ -76,6 +76,14 @@ export interface HierarchyNode {
   readonly children?: ReadonlyArray<HierarchyNode>;
 }
 
+/** PR75 (D3 Gap 4) — inline 2D scalar-field grid for contour viz. */
+export interface GridData {
+  readonly rows: number;
+  readonly cols: number;
+  /** Row-major: cell (r, c) = values[r * cols + c]. */
+  readonly values: ReadonlyArray<number>;
+}
+
 /** PR68 (D3 Gap 5) — inline graph data for force-directed layouts. */
 export interface GraphData {
   readonly nodes: ReadonlyArray<{

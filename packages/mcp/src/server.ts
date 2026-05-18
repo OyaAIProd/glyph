@@ -371,7 +371,7 @@ export function createServer(state: ServerState = new ServerState()): {
           // PR67 / PR68 — hierarchy and graph data both bypass DuckDB.
           // Use the deterministic synthesizer (no `new Date()`, no fake
           // provenance — see B1 from PR review).
-          if (parsed.spec.data?.hierarchy || parsed.spec.data?.graph) {
+          if (parsed.spec.data?.hierarchy || parsed.spec.data?.graph || parsed.spec.data?.grid) {
             m = synthesizeInlineDataHandle(
               state.sessionId,
               state.nextInlineDataCounter(),
@@ -2847,7 +2847,7 @@ export function createServer(state: ServerState = new ServerState()): {
       // PR67 / PR68 — hierarchy and graph patches bypass DuckDB just like
       // their initial render did (B2 from PR review).
       const m =
-        reparse.spec.data?.hierarchy || reparse.spec.data?.graph
+        reparse.spec.data?.hierarchy || reparse.spec.data?.graph || reparse.spec.data?.grid
           ? synthesizeInlineDataHandle(state.sessionId, state.nextInlineDataCounter(), reparse.spec)
           : await materializeSpec(engine, reparse.spec, {
               sessionId: state.sessionId,
@@ -3193,7 +3193,7 @@ export function createServer(state: ServerState = new ServerState()): {
           // Both specs must materialize independently. Hierarchy/graph
           // specs use the synthesizer (same code path as glyph_render).
           const mA =
-            parsedA.spec.data?.hierarchy || parsedA.spec.data?.graph
+            parsedA.spec.data?.hierarchy || parsedA.spec.data?.graph || parsedA.spec.data?.grid
               ? synthesizeInlineDataHandle(
                   state.sessionId,
                   state.nextInlineDataCounter(),
@@ -3205,7 +3205,7 @@ export function createServer(state: ServerState = new ServerState()): {
                   metricResolver: (name) => state.getMetric(name),
                 });
           const mB =
-            parsedB.spec.data?.hierarchy || parsedB.spec.data?.graph
+            parsedB.spec.data?.hierarchy || parsedB.spec.data?.graph || parsedB.spec.data?.grid
               ? synthesizeInlineDataHandle(
                   state.sessionId,
                   state.nextInlineDataCounter(),

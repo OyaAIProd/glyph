@@ -2012,6 +2012,60 @@ describe("Glyph MCP server", () => {
     });
   });
 
+  describe("contour rendering (PR75 / D3 Gap 4)", () => {
+    it("renders a 4×4 grid contour as a path mark for each threshold", async () => {
+      // A simple gradient grid: 16 values from 0..15.
+      const r = await callText(client, "glyph_render", {
+        spec: {
+          data: {
+            grid: {
+              rows: 4,
+              cols: 4,
+              values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+            },
+          },
+          layers: [{ mark: "contour", encoding: {} }],
+          thresholds: [3.5, 7.5, 11.5],
+        },
+      });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.text);
+      // Three thresholds → at least 3 path marks (one per threshold band).
+      const pathMatches = (out.svg as string).match(/<path /g) ?? [];
+      expect(pathMatches.length).toBeGreaterThanOrEqual(3);
+      // Each path contains M..L segments from marching squares.
+      expect(out.svg).toContain("M ");
+      expect(out.svg).toContain(" L ");
+    });
+
+    it("falls back to a median-of-grid threshold when none supplied", async () => {
+      const r = await callText(client, "glyph_render", {
+        spec: {
+          data: {
+            grid: { rows: 3, cols: 3, values: [0, 1, 2, 1, 5, 1, 2, 1, 0] },
+          },
+          layers: [{ mark: "contour", encoding: {} }],
+        },
+      });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.text);
+      const pathMatches = (out.svg as string).match(/<path /g) ?? [];
+      // One default threshold (median = 1) — emit at least one path.
+      expect(pathMatches.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("rejects a non-contour mark with a grid data shape", async () => {
+      const r = await callText(client, "glyph_render", {
+        spec: {
+          data: { grid: { rows: 2, cols: 2, values: [0, 1, 1, 0] } },
+          layers: [{ mark: "bar", encoding: { x: "x", y: "y" } }],
+        },
+      });
+      expect(r.isError).toBe(true);
+      expect(r.text).toContain("contour");
+    });
+  });
+
   describe("glyph_morph_render (PR74 / D3 Gap 3)", () => {
     it("returns an SVG with SMIL <animate> tags morphing between two specs", async () => {
       const r = await callText(client, "glyph_morph_render", {

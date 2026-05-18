@@ -40,6 +40,19 @@ export const HierarchyNodeSchema: z.ZodType<any> = z.lazy(() =>
 );
 
 /**
+ * PR75 — D3 Gap 4: 2D scalar-field grid for contour / density viz.
+ * `values` is row-major: cell (r, c) = values[r * cols + c]. Combine
+ * with `mark: "contour"` + `thresholds` to render isolines.
+ */
+export const GridDataSchema = z
+  .object({
+    rows: z.number().int().min(2),
+    cols: z.number().int().min(2),
+    values: z.array(z.number()).min(4),
+  })
+  .strict();
+
+/**
  * PR68 — D3 Gap 5: graph data shape. Inline node/edge list for the
  * force-directed layout. Nodes carry a stable `id`; edges reference
  * those ids. The `seed` field (set on the spec, not here) is what
@@ -106,11 +119,21 @@ export const DataSourceSchema = z
      * dispatches to `compileGraph`. Pair with `mark: "force"`.
      */
     graph: GraphDataSchema.optional(),
+    /**
+     * PR75 (D3 Gap 4) — inline 2D scalar-field grid for contour / density
+     * viz. When set, the compiler skips DuckDB and dispatches to
+     * `compileContour`. Pair with `mark: "contour"` and `thresholds`.
+     */
+    grid: GridDataSchema.optional(),
   })
   .strict()
   .refine(
-    (d) => d.source !== undefined || d.hierarchy !== undefined || d.graph !== undefined,
-    "data needs a 'source', 'hierarchy', or 'graph'",
+    (d) =>
+      d.source !== undefined ||
+      d.hierarchy !== undefined ||
+      d.graph !== undefined ||
+      d.grid !== undefined,
+    "data needs a 'source', 'hierarchy', 'graph', or 'grid'",
   );
 
 // ---------------------------------------------------------------------------
@@ -151,6 +174,10 @@ export const MarkSchema = z.enum([
   // PR68 (D3 Gap 5) — force-directed graph. Reads spec.data.graph,
   // runs simulateForce, emits one circle per node + one line per edge.
   "force",
+  // PR75 (D3 Gap 4) — contour isolines over a 2D scalar field. Reads
+  // spec.data.grid + spec.thresholds, runs marching-squares, emits one
+  // path mark per threshold.
+  "contour",
 ]);
 
 /**
@@ -502,6 +529,12 @@ export const GlyphSpecSchema = z
      * agents can A/B-test different layouts of the same graph.
      */
     seed: z.number().int().optional(),
+    /**
+     * PR75 (D3 Gap 4) — isovalue thresholds for contour rendering. When
+     * `mark: "contour"` is set, each threshold produces a separate path
+     * tracing the isoline. Default: [50th percentile of grid values].
+     */
+    thresholds: z.array(z.number()).optional(),
     /**
      * GeoJSON FeatureCollection used by `geo-region` marks. Each feature's
      * `properties[idField]` (default: `id`) is matched against the layer's

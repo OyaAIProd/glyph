@@ -27,4 +27,5 @@ export * from "./spec-diff/index.js";
 export * from "./audit/index.js";
 export * from "./stats/index.js";
 export * from "./layout/index.js";
+export * from "./contour/index.js";
 export { powScale, quantileScale, thresholdScale } from "./compiler/scales.js";

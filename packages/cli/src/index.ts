@@ -85,7 +85,7 @@ async function cmdRender(args: string[]): Promise<number> {
 
   // PR67 / PR68 — hierarchy and graph data both bypass DuckDB.
   let svg: string;
-  if (spec.data?.hierarchy || spec.data?.graph) {
+  if (spec.data?.hierarchy || spec.data?.graph || spec.data?.grid) {
     svg = renderSvg(compileSpec({ spec, rows: [], schema: [] }));
   } else {
     svg = await withEngine(async (engine) => {
