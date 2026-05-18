@@ -76,7 +76,7 @@ describe("Glyph MCP server", () => {
     rmSync(tempMemoryDir, { recursive: true, force: true });
   });
 
-  it("lists the forty-four tools", async () => {
+  it("lists the forty-five tools", async () => {
     const r = await client.listTools();
     const names = r.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -110,6 +110,7 @@ describe("Glyph MCP server", () => {
       "glyph_preview",
       "glyph_publish",
       "glyph_query",
+      "glyph_regression",
       "glyph_render",
       "glyph_spec_diff",
       "glyph_spec_patch",
@@ -166,6 +167,7 @@ describe("Glyph MCP server", () => {
       "glyph_preview",
       "glyph_publish",
       "glyph_query",
+      "glyph_regression",
       "glyph_render",
       "glyph_spec_diff",
       "glyph_spec_patch",
@@ -1865,6 +1867,38 @@ describe("Glyph MCP server", () => {
         board_b: { not_a_board: true },
       });
       expect(d.isError).toBe(true);
+    });
+  });
+
+  describe("glyph_regression (PR65 D3 fix-ups)", () => {
+    it("returns a fit over a rendered handle's rows", async () => {
+      const r1 = await callText(client, "glyph_render", {
+        spec: {
+          data: { source: fixture, format: "csv" },
+          layers: [{ mark: "point", encoding: { x: "pickup_hour", y: "rides" } }],
+        },
+      });
+      const handle_id = JSON.parse(r1.text).handle_id as string;
+      const r = await callText(client, "glyph_regression", {
+        handle_id,
+        x: "pickup_hour",
+        y: "rides",
+      });
+      expect(r.isError).toBe(false);
+      const out = JSON.parse(r.text);
+      expect(typeof out.slope).toBe("number");
+      expect(typeof out.intercept).toBe("number");
+      expect(out.line.length).toBe(2);
+      expect(out.n).toBeGreaterThan(0);
+    });
+
+    it("rejects unknown handle_id", async () => {
+      const r = await callText(client, "glyph_regression", {
+        handle_id: "nope",
+        x: "x",
+        y: "y",
+      });
+      expect(r.isError).toBe(true);
     });
   });
 

@@ -413,22 +413,41 @@ These four items together close ~25% of the plan in one PR. The remaining 12 ite
 
 | Item | Status | PR | Notes |
 |---|---|---|---|
-| 1.1 LLM planner | ⏳ planned | — | Batch C |
-| 1.2 Streaming | ⏳ planned | — | Batch F |
+| 1.1 LLM planner | ⏸ deferred | — | Decision point: requires host-supplied LLM callback contract; needs design review before implementation. Skipped this session per scope. |
+| 1.2 Streaming | ⏸ deferred | — | MCP-transport refactor; risk-heavy. Skipped this session — backward-compat path is unclear and existing verbs already return fast for normal payloads. |
 | 1.3 Budget management | ✅ this PR | 60 | starter batch |
 | 1.4 Disambiguation | ✅ PR62 | 62 | Heuristic planner emits `clarification_questions`; `glyph_story_clarify` pins answers onto the plan. |
-| 1.5 Engagement signals | ⏳ planned | — | Batch F |
+| 1.5 Engagement signals | ⏸ deferred | — | Telemetry tone shift — needs clear "local-only / opt-in / never phones home" framing in marketing before code lands. Per PLAN.md "Decision 1". |
 | 1.6 Handle TTL | ✅ this PR | 60 | starter batch |
 | 1.7 Spec diff | ✅ this PR | 60 | starter batch |
 | 1.8 Spec patch | ✅ PR62 | 62 | RFC 6902 applier in `@glyph/core/spec-diff/patch.ts`; `glyph_spec_patch` re-runs pipeline + emits new handle. |
-| 2.1 Multi-modal sync | ⏳ planned | — | Batch D (needs 1.7) |
+| 2.1 Multi-modal sync | ⏸ deferred | — | UI work in @glyph/preview-server — needs design + visual review before code lands. Server-side hooks already in place (link_group bus). |
 | 2.2 Chart auditing | ✅ PR63 | 63 | `@glyph/core/audit` with 8 implemented rules (truncated y, log disclosure, dual-axis, excessive aggregation, diverging palette midpoint, color count, aspect ratio, stacked negatives). `glyph_audit_spec` verb. |
 | 2.3 Uncertainty rendering | ✅ PR61 | 61 | hatched bars + dim points + corner badge; provenance plumbed through compileSpec; opt-out via spec.interactive.uncertainty=false |
 | 2.4 Multi-agent compare | ✅ PR62 | 62 | `diffWhyboards` pure-fn; `glyph_whyboard_diff` verb. Compare two agents' Whyboards branch-by-branch. |
-| 2.5 Workflow capture | ⏳ planned | — | Batch C |
+| 2.5 Workflow capture | ⏸ deferred | — | Replay semantics need careful design — MCP verb signatures evolve and macros must remain idempotent. Audit log substrate (PR40) is already in place. |
 | 2.6 Scale tuning | ✅ this PR | 60 | starter batch |
 | 2.7 Causal-aware viz | ✅ PR64 | 64 | `causal_of` field on MetricDefinition; `buildCausalGraph` pure-fn with cycle detection; `glyph_causal_graph` verb. |
 | 2.8 Spec-as-code CI | ✅ PR64 | 64 | `glyph diff` CLI subcommand with unified diff + HTML/MD output; GitHub Action template under .github/actions/glyph-visual-diff/. |
+
+---
+
+## D3 fix-ups (PR65) — closing gaps without architecture changes
+
+The D3-COMPARISON.md "right call" is to *not* chase gallery coverage at the cost of Glyph's invariants. PR65 ships the same-architecture wins only:
+
+| Item | Status | Notes |
+|---|---|---|
+| `powScale` (pow(0.5)/pow(2)/pow(3)) | ✅ PR65 | Sign-preserving for negative domains. Replaces ad-hoc sqrt callsites. |
+| `thresholdScale` | ✅ PR65 | Explicit-breakpoint bucketing for color encoding (`[0, 25, 50, 75, 100] → 4 buckets`). |
+| `quantileScale` | ✅ PR65 | Sample-based rank bucketing. |
+| `linearRegression` (OLS) | ✅ PR65 | Pure-fn fit returning slope, intercept, R², and two endpoints to render as an overlay layer. |
+| `glyph_regression` MCP verb | ✅ PR65 | Server-side wrapper over a handle's rows. |
+| polar coords (Gap 1) | ❌ skip | Architectural — needs new spec field + scale type + mark type. Per user constraint. |
+| hierarchy data shape (Gap 2) | ❌ skip | Architectural — needs new data shape on DataHandle. Per user constraint. |
+| force / contour / morph / 3D / custom marks | ❌ skip | All architectural — see D3-COMPARISON.md "right call". |
+
+The deliberately-skipped marks (ribbon, errorbar standalone, step-line, slope, bump, beeswarm, hexbin) can each be added in single-PR follow-ups when a real use-case demands them — none requires architectural changes. Each is ~50–150 LOC.
 
 ---
 

@@ -25,3 +25,5 @@ export * from "./geo/index.js";
 export * from "./scales-suggest/index.js";
 export * from "./spec-diff/index.js";
 export * from "./audit/index.js";
+export * from "./stats/index.js";
+export { powScale, quantileScale, thresholdScale } from "./compiler/scales.js";

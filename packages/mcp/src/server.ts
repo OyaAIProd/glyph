@@ -66,6 +66,7 @@ import {
   explainHandle,
   getCapabilities,
   isTranslateError,
+  linearRegression,
   renderSvg,
   safeParseSpec,
   seasonalNaiveForecast,
@@ -150,6 +151,8 @@ const MCP_TOOLS = [
   { name: "glyph_audit_spec", since: "0.0.14" },
   // ---- PR64 (PLAN.md item 2.7) — causal-aware viz ----------------------
   { name: "glyph_causal_graph", since: "0.0.15" },
+  // ---- PR65 (D3 fix-ups, no-architecture-change) ----------------------
+  { name: "glyph_regression", since: "0.0.16" },
 ] as const;
 
 /** Best-effort browser launcher. Returns true on success. */
@@ -2710,6 +2713,55 @@ export function createServer(state: ServerState = new ServerState()): {
         };
       }
     },
+  );
+
+  // ----- glyph_regression (PR65 / D3 fix-ups) -------------------------------
+  // Linear OLS regression over a handle's rows. Returns slope + intercept +
+  // R² + the two endpoints for plotting an overlay line. Compose via a
+  // multi-layer spec: bars + a `mark: "line"` layer driven by the result.
+  server.registerTool(
+    "glyph_regression",
+    {
+      title: "Linear-regression fit over a handle's rows (D3 fix-ups, PR65)",
+      description:
+        "Compute an OLS linear fit (slope, intercept, R²) over the rows of an existing handle. Returns the two endpoint coordinates a `line` layer can render as an overlay. Pure-fn; deterministic.",
+      inputSchema: {
+        handle_id: z.string().min(1).describe("The handle whose rows to fit."),
+        x: z.string().min(1).describe("Column name for the predictor (x)."),
+        y: z.string().min(1).describe("Column name for the response (y)."),
+      },
+    },
+    async ({ handle_id, x, y }) =>
+      state.serial(async () => {
+        const handle = state.getHandle(handle_id);
+        if (!handle) {
+          return {
+            isError: true,
+            content: [{ type: "text" as const, text: `Unknown handle_id ${handle_id}` }],
+          };
+        }
+        const engine = await state.getEngine();
+        const result = await engine.queryHandle(handle, "");
+        const fit = linearRegression(result.rows, handle.schema, x, y);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  slope: fit.slope,
+                  intercept: fit.intercept,
+                  r2: fit.r2,
+                  n: fit.n,
+                  line: fit.line(),
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }),
   );
 
   // ----- glyph_causal_graph (PR64 / PLAN item 2.7) --------------------------
