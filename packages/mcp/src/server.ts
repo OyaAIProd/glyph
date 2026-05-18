@@ -3133,23 +3133,27 @@ export function createServer(state: ServerState = new ServerState()): {
     {
       title: "Query local engagement signals",
       description:
-        "Read engagement events from the local ~/.glyph/memory.duckdb file. Supports filtering by handle_id, by kind, or aggregating per-handle counts. Always local — no network surface.",
+        "Read engagement events from the local ~/.glyph/memory.duckdb file. Supports filtering by handle_id, by kind, or aggregating per-handle counts. Always local — no network surface.\n\nRow limit defaults to 200 and caps at 10_000. The cap is intentionally larger than the audit log's 500 because engagement events fire on every user gesture and accumulate ~10× faster; serializing 10_000 rows as JSON stays under typical MCP message limits (~1 MB).",
       inputSchema: {
         handle_id: z
           .string()
           .optional()
-          .describe("Filter to events for this handle. Omit to query all handles."),
+          .describe(
+            "Filter to events for this handle. Omit to query all handles. Ignored when aggregate=true (use the result's per-handle rows instead).",
+          ),
         kind: z
           .string()
           .optional()
-          .describe("Filter to events of this kind ('view' | 'click' | 'focus' | ...)."),
+          .describe(
+            "Filter to events of this kind ('view' | 'click' | 'focus' | ...). Ignored when aggregate=true.",
+          ),
         limit: z
           .number()
           .int()
           .min(1)
           .max(10_000)
           .optional()
-          .describe("Cap on returned rows. Default 200."),
+          .describe("Cap on returned rows. Default 200, max 10_000."),
         aggregate: z
           .boolean()
           .optional()
@@ -3162,6 +3166,20 @@ export function createServer(state: ServerState = new ServerState()): {
       state.serial(async () => {
         const engine = await state.getEngine();
         if (aggregate) {
+          // Reject filters under aggregate=true rather than silently dropping
+          // them — would otherwise look like the filter applied when it didn't
+          // (PR71 review nit).
+          if (handle_id !== undefined || kind !== undefined || limit !== undefined) {
+            return {
+              isError: true,
+              content: [
+                {
+                  type: "text" as const,
+                  text: "glyph_engagement_query: aggregate=true does not support handle_id / kind / limit filters yet. Drop those args, or set aggregate=false to use them.",
+                },
+              ],
+            };
+          }
           const rows = await state.memory.aggregateEngagement(engine);
           return {
             content: [

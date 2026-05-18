@@ -2085,6 +2085,45 @@ describe("Glyph MCP server", () => {
       expect(list.count).toBe(1);
       expect(list.rows[0].kind).toBe("click");
     });
+
+    it("filter by kind alone (no handle_id) spans every handle", async () => {
+      // Two different handles, same kind — both must come back when filtering
+      // by kind only (PR71 review nit on missing coverage).
+      await callText(client, "glyph_engagement_record", {
+        handle_id: "h_kind_a",
+        kind: "scroll",
+      });
+      await callText(client, "glyph_engagement_record", {
+        handle_id: "h_kind_b",
+        kind: "scroll",
+      });
+      const q = await callText(client, "glyph_engagement_query", { kind: "scroll" });
+      const list = JSON.parse(q.text);
+      const handles = new Set(
+        (list.rows as ReadonlyArray<{ handleId: string }>).map((r) => r.handleId),
+      );
+      expect(handles.has("h_kind_a")).toBe(true);
+      expect(handles.has("h_kind_b")).toBe(true);
+    });
+
+    it("rejects limit > 10000 with a clean Zod error", async () => {
+      const r = await callText(client, "glyph_engagement_query", { limit: 10_001 });
+      expect(r.isError).toBe(true);
+    });
+
+    it("accepts limit = 10000 (boundary)", async () => {
+      const r = await callText(client, "glyph_engagement_query", { limit: 10_000 });
+      expect(r.isError).toBeFalsy();
+    });
+
+    it("aggregate=true with filters returns a clear error rather than ignoring them", async () => {
+      const r = await callText(client, "glyph_engagement_query", {
+        aggregate: true,
+        handle_id: "h_x",
+      });
+      expect(r.isError).toBe(true);
+      expect(r.text).toContain("does not support");
+    });
   });
 
   describe("glyph_macro_replay (PR70 / PLAN 2.5)", () => {
