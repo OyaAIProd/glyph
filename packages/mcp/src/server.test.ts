@@ -2129,8 +2129,10 @@ describe("Glyph MCP server", () => {
       const r2 = await callText(client, "glyph_story_provide_plan", {
         plan_id: planId,
         nodes: [
-          { id: "a", kind: "describe", label: "x", args: {}, dependsOn: [] },
-          { id: "a", kind: "describe", label: "y", args: {}, dependsOn: [] },
+          // Both nodes carry valid args so the per-kind contract passes
+          // — the duplicate-id guard is what we're testing here.
+          { id: "a", kind: "describe", label: "x", args: { source: "x.csv" }, dependsOn: [] },
+          { id: "a", kind: "describe", label: "y", args: { source: "x.csv" }, dependsOn: [] },
         ],
       });
       expect(r2.isError).toBe(true);
@@ -2147,8 +2149,8 @@ describe("Glyph MCP server", () => {
       const r2 = await callText(client, "glyph_story_provide_plan", {
         plan_id: planId,
         nodes: [
-          { id: "a", kind: "describe", label: "x", args: {}, dependsOn: ["b"] },
-          { id: "b", kind: "describe", label: "y", args: {}, dependsOn: [] },
+          { id: "a", kind: "describe", label: "x", args: { source: "x.csv" }, dependsOn: ["b"] },
+          { id: "b", kind: "describe", label: "y", args: { source: "x.csv" }, dependsOn: [] },
         ],
       });
       expect(r2.isError).toBe(true);
@@ -2180,6 +2182,113 @@ describe("Glyph MCP server", () => {
       const r2 = await callText(client, "glyph_story_execute", { plan_id: planId });
       expect(r2.isError).toBe(true);
       expect(r2.text).toContain("awaiting");
+    });
+
+    it("provide_plan rejects an unknown plan_id", async () => {
+      const r = await callText(client, "glyph_story_provide_plan", {
+        plan_id: "nope",
+        nodes: [
+          { id: "a", kind: "describe", label: "x", args: { source: "x.csv" }, dependsOn: [] },
+        ],
+      });
+      expect(r.isError).toBe(true);
+      expect(r.text).toContain("Unknown plan_id");
+    });
+
+    it("provide_plan rejects self-dependency", async () => {
+      const r1 = await callText(client, "glyph_story_plan", {
+        intent: "x",
+        source: fixture,
+        planner_hint: "llm",
+      });
+      const planId = JSON.parse(r1.text).plan_id as string;
+      const r2 = await callText(client, "glyph_story_provide_plan", {
+        plan_id: planId,
+        nodes: [
+          { id: "a", kind: "describe", label: "x", args: { source: "x.csv" }, dependsOn: ["a"] },
+        ],
+      });
+      expect(r2.isError).toBe(true);
+      expect(r2.text).toContain("itself");
+    });
+
+    it("provide_plan rejects a render node missing args.spec", async () => {
+      const r1 = await callText(client, "glyph_story_plan", {
+        intent: "x",
+        source: fixture,
+        planner_hint: "llm",
+      });
+      const planId = JSON.parse(r1.text).plan_id as string;
+      const r2 = await callText(client, "glyph_story_provide_plan", {
+        plan_id: planId,
+        nodes: [
+          // Missing args.spec — would crash deep inside the executor without this check.
+          { id: "r", kind: "render", label: "render", args: {}, dependsOn: [] },
+        ],
+      });
+      expect(r2.isError).toBe(true);
+      expect(r2.text).toContain("args.spec");
+    });
+
+    it("provide_plan rejects an anomaly node missing args.valueField", async () => {
+      const r1 = await callText(client, "glyph_story_plan", {
+        intent: "x",
+        source: fixture,
+        planner_hint: "llm",
+      });
+      const planId = JSON.parse(r1.text).plan_id as string;
+      const r2 = await callText(client, "glyph_story_provide_plan", {
+        plan_id: planId,
+        nodes: [
+          {
+            id: "a",
+            kind: "anomaly",
+            label: "anom",
+            args: { handle_from: "n1" }, // valueField missing
+            dependsOn: [],
+          },
+        ],
+      });
+      expect(r2.isError).toBe(true);
+      expect(r2.text).toContain("valueField");
+    });
+
+    it("LLM-supplied plan executes end-to-end through glyph_story_execute", async () => {
+      const r1 = await callText(client, "glyph_story_plan", {
+        intent: "show me taxi rides",
+        source: fixture,
+        planner_hint: "llm",
+      });
+      const planId = JSON.parse(r1.text).plan_id as string;
+      const r2 = await callText(client, "glyph_story_provide_plan", {
+        plan_id: planId,
+        nodes: [
+          {
+            id: "n_describe",
+            kind: "describe",
+            label: "inspect",
+            args: { source: fixture },
+            dependsOn: [],
+          },
+          {
+            id: "n_render",
+            kind: "render",
+            label: "bar chart",
+            args: {
+              spec: {
+                data: { source: fixture, format: "csv" },
+                layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+              },
+            },
+            dependsOn: ["n_describe"],
+          },
+        ],
+      });
+      expect(r2.isError).toBe(false);
+      const r3 = await callText(client, "glyph_story_execute", { plan_id: planId });
+      expect(r3.isError).toBe(false);
+      const out = JSON.parse(r3.text);
+      expect(out.status).toBe("complete");
     });
   });
 

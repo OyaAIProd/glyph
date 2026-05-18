@@ -434,7 +434,14 @@ export function planStoryAwaitingHost(input: PlanInput): StoryPlan {
 /**
  * PR69 (PLAN 1.1) — validate a node list supplied by an LLM callback.
  * Returns an error string when the shape is wrong, undefined on success.
- * Mirrors the same guard the heuristic planner enforces.
+ *
+ * Catches at provide-plan time:
+ *   - shape errors (missing/typed id, kind, label, args, dependsOn)
+ *   - duplicate ids
+ *   - self-dependency (`dependsOn: [own-id]`)
+ *   - forward-reference (dep id not previously listed → not topo-ordered)
+ *   - kind-specific args fields the executor actually reads (so a bad
+ *     plan fails at provide_plan, not deep in glyph_story_execute).
  */
 export function validateLLMNodes(nodes: unknown): string | undefined {
   if (!Array.isArray(nodes)) return "nodes must be an array";
@@ -455,9 +462,11 @@ export function validateLLMNodes(nodes: unknown): string | undefined {
     const node = n as Record<string, unknown>;
     if (typeof node.id !== "string" || !node.id) return `nodes[${i}].id is required`;
     if (seen.has(node.id)) return `nodes[${i}].id "${node.id}" is duplicated`;
-    seen.add(node.id);
-    if (typeof node.kind !== "string" || !allowedKinds.includes(node.kind)) {
-      return `nodes[${i}].kind must be one of ${allowedKinds.join(", ")}`;
+    // Validate `kind` BEFORE marking the id seen, so error messages stay
+    // crisp (`kind is required` vs. `unknown kind`).
+    if (typeof node.kind !== "string") return `nodes[${i}].kind is required`;
+    if (!allowedKinds.includes(node.kind)) {
+      return `nodes[${i}].kind must be one of ${allowedKinds.join(", ")}, got "${node.kind}"`;
     }
     if (typeof node.label !== "string" || !node.label) return `nodes[${i}].label is required`;
     if (node.args === undefined || node.args === null || typeof node.args !== "object") {
@@ -465,12 +474,63 @@ export function validateLLMNodes(nodes: unknown): string | undefined {
     }
     if (!Array.isArray(node.dependsOn)) return `nodes[${i}].dependsOn must be an array`;
     for (const dep of node.dependsOn) {
-      if (typeof dep !== "string" || !seen.has(dep)) {
+      if (typeof dep !== "string") {
+        return `nodes[${i}].dependsOn entries must be strings`;
+      }
+      if (dep === node.id) {
+        return `nodes[${i}].dependsOn cannot reference the node itself ("${dep}")`;
+      }
+      if (!seen.has(dep)) {
         return `nodes[${i}].dependsOn references unknown node "${dep}" (must be a previously-listed node id)`;
       }
     }
+    // Per-kind args contract.
+    const argErr = validateNodeArgs(node.kind, node.args as Record<string, unknown>, i);
+    if (argErr) return argErr;
+    seen.add(node.id);
   }
   return undefined;
+}
+
+/**
+ * PR69 — per-kind args contract enforced by validateLLMNodes. Mirrors
+ * the fields each kind's executor case actually reads, so an LLM-
+ * supplied plan with missing required args fails at provide_plan rather
+ * than crashing mid-execute.
+ */
+function validateNodeArgs(
+  kind: string,
+  args: Record<string, unknown>,
+  index: number,
+): string | undefined {
+  const requireStr = (key: string): string | undefined =>
+    typeof args[key] === "string" && (args[key] as string).length > 0
+      ? undefined
+      : `nodes[${index}].args.${key} is required for kind "${kind}"`;
+  const requireObj = (key: string): string | undefined =>
+    args[key] !== undefined && args[key] !== null && typeof args[key] === "object"
+      ? undefined
+      : `nodes[${index}].args.${key} (object) is required for kind "${kind}"`;
+  switch (kind) {
+    case "describe":
+      return requireStr("source");
+    case "render":
+      return requireObj("spec");
+    case "explain":
+    case "drift":
+      return requireStr("handle_from");
+    case "anomaly":
+      return requireStr("handle_from") ?? requireStr("valueField");
+    case "forecast":
+      return requireStr("handle_from") ?? requireStr("xField") ?? requireStr("yField");
+    case "annotate":
+      // annotate's executor accepts flexible args (intent, mainPanelLabel,
+      // hasChart) — none are strictly required.
+      return undefined;
+    default:
+      // Unknown kind is rejected earlier; defensive return for completeness.
+      return undefined;
+  }
 }
 
 function titleForStory(
