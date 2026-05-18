@@ -57,6 +57,7 @@ import {
   type JsonPatchOp,
   applyJsonPatch,
   attributeDrift,
+  auditSpec,
   compileSpec,
   decomposeVariance,
   detectAnomalies,
@@ -144,6 +145,8 @@ const MCP_TOOLS = [
   { name: "glyph_spec_patch", since: "0.0.13" },
   { name: "glyph_story_clarify", since: "0.0.13" },
   { name: "glyph_whyboard_diff", since: "0.0.13" },
+  // ---- PR63 (PLAN.md item 2.2) — chart auditor -------------------------
+  { name: "glyph_audit_spec", since: "0.0.14" },
 ] as const;
 
 /** Best-effort browser launcher. Returns true on success. */
@@ -2697,6 +2700,65 @@ export function createServer(state: ServerState = new ServerState()): {
           content: [{ type: "text" as const, text: `Invalid whyboard input: ${msg}` }],
         };
       }
+    },
+  );
+
+  // ----- glyph_audit_spec (PR63 / PLAN item 2.2) ----------------------------
+  server.registerTool(
+    "glyph_audit_spec",
+    {
+      title: "Audit a spec for common misleading-chart patterns",
+      description:
+        "Inspect a Glyph spec and return a sorted list of findings — truncated y-axes on bar charts, undisclosed log scales, dual-axis comparisons, excessive aggregation, diverging palettes without midpoints, etc. Pure-fn; deterministic. Returns [] when the spec passes every rule.",
+      inputSchema: {
+        spec: z.unknown().describe("The Glyph spec JSON to audit."),
+        rowCount: z
+          .number()
+          .int()
+          .nonnegative()
+          .optional()
+          .describe("Optional underlying row count (drives AUDIT-04 excessive-aggregation)."),
+        colorCardinality: z
+          .number()
+          .int()
+          .nonnegative()
+          .optional()
+          .describe("Optional distinct color count (drives AUDIT-06)."),
+      },
+    },
+    async ({ spec, rowCount, colorCardinality }) => {
+      const parsed = safeParseSpec(spec);
+      if (!parsed.ok) {
+        return {
+          isError: true,
+          content: [
+            { type: "text" as const, text: `Spec validation failed: ${parsed.error.message}` },
+          ],
+        };
+      }
+      const findings = auditSpec({
+        spec: parsed.spec,
+        ...(rowCount !== undefined ? { rowCount } : {}),
+        ...(colorCardinality !== undefined ? { colorCardinality } : {}),
+      });
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                count: findings.length,
+                highSeverity: findings.filter((f) => f.severity === "high").length,
+                mediumSeverity: findings.filter((f) => f.severity === "medium").length,
+                lowSeverity: findings.filter((f) => f.severity === "low").length,
+                findings,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
     },
   );
 

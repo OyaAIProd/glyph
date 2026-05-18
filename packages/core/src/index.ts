@@ -24,3 +24,4 @@ export * from "./metrics/index.js";
 export * from "./geo/index.js";
 export * from "./scales-suggest/index.js";
 export * from "./spec-diff/index.js";
+export * from "./audit/index.js";

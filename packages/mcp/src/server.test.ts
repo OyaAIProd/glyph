@@ -76,13 +76,14 @@ describe("Glyph MCP server", () => {
     rmSync(tempMemoryDir, { recursive: true, force: true });
   });
 
-  it("lists the forty-two tools", async () => {
+  it("lists the forty-three tools", async () => {
     const r = await client.listTools();
     const names = r.tools.map((t) => t.name).sort();
     expect(names).toEqual([
       "glyph_act",
       "glyph_anomaly",
       "glyph_audit_log",
+      "glyph_audit_spec",
       "glyph_await_interaction",
       "glyph_capabilities",
       "glyph_close_preview",
@@ -137,6 +138,7 @@ describe("Glyph MCP server", () => {
       "glyph_act",
       "glyph_anomaly",
       "glyph_audit_log",
+      "glyph_audit_spec",
       "glyph_await_interaction",
       "glyph_capabilities",
       "glyph_close_preview",
@@ -1861,6 +1863,52 @@ describe("Glyph MCP server", () => {
         board_b: { not_a_board: true },
       });
       expect(d.isError).toBe(true);
+    });
+  });
+
+  describe("glyph_audit_spec (PR63 / PLAN 2.2)", () => {
+    it("returns findings for a truncated-y bar chart", async () => {
+      const r = await callText(client, "glyph_audit_spec", {
+        spec: {
+          data: { source: "x.csv" },
+          layers: [
+            {
+              mark: "bar",
+              encoding: {
+                x: "x",
+                y: { field: "y", scale: { domain: [100, 200] } },
+              },
+            },
+          ],
+        },
+      });
+      expect(r.isError).toBe(false);
+      const out = JSON.parse(r.text);
+      expect(out.highSeverity).toBeGreaterThanOrEqual(1);
+      expect(out.findings.some((f: { rule_id: string }) => f.rule_id === "AUDIT-01")).toBe(true);
+    });
+
+    it("returns an empty audit for a clean spec", async () => {
+      const r = await callText(client, "glyph_audit_spec", {
+        spec: {
+          data: { source: "x.csv" },
+          width: 800,
+          height: 400,
+          layers: [{ mark: "bar", encoding: { x: "x", y: "y" } }],
+        },
+        rowCount: 100,
+      });
+      expect(r.isError).toBe(false);
+      const out = JSON.parse(r.text);
+      // No high-severity findings on a clean spec.
+      expect(out.highSeverity).toBe(0);
+    });
+
+    it("rejects an invalid spec", async () => {
+      const r = await callText(client, "glyph_audit_spec", {
+        spec: { not_a_spec: true },
+      });
+      expect(r.isError).toBe(true);
     });
   });
 
