@@ -91,6 +91,52 @@ describe("morphScenes", () => {
     expect(a).toBe(b);
   });
 
+  it("tooltipped marks still receive SMIL animate children (regression: PR74 review critical finding)", () => {
+    // A scene with interactive marks emits <rect ...><title>...</title></rect>
+    // instead of <rect .../>. The morph injector must handle both forms.
+    const toolA: Scene = {
+      width: 200,
+      height: 100,
+      background: "#fff",
+      plotArea: { x: 10, y: 10, width: 180, height: 80 },
+      axes: [],
+      schema: { fields: { x: "x", y: "y" } },
+      marks: [
+        {
+          type: "rect",
+          x: 0,
+          y: 0,
+          width: 10,
+          height: 50,
+          fill: "#1f77b4",
+          tooltip: "first",
+        },
+      ],
+    };
+    const toolB: Scene = {
+      ...toolA,
+      marks: [
+        {
+          type: "rect",
+          x: 0,
+          y: 0,
+          width: 60,
+          height: 50,
+          fill: "#1f77b4",
+          tooltip: "first",
+        },
+      ],
+    };
+    const out = morphScenes(toolA, toolB);
+    const svg = renderSvg(out);
+    // 4 attrs animated per rect; for one rect = 4 animates.
+    const matches = svg.match(/<animate /g) ?? [];
+    expect(matches.length).toBe(4);
+    // The <animate> elements must end up inside a tooltipped <rect>...</rect>,
+    // not after a self-closing tag. Search for the open-close pattern.
+    expect(svg).toMatch(/<rect[^/]*?>(?:<animate[^/]*\/>){4}<title>/);
+  });
+
   it("byte-identical for scenes without morph (no regression)", () => {
     const a = renderSvg(sceneA);
     const b = renderSvg(sceneA);

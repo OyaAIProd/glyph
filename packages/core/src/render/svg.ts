@@ -558,18 +558,33 @@ function decorateMarkForAnimation(
     const ms = `${dur}ms`;
     const animate = (attr: string, fromVal: number, toVal: number): string =>
       `<animate attributeName="${attr}" from="${fromVal}" to="${toVal}" dur="${ms}" fill="freeze"/>`;
+    // Inject `anims` as children of the mark element. Handles BOTH:
+    //   self-closing: `<rect ATTRS/>`         → `<rect ATTRS>anims</rect>`
+    //   open + close: `<rect ATTRS>kids</rect>` → `<rect ATTRS>animskids</rect>`
+    // The latter happens whenever the mark has a tooltip (which is
+    // emitted as a <title> child by the interactive path). Without
+    // this, tooltipped marks silently skip animation (PR74 review
+    // critical finding).
+    const injectChild = (tag: string, anims: string): string => {
+      const selfClose = new RegExp(`<${tag}\\b([^>]*?)/>`);
+      if (selfClose.test(svgFragment)) {
+        return svgFragment.replace(selfClose, `<${tag}$1>${anims}</${tag}>`);
+      }
+      const open = new RegExp(`<${tag}\\b([^>]*)>`);
+      return svgFragment.replace(open, `<${tag}$1>${anims}`);
+    };
     if (to.type === "rect" && from.type === "rect") {
       const anims =
         animate("x", from.x, to.x) +
         animate("y", from.y, to.y) +
         animate("width", from.width, to.width) +
         animate("height", from.height, to.height);
-      return svgFragment.replace(/<rect\b([^/]*)\/>/, `<rect$1>${anims}</rect>`);
+      return injectChild("rect", anims);
     }
     if (to.type === "circle" && from.type === "circle") {
       const anims =
         animate("cx", from.cx, to.cx) + animate("cy", from.cy, to.cy) + animate("r", from.r, to.r);
-      return svgFragment.replace(/<circle\b([^/]*)\/>/, `<circle$1>${anims}</circle>`);
+      return injectChild("circle", anims);
     }
     if (to.type === "line" && from.type === "line") {
       const anims =
@@ -577,7 +592,7 @@ function decorateMarkForAnimation(
         animate("y1", from.y1, to.y1) +
         animate("x2", from.x2, to.x2) +
         animate("y2", from.y2, to.y2);
-      return svgFragment.replace(/<line\b([^/]*)\/>/, `<line$1>${anims}</line>`);
+      return injectChild("line", anims);
     }
     return svgFragment;
   }

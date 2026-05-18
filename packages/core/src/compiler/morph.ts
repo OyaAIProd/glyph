@@ -40,7 +40,15 @@ export function morphScenes(from: Scene, to: Scene, options: MorphOptions = {}):
   for (let i = 0; i < from.marks.length; i++) {
     const a = from.marks[i];
     const b = to.marks[i];
-    if (!a || !b) continue;
+    // marks should never be sparse — but if a future bug produced an
+    // undefined entry the renderer would silently skip the morph. Throw
+    // up front so we get a loud error instead of a half-broken chart
+    // (PR74 review).
+    if (!a || !b) {
+      throw new Error(
+        `morphScenes: marks[${i}] is missing — both sides must have a defined mark at every index.`,
+      );
+    }
     if (a.type !== b.type) {
       throw new Error(
         `morphScenes: marks[${i}] type mismatch (${a.type} vs ${b.type}). Both ends of a morph must have the same shape.`,
