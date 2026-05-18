@@ -423,7 +423,7 @@ These four items together close ~25% of the plan in one PR. The remaining 12 ite
 | 1.8 Spec patch | ⏳ planned | — | Batch B |
 | 2.1 Multi-modal sync | ⏳ planned | — | Batch D (needs 1.7) |
 | 2.2 Chart auditing | ⏳ planned | — | Batch E |
-| 2.3 Uncertainty rendering | ⏳ planned | — | Batch A (deferred to its own PR — renderer touch warrants snapshot review) |
+| 2.3 Uncertainty rendering | ✅ PR61 | 61 | hatched bars + dim points + corner badge; provenance plumbed through compileSpec; opt-out via spec.interactive.uncertainty=false |
 | 2.4 Multi-agent compare | ⏳ planned | — | Batch D (needs 1.7) |
 | 2.5 Workflow capture | ⏳ planned | — | Batch C |
 | 2.6 Scale tuning | ✅ this PR | 60 | starter batch |

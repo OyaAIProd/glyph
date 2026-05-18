@@ -228,6 +228,15 @@ export const InteractiveSchema = z
      * giving each interactive mark a `:hover` outline. Pure CSS, no JS.
      */
     hover: z.boolean().optional(),
+    /**
+     * PR61 (PLAN item 2.3) — uncertainty rendering. When the underlying
+     * DataHandle carries `provenance` with `confidence != "high"` (or low
+     * sample count), the renderer overlays hatching on bars, dims points,
+     * and emits a top-right "n=N · confidence: X" badge. Default: on.
+     * Set to `false` to suppress (e.g. for snapshot baselines that predate
+     * provenance plumbing).
+     */
+    uncertainty: z.boolean().optional(),
   })
   .strict();
 

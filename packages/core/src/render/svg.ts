@@ -317,13 +317,17 @@ export function renderSvg(scene: Scene): string {
   // PR43 + PR45: opt-in animation. Three CSS-driven kinds (stage,
   // stage-stagger) and two SMIL-driven kinds (race, scrub).
   const animationStyle = buildAnimationStyle(scene);
+  // PR61 — uncertainty overlay (defs + hatch + badge) + style for point
+  // dimming. Both are "" when scene.uncertainty is unset.
+  const uncertaintyStyle = buildUncertaintyStyle(scene);
+  const uncertaintyOverlay = renderUncertaintyOverlay(scene);
   const legends = (scene.legends ?? []).map(renderLegend).join("");
 
   // Faceted scene: render each panel; the top-level marks/axes/grid are
   // unused (panels carry their own).
   if (scene.panels && scene.panels.length > 0) {
     const panelStrs = scene.panels.map((p) => renderPanel(p, interactive)).join("");
-    return `${head}${desc}${hoverStyle}${bg}${title}${panelStrs}${legends}</svg>\n`;
+    return `${head}${desc}${hoverStyle}${uncertaintyStyle}${bg}${title}${panelStrs}${uncertaintyOverlay}${legends}</svg>\n`;
   }
 
   // Grid sits behind marks; axes + legends in front.
@@ -347,10 +351,14 @@ export function renderSvg(scene: Scene): string {
         : animKind === "race" || animKind === "scrub"
           ? " glyph-race"
           : "";
+  // PR61 — append a `glyph-uncertain` marker class when dimPoints fires.
+  const uncertainClass = scene.uncertainty?.dimPoints ? " glyph-uncertain" : "";
   const marks =
-    interactive || animClass ? `<g class="glyph-marks${animClass}">${markStrs}</g>` : markStrs;
+    interactive || animClass || uncertainClass
+      ? `<g class="glyph-marks${animClass}${uncertainClass}">${markStrs}</g>`
+      : markStrs;
   const axes = scene.axes.map(renderAxis).join("");
-  return `${head}${desc}${hoverStyle}${animationStyle}${bg}${title}${grid}${marks}${axes}${legends}</svg>\n`;
+  return `${head}${desc}${hoverStyle}${animationStyle}${uncertaintyStyle}${bg}${title}${grid}${marks}${axes}${uncertaintyOverlay}${legends}</svg>\n`;
 }
 
 /**
@@ -358,6 +366,50 @@ export function renderSvg(scene: Scene): string {
  * stage-stagger) emit @keyframes; SMIL kinds (race, scrub) animate inline
  * and need no style block.
  */
+/**
+ * PR61 (PLAN item 2.3) — render the optional uncertainty overlay.
+ *
+ * When `scene.uncertainty` is set, emits up to three additional fragments:
+ *   1. A `<defs>` block with a 45° hatch `<pattern>` (only when hatchBars).
+ *   2. A translucent hatch overlay covering the plot area (visual cue).
+ *   3. A small top-right "n=… · confidence: …" badge.
+ *
+ * The marks group also gains a `glyph-uncertain` class when `dimPoints`
+ * is true, so a tiny `<style>` rule can fade circles without dimming bars.
+ *
+ * Snapshot byte-identity: when `scene.uncertainty` is undefined (the
+ * default for every existing snapshot), this function returns "".
+ */
+function renderUncertaintyOverlay(scene: Scene): string {
+  const u = scene.uncertainty;
+  if (!u) return "";
+  const parts: string[] = [];
+  if (u.hatchBars) {
+    parts.push(
+      '<defs><pattern id="glyph-hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">' +
+        '<line x1="0" y1="0" x2="0" y2="6" stroke="#444" stroke-width="1" stroke-opacity="0.35"/></pattern></defs>',
+    );
+    const pa = scene.plotArea;
+    parts.push(
+      `<rect x="${pa.x}" y="${pa.y}" width="${pa.width}" height="${pa.height}" fill="url(#glyph-hatch)" pointer-events="none" class="glyph-uncertainty-hatch"/>`,
+    );
+  }
+  const badgeText = u.note ?? `n=${u.sampleRows} · confidence: ${u.confidence}`;
+  const bx = scene.width - 8;
+  const by = 14;
+  parts.push(
+    `<text x="${bx}" y="${by}" font-family="${FONT_FAMILY}" font-size="11" fill="#666" text-anchor="end" dominant-baseline="middle" class="glyph-uncertainty-badge">${esc(badgeText)}</text>`,
+  );
+  return parts.join("");
+}
+
+/** PR61 — extra style block applied when uncertainty.dimPoints fires. */
+function buildUncertaintyStyle(scene: Scene): string {
+  const u = scene.uncertainty;
+  if (!u || !u.dimPoints) return "";
+  return "<style>g.glyph-marks.glyph-uncertain circle{opacity:0.55}</style>";
+}
+
 function buildAnimationStyle(scene: Scene): string {
   const a = scene.animation;
   if (!a) return "";

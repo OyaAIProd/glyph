@@ -28,8 +28,15 @@ import type {
   SceneLegend,
   SceneMark,
   SceneSchema,
+  SceneUncertainty,
 } from "../scenegraph/types.js";
-import type { Channel, Encoding, GlyphSpec, InteractiveConfig } from "../spec/types.js";
+import type {
+  Channel,
+  DataProvenance,
+  Encoding,
+  GlyphSpec,
+  InteractiveConfig,
+} from "../spec/types.js";
 import { bandScale, linearScale, niceTicks, roundPx } from "./scales.js";
 
 /** Minimal field metadata needed by the compiler. ColumnInfo is a superset. */
@@ -278,6 +285,41 @@ export interface CompileInput {
    * spec.width / spec.height.
    */
   readonly plotAreaOverride?: Scene["plotArea"];
+  /**
+   * PR61 (PLAN item 2.3) — optional trust signals propagated from the
+   * DataHandle backing this render. When present and the data is not
+   * "high" confidence (or has < 30 sample rows), the compiler emits
+   * `Scene.uncertainty`. When unset, Scene.uncertainty stays undefined
+   * and snapshot byte-identity holds.
+   */
+  readonly provenance?: DataProvenance;
+}
+
+/** Threshold below which we deem a sample "low" for uncertainty rendering. */
+const LOW_SAMPLE_THRESHOLD = 30;
+
+/**
+ * PR61 — derive a SceneUncertainty (or undefined) from optional provenance
+ * + the spec's interactive opt-out flag. Determinism: pure function of
+ * inputs, no clock, no randomness.
+ */
+function deriveUncertainty(
+  provenance: DataProvenance | undefined,
+  interactive: InteractiveConfig | undefined,
+): SceneUncertainty | undefined {
+  // Opt-out via spec.interactive.uncertainty = false.
+  if (interactive && interactive.uncertainty === false) return undefined;
+  if (!provenance) return undefined;
+  const confidence = provenance.confidence;
+  const lowSample = provenance.sampleRows > 0 && provenance.sampleRows < LOW_SAMPLE_THRESHOLD;
+  // High-confidence + sufficient sample → don't bother the chart.
+  if (confidence === "high" && !lowSample) return undefined;
+  return {
+    confidence,
+    sampleRows: provenance.sampleRows,
+    hatchBars: confidence !== "high" || lowSample,
+    dimPoints: confidence === "low" || lowSample,
+  };
 }
 
 /** Y-axis side a layer renders against. */
@@ -607,6 +649,9 @@ export function compileSpec(input: CompileInput): Scene {
     sceneSchema = { fields };
   }
 
+  // PR61 — uncertainty signals from optional provenance.
+  const uncertainty = deriveUncertainty(input.provenance, spec.interactive);
+
   return {
     width,
     height,
@@ -617,6 +662,7 @@ export function compileSpec(input: CompileInput): Scene {
     ...(spec.title ? { title: spec.title } : {}),
     ...(sceneSchema ? { schema: sceneSchema } : {}),
     ...(legends.length > 0 ? { legends } : {}),
+    ...(uncertainty ? { uncertainty } : {}),
     ...(spec.animation ? { animation: buildSceneAnimation(spec, rows, schema, marks) } : {}),
   };
 }

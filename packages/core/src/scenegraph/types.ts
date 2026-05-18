@@ -88,6 +88,30 @@ export type SceneMark =
       readonly opacity?: number;
     };
 
+/**
+ * PR61 (PLAN item 2.3) — uncertainty signals attached to a Scene. Set by
+ * the compiler when the input `provenance` indicates the underlying data
+ * has fewer rows than the threshold, or `confidence != "high"`. The
+ * renderer reads this to emit:
+ *   - hatched fills on `rect` (bar) marks
+ *   - reduced opacity on `circle` (point) marks
+ *   - a top-right badge: "n=N · confidence: low|medium|high"
+ *
+ * When unset, the renderer's output is byte-identical to prior baselines.
+ */
+export interface SceneUncertainty {
+  /** Coarse tier; drives badge text + whether to dim/hatch. */
+  readonly confidence: "low" | "medium" | "high";
+  /** Sample count used for the badge ("n=…"). */
+  readonly sampleRows: number;
+  /** True when bars should be drawn hatched. */
+  readonly hatchBars: boolean;
+  /** True when points should render at reduced opacity. */
+  readonly dimPoints: boolean;
+  /** Optional one-line override text for the badge. */
+  readonly note?: string;
+}
+
 /** A single tick on an axis. */
 export interface AxisTick {
   readonly position: number; // pixel offset along the axis
@@ -186,6 +210,12 @@ export interface Scene {
    * `frames` is populated by the compiler for "race"/"scrub": the i-th
    * entry holds the per-mark values at frame i.
    */
+  /**
+   * PR61 (PLAN item 2.3) — uncertainty signals derived from
+   * `CompileInput.provenance`. Renderer-visible. Optional — undefined
+   * keeps all existing snapshots byte-identical.
+   */
+  readonly uncertainty?: SceneUncertainty;
   readonly animation?:
     | {
         readonly kind: "stage" | "stage-stagger";

@@ -335,6 +335,10 @@ export function createServer(state: ServerState = new ServerState()): {
           spec: m.effectiveSpec,
           rows: m.result.rows,
           schema: m.handle.schema,
+          // PR61 (PLAN 2.3) — let the compiler emit an uncertainty overlay
+          // when the underlying handle's confidence is not "high" or its
+          // sample is small. Opt-out via spec.interactive.uncertainty=false.
+          ...(m.handle.provenance ? { provenance: m.handle.provenance } : {}),
         });
         const svg = renderSvg(scene);
         // Cache the SVG so a later `glyph_preview` deep-link can serve it.
@@ -1820,6 +1824,7 @@ export function createServer(state: ServerState = new ServerState()): {
       spec: m.effectiveSpec,
       rows: m.result.rows,
       schema: m.handle.schema,
+      ...(m.handle.provenance ? { provenance: m.handle.provenance } : {}),
     });
     const svg = renderSvg(scene);
     state.storeSvg(m.handle.id, svg);
