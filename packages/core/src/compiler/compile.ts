@@ -19,6 +19,7 @@ import {
   projector,
   topoToGeo,
 } from "../geo/index.js";
+import { simulateForce } from "../layout/force.js";
 import {
   flattenArcs,
   flattenRects,
@@ -41,6 +42,7 @@ import type {
   DataProvenance,
   Encoding,
   GlyphSpec,
+  GraphData,
   HierarchyNode,
   InteractiveConfig,
 } from "../spec/types.js";
@@ -361,6 +363,11 @@ export function compileSpec(input: CompileInput): Scene {
   // algorithm reads the inline tree and emits rect / arc marks.
   if (spec.data?.hierarchy) {
     return compileHierarchy(input);
+  }
+  // PR68 — graph data shape (force-directed layout). Skips DuckDB; runs
+  // the seeded force simulation and emits circle + line marks.
+  if (spec.data?.graph) {
+    return compileGraph(input);
   }
   const width = spec.width ?? DEFAULT_WIDTH;
   const height = spec.height ?? DEFAULT_HEIGHT;
@@ -1011,6 +1018,114 @@ function compileHierarchy(input: CompileInput): Scene {
     throw new Error(
       `Hierarchy data shape requires a "treemap" or "sunburst" mark on the first layer, got "${mark}"`,
     );
+  }
+
+  const uncertainty = deriveUncertainty(input.provenance, spec.interactive);
+
+  return {
+    width,
+    height,
+    background: theme.background,
+    plotArea,
+    axes: [],
+    marks,
+    ...(spec.title ? { title: spec.title } : {}),
+    ...(uncertainty ? { uncertainty } : {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// PR68 — Graph data shape (force-directed layout)
+// ---------------------------------------------------------------------------
+
+/**
+ * Compile a spec whose data is an inline graph (nodes + edges). Runs
+ * `simulateForce` with a deterministic seed (spec.seed, default 42) and
+ * emits:
+ *   - one line mark per edge
+ *   - one circle mark per node (color picked by group if encoded)
+ *
+ * Determinism: same spec → same SVG bytes. The seed is the determinism
+ * knob; agents can A/B-test different layouts by varying it.
+ */
+function compileGraph(input: CompileInput): Scene {
+  const { spec } = input;
+  const graph = spec.data?.graph as GraphData | undefined;
+  if (!graph) throw new Error("compileGraph called without spec.data.graph");
+  const width = spec.width ?? DEFAULT_WIDTH;
+  const height = spec.height ?? DEFAULT_HEIGHT;
+  const theme = resolveTheme(spec.theme);
+  const inset = 16;
+  const plotArea = input.plotAreaOverride ?? {
+    x: inset,
+    y: inset,
+    width: width - inset * 2,
+    height: height - inset * 2,
+  };
+  if (spec.layers.length === 0) throw new Error("Spec has no layers");
+  const layer = spec.layers[0];
+  if (!layer || layer.mark !== "force") {
+    throw new Error(`Graph data requires a "force" mark on the first layer, got "${layer?.mark}"`);
+  }
+  // Run the simulation.
+  const bounds: readonly [number, number, number, number] = [
+    plotArea.x,
+    plotArea.y,
+    plotArea.x + plotArea.width,
+    plotArea.y + plotArea.height,
+  ];
+  const positioned = simulateForce(
+    graph.nodes.map((n) => ({
+      id: n.id,
+      ...(n.x !== undefined ? { x: n.x } : {}),
+      ...(n.y !== undefined ? { y: n.y } : {}),
+      ...(n.r !== undefined ? { r: n.r } : {}),
+    })),
+    graph.edges ?? [],
+    {
+      bounds,
+      seed: spec.seed ?? 42,
+    },
+  );
+  const positionMap = new Map(positioned.map((p) => [p.id, p]));
+  const marks: SceneMark[] = [];
+
+  // Edges first (so they sit under nodes).
+  for (const e of graph.edges ?? []) {
+    const s = positionMap.get(e.source);
+    const t = positionMap.get(e.target);
+    if (!s || !t) continue;
+    marks.push({
+      type: "line",
+      x1: s.x,
+      y1: s.y,
+      x2: t.x,
+      y2: t.y,
+      stroke: "#999",
+      strokeWidth: 1,
+    });
+  }
+
+  // Nodes — color by group if any node carries a group field.
+  const groups = new Set<string>();
+  for (const n of graph.nodes) {
+    if (n.group !== undefined) groups.add(n.group);
+  }
+  const groupArr = [...groups];
+  for (const n of graph.nodes) {
+    const p = positionMap.get(n.id);
+    if (!p) continue;
+    const fill =
+      n.group !== undefined
+        ? (theme.marks[groupArr.indexOf(n.group) % theme.marks.length] ?? theme.marks[0] ?? "#000")
+        : (theme.marks[0] ?? "#000");
+    marks.push({
+      type: "circle",
+      cx: p.x,
+      cy: p.y,
+      r: p.r,
+      fill,
+    });
   }
 
   const uncertainty = deriveUncertainty(input.provenance, spec.interactive);

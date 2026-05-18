@@ -76,6 +76,22 @@ export interface HierarchyNode {
   readonly children?: ReadonlyArray<HierarchyNode>;
 }
 
+/** PR68 (D3 Gap 5) — inline graph data for force-directed layouts. */
+export interface GraphData {
+  readonly nodes: ReadonlyArray<{
+    readonly id: string;
+    readonly x?: number;
+    readonly y?: number;
+    readonly r?: number;
+    readonly group?: string;
+  }>;
+  readonly edges?: ReadonlyArray<{
+    readonly source: string;
+    readonly target: string;
+    readonly distance?: number;
+  }>;
+}
+
 /** Full theme tokens. Spec.theme accepts this or the built-in 'light'/'dark'. */
 export type ThemeConfig = z.infer<typeof ThemeConfigSchema>;
 

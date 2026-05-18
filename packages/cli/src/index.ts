@@ -83,9 +83,9 @@ async function cmdRender(args: string[]): Promise<number> {
   }
   const spec = resolveSourcePaths(readSpec(specPath), specPath);
 
-  // PR67 — hierarchy data bypasses DuckDB.
+  // PR67 / PR68 — hierarchy and graph data both bypass DuckDB.
   let svg: string;
-  if (spec.data?.hierarchy) {
+  if (spec.data?.hierarchy || spec.data?.graph) {
     svg = renderSvg(compileSpec({ spec, rows: [], schema: [] }));
   } else {
     svg = await withEngine(async (engine) => {

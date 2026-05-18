@@ -322,9 +322,10 @@ export function createServer(state: ServerState = new ServerState()): {
         const engine = await state.getEngine();
         let m: Awaited<ReturnType<typeof materializeSpec>>;
         try {
-          // PR67 — hierarchy-shape data bypasses DuckDB. Synthesize a
-          // minimal MaterializedSpec the rest of the path can consume.
-          if (parsed.spec.data?.hierarchy) {
+          // PR67 / PR68 — hierarchy and graph data both bypass DuckDB.
+          // Synthesize a minimal MaterializedSpec the rest of the path
+          // can consume.
+          if (parsed.spec.data?.hierarchy || parsed.spec.data?.graph) {
             const handleId = randomUUID().replace(/-/g, "").slice(0, 12);
             const uri = `gdf://${state.sessionId}/${handleId}`;
             m = {

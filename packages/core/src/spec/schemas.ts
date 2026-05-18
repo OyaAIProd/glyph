@@ -39,6 +39,44 @@ export const HierarchyNodeSchema: z.ZodType<any> = z.lazy(() =>
     .strict(),
 );
 
+/**
+ * PR68 — D3 Gap 5: graph data shape. Inline node/edge list for the
+ * force-directed layout. Nodes carry a stable `id`; edges reference
+ * those ids. The `seed` field (set on the spec, not here) is what
+ * makes the layout deterministic.
+ */
+export const GraphDataSchema = z
+  .object({
+    nodes: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1),
+            /** Optional pre-computed coordinates; defaults to seeded random. */
+            x: z.number().optional(),
+            y: z.number().optional(),
+            r: z.number().positive().optional(),
+            /** Optional categorical group used for color encoding. */
+            group: z.string().optional(),
+          })
+          .strict(),
+      )
+      .min(1),
+    edges: z
+      .array(
+        z
+          .object({
+            source: z.string().min(1),
+            target: z.string().min(1),
+            /** Optional per-edge rest length (default 60px). */
+            distance: z.number().positive().optional(),
+          })
+          .strict(),
+      )
+      .optional(),
+  })
+  .strict();
+
 export const DataSourceSchema = z
   .object({
     /**
@@ -62,11 +100,17 @@ export const DataSourceSchema = z
      * set, hierarchy wins.
      */
     hierarchy: HierarchyNodeSchema.optional(),
+    /**
+     * PR68 (D3 Gap 5) — inline graph data (nodes + edges) for the
+     * force-directed layout. When set, the compiler skips DuckDB and
+     * dispatches to `compileGraph`. Pair with `mark: "force"`.
+     */
+    graph: GraphDataSchema.optional(),
   })
   .strict()
   .refine(
-    (d) => d.source !== undefined || d.hierarchy !== undefined,
-    "data needs either a 'source' or a 'hierarchy'",
+    (d) => d.source !== undefined || d.hierarchy !== undefined || d.graph !== undefined,
+    "data needs a 'source', 'hierarchy', or 'graph'",
   );
 
 // ---------------------------------------------------------------------------
@@ -104,6 +148,9 @@ export const MarkSchema = z.enum([
   // partition layout and emits one arc per node (root excluded).
   "treemap",
   "sunburst",
+  // PR68 (D3 Gap 5) — force-directed graph. Reads spec.data.graph,
+  // runs simulateForce, emits one circle per node + one line per edge.
+  "force",
 ]);
 
 /**
@@ -447,6 +494,13 @@ export const GlyphSpecSchema = z
      * to arc / point / path in cartesian space at render time.
      */
     coordinates: CoordinatesSchema.optional(),
+    /**
+     * PR68 (D3 Gap 5) — deterministic seed for any layout that uses an
+     * RNG (currently: force simulation). Same seed + same input → same
+     * pixel positions. Defaults to 42 when unset; expose this knob so
+     * agents can A/B-test different layouts of the same graph.
+     */
+    seed: z.number().int().optional(),
     /**
      * GeoJSON FeatureCollection used by `geo-region` marks. Each feature's
      * `properties[idField]` (default: `id`) is matched against the layer's

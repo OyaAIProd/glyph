@@ -12,3 +12,4 @@
  */
 
 export * from "./hierarchy.js";
+export * from "./force.js";
