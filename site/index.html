@@ -963,12 +963,67 @@
         line-height: 1.6;
       }
 
+      /* ===== INNOVATION VIZ GALLERY ===== */
+      .inn-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+        margin-top: 26px;
+      }
+      .inn-card {
+        padding: 18px 20px;
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+      .inn-card:hover {
+        border-color: var(--accent);
+        box-shadow: 0 2px 8px rgba(76, 120, 168, 0.08);
+      }
+      .inn-card-svg {
+        height: 120px;
+        background: #fafbfd;
+        border-radius: 8px;
+        margin-bottom: 14px;
+        overflow: hidden;
+      }
+      .inn-card-svg svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .inn-card-tag {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--accent);
+        margin-bottom: 4px;
+        letter-spacing: 0.06em;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .inn-card h3 {
+        margin: 0 0 6px 0;
+        font-size: 15px;
+        line-height: 1.3;
+      }
+      .inn-card p {
+        margin: 0;
+        font-size: 12.5px;
+        color: var(--fg-soft);
+        line-height: 1.5;
+      }
+
+      @media (max-width: 980px) {
+        .inn-grid { grid-template-columns: repeat(2, 1fr); }
+      }
       @media (max-width: 760px) {
         .why-grid       { grid-template-columns: 1fr; }
         .is-isnt        { grid-template-columns: 1fr; }
         .usecases       { grid-template-columns: 1fr; }
         .playground-grid{ grid-template-columns: 1fr; }
         .getstarted-grid{ grid-template-columns: 1fr; }
+        .inn-grid       { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -1284,106 +1339,9 @@ const { uri: drill } =
       </div>
     </section>
 
-    <section id="features">
-      <div class="wrap">
-        <h2>What ships</h2>
-        <p class="quote">
-          The whole library is in a single sentence: <em>render a spec, get back rows + an SVG you can
-          click. The click becomes the next query. The query becomes the next chart.</em>
-        </p>
+    <!-- (former #features "What ships" — removed. Its content now lives in
+         #why, #what, #use-cases, #capabilities, #examples, and #wow demos.) -->
 
-        <h3>Phase 0/1 — the foundation</h3>
-        <div class="features">
-          <div class="feature">
-            <h3>Grammar of graphics</h3>
-            <p>One JSON spec ⟶ a chart. Layered marks, dual axes, faceting, stats, themes, locale tick formatting.</p>
-            <div class="verbs">
-              <code>bar</code><code>line</code><code>point</code><code>area</code><code>rule</code><code>heatmap</code><code>boxplot</code><code>text</code>
-            </div>
-          </div>
-          <div class="feature">
-            <h3>Embedded compute</h3>
-            <p>DuckDB inside the renderer. Every chart's underlying view is queryable. <code>glyph_query</code> closes the chart→SQL loop.</p>
-            <div class="verbs">
-              <code>glyph_describe</code><code>glyph_render</code><code>glyph_query</code><code>glyph_drill</code>
-            </div>
-          </div>
-          <div class="feature">
-            <h3>Multi-IDE skills</h3>
-            <p>Manifests for Claude Code, Cursor, Codex, Gemini CLI. Five role-aware skill files (explorer, diagnostician, narrator, operator, orchestrator).</p>
-            <div class="verbs">
-              <code>glyph_capabilities</code><code>glyph-explorer</code><code>glyph-narrator</code>
-            </div>
-          </div>
-        </div>
-
-        <h3>Phase 3 — the Glyph Data Flow protocol</h3>
-        <div class="features">
-          <div class="feature">
-            <h3>Cross-agent handles</h3>
-            <p>Every render mints a <code>gdf://</code> URI. Publish/subscribe across agents. Full lineage walk-back via <code>glyph_lineage</code>.</p>
-            <div class="verbs">
-              <code>glyph_publish</code><code>glyph_subscribe</code><code>glyph_lineage</code><code>glyph_handles</code>
-            </div>
-          </div>
-          <div class="feature">
-            <h3>Diagnostic primitives</h3>
-            <p>The "why did this change?" toolkit. z-score outliers, period-over-period drift, variance attribution, seasonal-naive forecasts.</p>
-            <div class="verbs">
-              <code>glyph_anomaly</code><code>glyph_drift</code><code>glyph_decompose</code><code>glyph_forecast</code>
-            </div>
-          </div>
-          <div class="feature">
-            <h3>Self-explaining + metric layer</h3>
-            <p>Plain-English chart summaries with deterministic pipelines. Named metrics (MRR, churn rate) registered once, used everywhere.</p>
-            <div class="verbs">
-              <code>glyph_explain</code><code>glyph_metrics_register</code><code>glyph_metrics</code>
-            </div>
-          </div>
-          <div class="feature">
-            <h3>Persistent memory + actions</h3>
-            <p>Save a handle to <code>~/.glyph/memory.duckdb</code>; recall after restart. Declarative actions with audit log.</p>
-            <div class="verbs">
-              <code>glyph_memory_save</code><code>glyph_memory_recall</code><code>glyph_act</code><code>glyph_audit_log</code><code>glyph_trust</code>
-            </div>
-          </div>
-          <div class="feature">
-            <h3>Story Agent + Whyboard</h3>
-            <p>Natural-language intent ⟶ DAG of viz tasks. The Whyboard returns an interactive tree of diagnostics. Streamable checkpoints.</p>
-            <div class="verbs">
-              <code>glyph_story_plan</code><code>glyph_story_execute</code><code>glyph_whyboard</code>
-            </div>
-          </div>
-          <div class="feature">
-            <h3>Geo + animations + linked views</h3>
-            <p>geo-point + choropleth, naturalEarth/albers/mercator. Stage/stagger/race/scrub animations. Cross-chart selection bus.</p>
-            <div class="verbs">
-              <code>geo-region</code><code>animation: race</code><code>link_group</code><code>attachScrub</code>
-            </div>
-          </div>
-        </div>
-
-        <h3 style="margin-top:36px;">PR60–77 — innovation batch (recent)</h3>
-        <p style="font-size: 14px;">All 16 INNOVATION.md items + 7 of 8 D3 architectural gaps. <a href="#innovations">Full gallery below ↓</a></p>
-        <div class="features">
-          <div class="feature">
-            <h3>4 new data shapes</h3>
-            <p>Tabular (CSV/Parquet/SQL), <strong>hierarchy</strong> (treemap/sunburst), <strong>graph</strong> (force layout, seeded), <strong>grid</strong> (contour via marching squares). Each bypasses DuckDB when inline.</p>
-            <div class="verbs"><code>data.hierarchy</code><code>data.graph</code><code>data.grid</code></div>
-          </div>
-          <div class="feature">
-            <h3>3 new mark families</h3>
-            <p><code>arc</code> (polar pie/donut/radial), <code>treemap</code> / <code>sunburst</code> / <code>force</code> / <code>contour</code>. SMIL morph between any two scene states.</p>
-            <div class="verbs"><code>11 mark types</code><code>polar coordinates</code></div>
-          </div>
-          <div class="feature">
-            <h3>9 new MCP verbs</h3>
-            <p><code>glyph_spec_diff</code>, <code>glyph_spec_patch</code>, <code>glyph_audit_spec</code>, <code>glyph_causal_graph</code>, <code>glyph_morph_render</code>, <code>glyph_macro_replay</code>, <code>glyph_engagement_{record,query}</code>, <code>glyph_story_provide_plan</code>, <code>glyph_whyboard_diff</code>, <code>glyph_handles_gc</code>, <code>glyph_suggest_scale</code>, <code>glyph_story_clarify</code>, <code>glyph_regression</code>. <strong>50 total tools.</strong></p>
-            <div class="verbs"><code>36 → 50</code></div>
-          </div>
-        </div>
-      </div>
-    </section>
 
     <section id="examples">
       <div class="wrap">
@@ -1739,190 +1697,336 @@ const { uri: drill } =
     <!-- ============================================== -->
     <section id="innovations">
       <div class="wrap">
-        <h2>18 innovations, all shipped</h2>
+        <h2>Key innovations, visualized</h2>
         <p class="quote">
-          Every item on Glyph's <a href="https://github.com/seanhanca/glyph/blob/main/INNOVATION.md">INNOVATION.md</a>
-          (16 agent-workflow gaps) and 7 of 8 architectural gaps from
-          <a href="https://github.com/seanhanca/glyph/blob/main/D3-COMPARISON.md">D3-COMPARISON.md</a>.
-          Each is a single MCP verb call. None requires an LLM at runtime — every algorithm is deterministic + pure.
+          Nine innovations that show how Glyph differs from D3 / Vega-Lite / Plotly / Tableau /
+          Power BI. Each is one MCP verb call. None requires an LLM at runtime — every algorithm
+          is deterministic + pure. For the full taxonomy see
+          <a href="#capabilities">55 capabilities</a> and
+          <a href="https://github.com/seanhanca/glyph/blob/main/INNOVATION.md">INNOVATION.md</a>.
         </p>
 
-        <h3>Agent workflow (INNOVATION.md — 16 items)</h3>
-        <div class="features">
-          <div class="feature">
-            <h3>1.1 · LLM-pluggable planner</h3>
-            <p><code>glyph_story_plan(intent, source, planner_hint: "llm")</code> returns an awaiting-state plan + schema context. Host fulfills via <code>glyph_story_provide_plan</code>. Per-kind args validated at provide time.</p>
-            <div class="verbs"><code>glyph_story_provide_plan</code><code>planner_hint: "llm"</code></div>
-          </div>
-          <div class="feature">
-            <h3>1.2 · Streaming progress 🟡</h3>
-            <p>MCP <code>notifications/progress</code> milestones for long-running verbs. <code>glyph_render</code> emits 4 events (parse → materialize → compile → render); zero-cost when no progressToken.</p>
-            <div class="verbs"><code>_meta.progressToken</code><code>onprogress callback</code></div>
-          </div>
-          <div class="feature">
-            <h3>1.3 · Budget guard</h3>
-            <p><code>limit_rows ∈ [1, 100_000]</code> on row-returning verbs. Response carries <code>{truncated, total, returned}</code> sentinels so agents can't blow their context window.</p>
-            <div class="verbs"><code>glyph_query · limit_rows</code></div>
-          </div>
-          <div class="feature">
-            <h3>1.4 · Disambiguation</h3>
-            <p>Story planner emits <code>clarification_questions</code> when multiple columns fit a role equally well. <code>glyph_story_clarify</code> pins answers onto the plan.</p>
-            <div class="verbs"><code>glyph_story_clarify</code><code>clarification_questions</code></div>
-          </div>
-          <div class="feature">
-            <h3>1.5 · Engagement signals (local-only)</h3>
-            <p>Record what the user actually looked at via <code>glyph_engagement_record</code>. Stored in <code>~/.glyph/memory.duckdb</code>. <strong>Never phones home.</strong> Aggregate per handle for planner-bias.</p>
-            <div class="verbs"><code>glyph_engagement_record</code><code>glyph_engagement_query</code></div>
-          </div>
-          <div class="feature">
-            <h3>1.6 · Handle TTL + reaper</h3>
-            <p>Auto-evict stale handles past 30-min TTL with lineage-aware sparing (parent handles with active descendants survive). <code>pinHandle()</code> opts out.</p>
-            <div class="verbs"><code>glyph_handles_gc</code><code>reapStaleHandles</code></div>
-          </div>
-          <div class="feature">
-            <h3>1.7 · Spec diff</h3>
-            <p>Pure-fn structural diff between two Glyph specs → <code>{added, removed, changed, summary}</code> with RFC 6901 JSON pointers. Narrative prioritizes data.transform → source → layers → encoding.</p>
-            <div class="verbs"><code>glyph_spec_diff</code><code>diffSpecs</code></div>
-          </div>
-          <div class="feature">
-            <h3>1.8 · Spec patch</h3>
-            <p>RFC 6902 JSON Patch applier. <code>glyph_spec_patch(handle, patches[])</code> re-runs the pipeline with edits applied. Validates per-kind args.</p>
-            <div class="verbs"><code>glyph_spec_patch</code><code>applyJsonPatch</code></div>
-          </div>
-          <div class="feature">
-            <h3>2.1 · Multi-modal sync</h3>
-            <p><code>glyph_render</code> accepts <code>modalities: ["chart", "table", "narrative"]</code> — returns SVG + rows + auto-narrative in one envelope. Link-group events carry <code>modality</code> for echo filtering.</p>
-            <div class="verbs"><code>modalities: ["table", "narrative"]</code></div>
-          </div>
-          <div class="feature">
-            <h3>2.2 · Chart auditor</h3>
-            <p>8 rules catching misleading charts: truncated y-axis, undisclosed log scale, dual-axis, excessive aggregation, diverging palette midpoint, color count, aspect ratio, stacked negatives.</p>
-            <div class="verbs"><code>glyph_audit_spec</code><code>8 rules</code></div>
-          </div>
-          <div class="feature">
-            <h3>2.3 · Uncertainty rendering</h3>
-            <p>Low-sample handles auto-render with hatched bars, dimmed points, and "n=N · confidence: low" badge. Zero opt-in — driven by <code>handle.provenance</code>.</p>
-            <div class="verbs"><code>SceneUncertainty</code><code>auto on low confidence</code></div>
-          </div>
-          <div class="feature">
-            <h3>2.4 · Multi-agent diff</h3>
-            <p><code>glyph_whyboard_diff(a, b)</code> aligns two Whyboards by (kind, title). Returns <code>{agreed, only_in_a, only_in_b, conflicting}</code>. Surfaces where agents disagree.</p>
-            <div class="verbs"><code>glyph_whyboard_diff</code></div>
-          </div>
-          <div class="feature">
-            <h3>2.5 · Macro capture/replay</h3>
-            <p>Portable JSON sequence of MCP verb calls with <code>{{params.X}}</code> substitution. <code>glyph_macro_replay(macro, params)</code> reruns analytics on new data deterministically.</p>
-            <div class="verbs"><code>glyph_macro_replay</code><code>{{params.X}}</code></div>
-          </div>
-          <div class="feature">
-            <h3>2.6 · Scale tuning</h3>
-            <p><code>glyph_suggest_scale</code> inspects rows + encoding, recommends log/sqrt/diverging with reason + confidence. Pure-fn heuristic — no LLM round-trip.</p>
-            <div class="verbs"><code>glyph_suggest_scale</code></div>
-          </div>
-          <div class="feature">
-            <h3>2.7 · Causal-aware viz</h3>
-            <p>Metrics declare <code>causal_of: [...]</code>. <code>glyph_causal_graph</code> returns the DAG with cycle detection + dangling-reference warnings.</p>
-            <div class="verbs"><code>glyph_causal_graph</code><code>causal_of</code></div>
-          </div>
-          <div class="feature">
-            <h3>2.8 · Spec-as-code CI</h3>
-            <p><code>glyph diff &lt;spec&gt; &lt;baseline.svg&gt;</code> CLI subcommand with unified-diff/HTML/MD output + GitHub Action template that comments on PRs.</p>
-            <div class="verbs"><code>glyph diff</code><code>.github/actions/glyph-visual-diff</code></div>
-          </div>
-        </div>
+        <div class="inn-grid">
 
-        <h3 style="margin-top:36px;">D3 architectural gaps — 7 of 8 closed</h3>
-        <div class="features">
-          <div class="feature">
-            <h3>Gap 1 · Polar coordinates ✅</h3>
-            <p>New <code>spec.coordinates: { type: "polar" }</code>. Pie / donut / radial line / radar via the existing bar/line/point marks. Arc SceneMark type + angle scale.</p>
-            <div class="verbs"><code>coordinates: { type: "polar" }</code><code>arc mark</code></div>
+          <!-- 1. Byte-stable rendering ============================= -->
+          <div class="inn-card">
+            <div class="inn-card-svg">
+              <svg viewBox="0 0 280 120" preserveAspectRatio="xMidYMid meet">
+                <rect width="280" height="120" fill="#fafbfd"/>
+                <g transform="translate(28, 24)">
+                  <g fill="#4c78a8">
+                    <rect x="0"  y="55" width="14" height="25"/>
+                    <rect x="18" y="35" width="14" height="45"/>
+                    <rect x="36" y="15" width="14" height="65"/>
+                    <rect x="54" y="30" width="14" height="50"/>
+                  </g>
+                  <text x="34" y="96" font-family="ui-monospace" font-size="9" fill="#666" text-anchor="middle">v0.0.1 · 2024</text>
+                </g>
+                <text x="140" y="68" font-family="ui-monospace" font-size="28" fill="#1f7a39" font-weight="700" text-anchor="middle">≡</text>
+                <g transform="translate(196, 24)">
+                  <g fill="#4c78a8">
+                    <rect x="0"  y="55" width="14" height="25"/>
+                    <rect x="18" y="35" width="14" height="45"/>
+                    <rect x="36" y="15" width="14" height="65"/>
+                    <rect x="54" y="30" width="14" height="50"/>
+                  </g>
+                  <text x="34" y="96" font-family="ui-monospace" font-size="9" fill="#666" text-anchor="middle">v0.0.20 · 2030</text>
+                </g>
+              </svg>
+            </div>
+            <div class="inn-card-tag">2.8 · determinism</div>
+            <h3>Byte-stable SVG forever</h3>
+            <p>Same spec → identical bytes across runs, OSes, Node versions, decades. Snapshot-tested in CI on a 6-cell matrix.</p>
           </div>
-          <div class="feature">
-            <h3>Gap 2 · Hierarchy data ✅</h3>
-            <p><code>data.hierarchy: { name, value, children }</code>. Squarified treemap (Bruls et al. 2000) + radial partition for sunburst. Bypasses DuckDB.</p>
-            <div class="verbs"><code>mark: "treemap"</code><code>mark: "sunburst"</code></div>
+
+          <!-- 2. Uncertainty rendering ============================= -->
+          <div class="inn-card">
+            <div class="inn-card-svg">
+              <svg viewBox="0 0 280 120" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                  <pattern id="hatch-i2" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(45)">
+                    <rect width="5" height="5" fill="#aac1d8"/>
+                    <line x1="0" y1="0" x2="0" y2="5" stroke="#fafbfd" stroke-width="2"/>
+                  </pattern>
+                </defs>
+                <rect width="280" height="120" fill="#fafbfd"/>
+                <g transform="translate(30, 22)">
+                  <rect x="0"   y="55" width="22" height="25" fill="url(#hatch-i2)"/>
+                  <rect x="28"  y="35" width="22" height="45" fill="url(#hatch-i2)"/>
+                  <rect x="56"  y="20" width="22" height="60" fill="url(#hatch-i2)"/>
+                  <rect x="84"  y="30" width="22" height="50" fill="url(#hatch-i2)"/>
+                  <rect x="112" y="45" width="22" height="35" fill="url(#hatch-i2)"/>
+                  <line x1="0" y1="82" x2="138" y2="82" stroke="#666"/>
+                </g>
+                <g transform="translate(185, 26)">
+                  <rect x="0" y="0" width="78" height="22" fill="#d4a017" rx="3"/>
+                  <text x="39" y="15" font-family="ui-monospace" font-size="10" fill="white" font-weight="700" text-anchor="middle">n=8 · low</text>
+                </g>
+              </svg>
+            </div>
+            <div class="inn-card-tag">2.3 · trust</div>
+            <h3>Uncertainty rendering by default</h3>
+            <p>Low-n samples auto-hatch and emit a confidence badge. Charts ship their own honest footnotes; no opt-in required.</p>
           </div>
-          <div class="feature">
-            <h3>Gap 3 · Morph transitions ✅</h3>
-            <p><code>morphScenes(from, to)</code> + new <code>glyph_morph_render(spec_a, spec_b)</code> verb. SMIL <code>&lt;animate from to&gt;</code> on each mark.</p>
-            <div class="verbs"><code>glyph_morph_render</code><code>kind: "morph"</code></div>
+
+          <!-- 3. Spec diff/patch =================================== -->
+          <div class="inn-card">
+            <div class="inn-card-svg">
+              <svg viewBox="0 0 280 120" preserveAspectRatio="xMidYMid meet">
+                <rect width="280" height="120" fill="#fafbfd"/>
+                <g transform="translate(20, 16)" font-family="ui-monospace" font-size="10">
+                  <rect x="0" y="0"  width="240" height="14" fill="#fdecea"/>
+                  <text x="6" y="11" fill="#c0392b">- "/layers/0/mark": "bar",</text>
+                  <rect x="0" y="14" width="240" height="14" fill="#e7f4ea"/>
+                  <text x="6" y="25" fill="#1f7a39">+ "/layers/0/mark": "area",</text>
+                  <rect x="0" y="28" width="240" height="14" fill="#e7f4ea"/>
+                  <text x="6" y="39" fill="#1f7a39">+ "/encoding/opacity": 0.75,</text>
+                  <text x="6" y="55" fill="#666">  "/data/source": "rides.csv",</text>
+                  <text x="6" y="69" fill="#666">  "/encoding/x":  "hour",</text>
+                  <text x="6" y="83" fill="#666">  "/encoding/y":  "rides"</text>
+                </g>
+              </svg>
+            </div>
+            <div class="inn-card-tag">1.7 / 1.8 · edit</div>
+            <h3>Spec diff &amp; patch (RFC 6902)</h3>
+            <p>Charts are JSON values you diff and patch. Review them in a PR like code. Replay edits across years of data via <code>glyph_macro_replay</code>.</p>
           </div>
-          <div class="feature">
-            <h3>Gap 4 · Contour / density ✅</h3>
-            <p><code>data.grid: { rows, cols, values }</code> + thresholds. Marching-squares with all 16 cases + asymptotic-decider saddles. Median fallback.</p>
-            <div class="verbs"><code>mark: "contour"</code><code>marchingSquares()</code></div>
+
+          <!-- 4. Streaming progress ================================ -->
+          <div class="inn-card">
+            <div class="inn-card-svg">
+              <svg viewBox="0 0 280 120" preserveAspectRatio="xMidYMid meet">
+                <rect width="280" height="120" fill="#fafbfd"/>
+                <g transform="translate(30, 18)">
+                  <g fill="#4c78a8">
+                    <rect x="0"  y="50" width="18" height="20"/>
+                    <rect x="22" y="30" width="18" height="40"/>
+                    <rect x="44" y="15" width="18" height="55"/>
+                    <rect x="66" y="25" width="18" height="45"/>
+                    <rect x="88" y="40" width="18" height="30"/>
+                  </g>
+                  <g fill="#e0e6ed">
+                    <rect x="110" y="35" width="18" height="35"/>
+                    <rect x="132" y="50" width="18" height="20"/>
+                    <rect x="154" y="55" width="18" height="15"/>
+                  </g>
+                  <line x1="0" y1="72" x2="172" y2="72" stroke="#666"/>
+                </g>
+                <g transform="translate(30, 96)">
+                  <rect x="0" y="0" width="172" height="6" rx="3" fill="#e0e6ed"/>
+                  <rect x="0" y="0" width="107" height="6" rx="3" fill="#1f7a39"/>
+                  <text x="180" y="6" font-family="ui-monospace" font-size="9" fill="#1f7a39" font-weight="700">62%</text>
+                </g>
+                <text x="30" y="92" font-family="ui-monospace" font-size="8" fill="#666">5 of 8 frames · notifications/progress</text>
+              </svg>
+            </div>
+            <div class="inn-card-tag">1.2 · MCP</div>
+            <h3>Streaming progress</h3>
+            <p>Long-running verbs emit <code>notifications/progress</code> milestones. Agents stream partial state instead of blocking on a 30-second forecast.</p>
           </div>
-          <div class="feature">
-            <h3>Gap 5 · Force simulation ✅</h3>
-            <p><code>data.graph: { nodes, edges }</code> + <code>spec.seed</code>. Velocity-Verlet, mulberry32 PRNG. 5 forces: charge, link, center, collision, bounds. Also <code>simulateBeeswarm</code>.</p>
-            <div class="verbs"><code>mark: "force"</code><code>spec.seed: 42</code></div>
+
+          <!-- 5. Disambiguation (clarify) ========================== -->
+          <div class="inn-card">
+            <div class="inn-card-svg">
+              <svg viewBox="0 0 280 120" preserveAspectRatio="xMidYMid meet">
+                <rect width="280" height="120" fill="#fafbfd"/>
+                <g transform="translate(20, 16)">
+                  <rect x="0" y="0" width="240" height="58" fill="white" stroke="#4c78a8" stroke-width="1.5" rx="6"/>
+                  <polygon points="22,58 28,68 36,58" fill="white" stroke="#4c78a8" stroke-width="1.5"/>
+                  <line x1="23" y1="58" x2="35" y2="58" stroke="white" stroke-width="2.5"/>
+                  <text x="10" y="18" font-family="ui-monospace" font-size="9" fill="#4c78a8" font-weight="700">glyph_clarify</text>
+                  <text x="10" y="35" font-family="system-ui" font-size="11" fill="#1a1a1a">Include weekends in</text>
+                  <text x="10" y="50" font-family="system-ui" font-size="11" fill="#1a1a1a">"rides per hour"?</text>
+                </g>
+                <g transform="translate(20, 90)" font-family="ui-monospace" font-size="9">
+                  <rect x="0" y="0" width="92" height="20" fill="#e7f4ea" stroke="#1f7a39" rx="3"/>
+                  <text x="46" y="13" text-anchor="middle" fill="#1f7a39" font-weight="700">weekday only</text>
+                  <rect x="102" y="0" width="92" height="20" fill="white" stroke="#aaa" rx="3"/>
+                  <text x="148" y="13" text-anchor="middle" fill="#666">all 7 days</text>
+                </g>
+              </svg>
+            </div>
+            <div class="inn-card-tag">1.4 · clarify</div>
+            <h3>Disambiguation before rendering</h3>
+            <p>Before guessing, the planner asks explicit <code>clarification_questions</code>. Agents pin answers via <code>glyph_story_clarify</code> — no silent assumptions.</p>
           </div>
-          <div class="feature">
-            <h3>Gap 6 · Custom marks 🚫</h3>
-            <p><em>Intentionally skipped</em> — breaks spec-only JSON. D3 stays the right answer for one-off escape-hatch viz.</p>
-            <div class="verbs"><code>D3 owns this lane</code></div>
+
+          <!-- 6. Engagement signals (local-only) =================== -->
+          <div class="inn-card">
+            <div class="inn-card-svg">
+              <svg viewBox="0 0 280 120" preserveAspectRatio="xMidYMid meet">
+                <rect width="280" height="120" fill="#fafbfd"/>
+                <g transform="translate(28, 22)">
+                  <g fill="#aac1d8">
+                    <rect x="0"  y="40" width="18" height="30"/>
+                    <rect x="22" y="20" width="18" height="50"/>
+                    <rect x="44" y="10" width="18" height="60"/>
+                    <rect x="66" y="25" width="18" height="45"/>
+                    <rect x="88" y="40" width="18" height="30"/>
+                  </g>
+                  <g>
+                    <circle cx="53" cy="20" r="11" fill="#c0392b" opacity="0.4"/>
+                    <circle cx="53" cy="20" r="5"  fill="#c0392b" opacity="0.9"/>
+                    <circle cx="31" cy="35" r="7"  fill="#f58518" opacity="0.5"/>
+                    <circle cx="75" cy="40" r="6"  fill="#f58518" opacity="0.5"/>
+                  </g>
+                  <line x1="0" y1="72" x2="110" y2="72" stroke="#666"/>
+                </g>
+                <g transform="translate(168, 28)">
+                  <g fill="none" stroke="#1f7a39" stroke-width="2">
+                    <rect x="3" y="9" width="14" height="11" rx="1.5" fill="#e7f4ea"/>
+                    <path d="M 6,9 V 5 a 4,4 0 0 1 8,0 V 9"/>
+                  </g>
+                  <text x="26" y="18" font-family="ui-monospace" font-size="11" fill="#1f7a39" font-weight="700">local only</text>
+                  <text x="0" y="36" font-family="ui-monospace" font-size="9" fill="#444">~/.glyph/engagement</text>
+                  <text x="0" y="50" font-family="ui-monospace" font-size="9" fill="#444">never phones home</text>
+                </g>
+              </svg>
+            </div>
+            <div class="inn-card-tag">1.5 · privacy</div>
+            <h3>Engagement signals — local only</h3>
+            <p>Hovers, clicks, zooms tallied in <code>~/.glyph/</code>. Aggregates feed planner-bias; <strong>nothing</strong> leaves your machine. Audit-safe by default.</p>
           </div>
-          <div class="feature">
-            <h3>Gap 7 · WebGL/canvas 🟡</h3>
-            <p><code>@glyph/canvas</code> renderer (same Scene IR) handles 10k+ rects/frame. Full WebGL pipeline still open for &gt;1M-mark futures.</p>
-            <div class="verbs"><code>renderCanvas(scene, ctx)</code></div>
+
+          <!-- 7. Handle TTL + reaper =============================== -->
+          <div class="inn-card">
+            <div class="inn-card-svg">
+              <svg viewBox="0 0 280 120" preserveAspectRatio="xMidYMid meet">
+                <rect width="280" height="120" fill="#fafbfd"/>
+                <g font-family="ui-monospace" font-size="10">
+                  <g transform="translate(30, 18)">
+                    <rect width="100" height="22" rx="11" fill="#e7f4ea" stroke="#1f7a39"/>
+                    <text x="10" y="14" fill="#1f7a39" font-weight="700">gdf://a/1</text>
+                    <text x="78" y="14" fill="#1f7a39" text-anchor="middle">38m</text>
+                  </g>
+                  <g transform="translate(146, 18)">
+                    <rect width="100" height="22" rx="11" fill="#fbf2d8" stroke="#d4a017"/>
+                    <text x="10" y="14" fill="#8a6914" font-weight="700">gdf://b/2</text>
+                    <text x="78" y="14" fill="#8a6914" text-anchor="middle">12m</text>
+                  </g>
+                  <g transform="translate(30, 50)">
+                    <rect width="100" height="22" rx="11" fill="#fdecea" stroke="#c0392b"/>
+                    <text x="10" y="14" fill="#c0392b" font-weight="700">gdf://c/3</text>
+                    <text x="78" y="14" fill="#c0392b" text-anchor="middle">2m</text>
+                  </g>
+                  <g transform="translate(146, 50)" opacity="0.5">
+                    <rect width="100" height="22" rx="11" fill="#eee" stroke="#999" stroke-dasharray="3,2"/>
+                    <text x="10" y="14" fill="#666" font-weight="700">gdf://d/4</text>
+                    <text x="78" y="14" fill="#666" text-anchor="middle">✗</text>
+                  </g>
+                </g>
+                <text x="140" y="98" font-family="ui-monospace" font-size="9" fill="#666" text-anchor="middle">TTL countdown · reaper sweeps expired</text>
+              </svg>
+            </div>
+            <div class="inn-card-tag">1.6 · GC</div>
+            <h3>Handle TTL + lineage-aware reaper</h3>
+            <p>Every <code>gdf://</code> handle carries a TTL. The reaper sweeps stale ones — but parents with live descendants are spared automatically.</p>
           </div>
-          <div class="feature">
-            <h3>Gap 8 · Interaction primitives 🟡</h3>
-            <p>Pure-fn Bowyer-Watson Delaunay + Voronoi cells + Sutherland-Hodgman clipping. Declarative <code>interactive.{zoomable, lassoable, voronoi}</code> flags emit data-* attrs.</p>
-            <div class="verbs"><code>voronoiPolygons()</code><code>data-glyph-voronoi</code></div>
+
+          <!-- 8. Macro replay ====================================== -->
+          <div class="inn-card">
+            <div class="inn-card-svg">
+              <svg viewBox="0 0 280 120" preserveAspectRatio="xMidYMid meet">
+                <rect width="280" height="120" fill="#fafbfd"/>
+                <g transform="translate(15, 20)">
+                  <g fill="#4c78a8">
+                    <rect x="0"  y="20" width="6" height="20"/>
+                    <rect x="8"  y="10" width="6" height="30"/>
+                    <rect x="16" y="0"  width="6" height="40"/>
+                    <rect x="24" y="15" width="6" height="25"/>
+                  </g>
+                  <text x="15" y="56" font-family="ui-monospace" font-size="9" fill="#666" text-anchor="middle">2024</text>
+                </g>
+                <text x="58" y="46" font-family="ui-monospace" font-size="14" fill="#999">→</text>
+                <g transform="translate(75, 20)">
+                  <g fill="#4c78a8">
+                    <rect x="0"  y="20" width="6" height="20"/>
+                    <rect x="8"  y="10" width="6" height="30"/>
+                    <rect x="16" y="0"  width="6" height="40"/>
+                    <rect x="24" y="15" width="6" height="25"/>
+                  </g>
+                  <text x="15" y="56" font-family="ui-monospace" font-size="9" fill="#666" text-anchor="middle">2025</text>
+                </g>
+                <text x="118" y="46" font-family="ui-monospace" font-size="14" fill="#999">→</text>
+                <g transform="translate(135, 20)">
+                  <g fill="#4c78a8">
+                    <rect x="0"  y="20" width="6" height="20"/>
+                    <rect x="8"  y="10" width="6" height="30"/>
+                    <rect x="16" y="0"  width="6" height="40"/>
+                    <rect x="24" y="15" width="6" height="25"/>
+                  </g>
+                  <text x="15" y="56" font-family="ui-monospace" font-size="9" fill="#666" text-anchor="middle">2026</text>
+                </g>
+                <g transform="translate(190, 28)">
+                  <rect width="78" height="44" fill="#fbf2d8" stroke="#d4a017" rx="4"/>
+                  <text x="39" y="18" font-family="ui-monospace" font-size="11" font-weight="700" fill="#8a6914" text-anchor="middle">macro</text>
+                  <text x="39" y="32" font-family="ui-monospace" font-size="9" fill="#8a6914" text-anchor="middle">replay × 3</text>
+                </g>
+                <text x="140" y="98" font-family="ui-monospace" font-size="9" fill="#666" text-anchor="middle">glyph_macro_replay(macro, params)</text>
+              </svg>
+            </div>
+            <div class="inn-card-tag">2.5 · replay</div>
+            <h3>Macro capture &amp; replay</h3>
+            <p>Record a sequence of MCP verb calls as a portable JSON macro. Replay against new data with <code>{{params.X}}</code> substitution — same analysis, same SVG.</p>
           </div>
+
+          <!-- 9. LLM-pluggable story agent ========================= -->
+          <div class="inn-card">
+            <div class="inn-card-svg">
+              <svg viewBox="0 0 280 120" preserveAspectRatio="xMidYMid meet">
+                <rect width="280" height="120" fill="#fafbfd"/>
+                <defs>
+                  <marker id="story-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                    <path d="M0,0 L6,3 L0,6 Z" fill="#666"/>
+                  </marker>
+                </defs>
+                <!-- intent -->
+                <g transform="translate(16, 38)">
+                  <rect width="58" height="44" fill="white" stroke="#4c78a8" stroke-width="1.5" rx="6"/>
+                  <text x="29" y="20" font-family="ui-monospace" font-size="9" fill="#4c78a8" font-weight="700" text-anchor="middle">intent</text>
+                  <text x="29" y="34" font-family="system-ui" font-size="9" fill="#444" text-anchor="middle">"why ↓?"</text>
+                </g>
+                <line x1="76" y1="60" x2="100" y2="60" stroke="#666" stroke-width="1.5" marker-end="url(#story-arrow)"/>
+                <!-- planner.llm (pluggable) -->
+                <g transform="translate(102, 30)">
+                  <rect width="76" height="60" fill="#fbf2d8" stroke="#d4a017" stroke-width="1.5" stroke-dasharray="4,2" rx="6"/>
+                  <text x="38" y="20" font-family="ui-monospace" font-size="9" fill="#8a6914" font-weight="700" text-anchor="middle">planner.llm</text>
+                  <text x="38" y="35" font-family="ui-monospace" font-size="8" fill="#8a6914" text-anchor="middle">{ Claude</text>
+                  <text x="38" y="46" font-family="ui-monospace" font-size="8" fill="#8a6914" text-anchor="middle">| Codex</text>
+                  <text x="38" y="57" font-family="ui-monospace" font-size="8" fill="#8a6914" text-anchor="middle">| Gemini }</text>
+                </g>
+                <line x1="180" y1="60" x2="204" y2="60" stroke="#666" stroke-width="1.5" marker-end="url(#story-arrow)"/>
+                <!-- plan DAG -->
+                <g transform="translate(206, 38)">
+                  <rect width="60" height="44" fill="white" stroke="#1f7a39" stroke-width="1.5" rx="6"/>
+                  <g fill="#1f7a39">
+                    <circle cx="14" cy="14" r="3"/>
+                    <circle cx="30" cy="14" r="3"/>
+                    <circle cx="46" cy="14" r="3"/>
+                    <circle cx="22" cy="30" r="3"/>
+                    <circle cx="38" cy="30" r="3"/>
+                  </g>
+                  <g stroke="#1f7a39" stroke-width="1">
+                    <line x1="14" y1="14" x2="22" y2="30"/>
+                    <line x1="30" y1="14" x2="22" y2="30"/>
+                    <line x1="30" y1="14" x2="38" y2="30"/>
+                    <line x1="46" y1="14" x2="38" y2="30"/>
+                  </g>
+                </g>
+                <text x="140" y="100" font-family="ui-monospace" font-size="9" fill="#666" text-anchor="middle">glyph_story_plan(intent, planner_hint: "llm")</text>
+              </svg>
+            </div>
+            <div class="inn-card-tag">1.1 · plan</div>
+            <h3>LLM-pluggable story agent</h3>
+            <p>Story plans are deterministic; the <em>planner</em> is your choice of LLM. Swap Claude, Codex, or Gemini without changing the protocol.</p>
+          </div>
+
         </div>
       </div>
     </section>
 
-    <!-- ============================================== -->
-    <!-- ONLY GLYPH — what nobody else has              -->
-    <!-- ============================================== -->
-    <section id="only-glyph">
-      <div class="wrap">
-        <h2>Only Glyph</h2>
-        <p class="quote">
-          Five capabilities that no other charting library — D3, Vega-Lite, Plotly, Tableau, Power BI —
-          ships out of the box. Every one is a direct consequence of Glyph's core decision: charts are
-          deterministic queries, not pixel-pushed code.
-        </p>
-
-        <div class="features">
-          <div class="feature" style="border-left: 3px solid var(--accent);">
-            <h3>🧠 The Whyboard</h3>
-            <p>One MCP call → a tree of <em>explained</em> diagnostics, not just a chart. Anomaly + decompose + forecast branches, each a queryable DataHandle with full lineage. Nobody else has this.</p>
-            <div class="verbs"><code>glyph_whyboard(handle, question)</code></div>
-          </div>
-          <div class="feature" style="border-left: 3px solid var(--accent);">
-            <h3>🎯 Determinism by construction</h3>
-            <p>Same spec + same data = byte-identical SVG. Across Linux/macOS/Windows × Node 20/22. Force simulation seeded. Voronoi deterministic. Snapshot tests catch even 1-pixel drifts.</p>
-            <div class="verbs"><code>roundPx(n)</code><code>mulberry32(seed)</code></div>
-          </div>
-          <div class="feature" style="border-left: 3px solid var(--accent);">
-            <h3>🔬 Chart-as-query</h3>
-            <p>Click any bar, get a SQL WHERE clause. <code>glyph_query(handle, "WHERE rides > 200")</code> runs against the same DuckDB view that built the chart. Compute and viz collapsed into one artifact.</p>
-            <div class="verbs"><code>glyph_query</code><code>glyph_drill</code></div>
-          </div>
-          <div class="feature" style="border-left: 3px solid var(--accent);">
-            <h3>🛡 Auditor + uncertainty</h3>
-            <p>Every chart gets confidence signals (hatched bars / n-badge) when the data warrants it. The auditor catches truncated y-axes, undisclosed log scales, and 6 other misleading patterns before rendering.</p>
-            <div class="verbs"><code>glyph_audit_spec</code><code>SceneUncertainty</code></div>
-          </div>
-          <div class="feature" style="border-left: 3px solid var(--accent);">
-            <h3>🔗 GDF lineage protocol</h3>
-            <p>Every render mints a <code>gdf://session/handle</code> URI. Walk back to the source via <code>glyph_lineage</code>. Cross-agent handle sharing via publish/subscribe. No other library has cross-agent data flow.</p>
-            <div class="verbs"><code>gdf://</code><code>glyph_publish</code><code>glyph_subscribe</code></div>
-          </div>
-          <div class="feature" style="border-left: 3px solid var(--accent);">
-            <h3>🤖 50 MCP tools, native</h3>
-            <p>Not "MCP wrapper over a JS library" — agent affordance is the primary interface. Every analytic primitive (anomaly, drift, forecast, decompose, explain, story, whyboard) is a verb the agent calls directly.</p>
-            <div class="verbs"><code>50 MCP tools</code><code>no LLM at runtime</code></div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <!-- (former #only-glyph section — removed. Its 6 differentiators now covered
+         by #why, #what, #capabilities, and #wow demos.) -->
 
     <!-- ============================================================== -->
     <!-- 55 CAPABILITIES — full taxonomy of what Glyph can but others can't -->
