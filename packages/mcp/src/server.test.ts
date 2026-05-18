@@ -76,7 +76,7 @@ describe("Glyph MCP server", () => {
     rmSync(tempMemoryDir, { recursive: true, force: true });
   });
 
-  it("lists the fifty tools", async () => {
+  it("lists the forty-nine tools", async () => {
     const r = await client.listTools();
     const names = r.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -110,7 +110,6 @@ describe("Glyph MCP server", () => {
       "glyph_memory_save",
       "glyph_metrics",
       "glyph_metrics_register",
-      "glyph_modality_sync",
       "glyph_preview",
       "glyph_publish",
       "glyph_query",
@@ -172,7 +171,6 @@ describe("Glyph MCP server", () => {
       "glyph_memory_save",
       "glyph_metrics",
       "glyph_metrics_register",
-      "glyph_modality_sync",
       "glyph_preview",
       "glyph_publish",
       "glyph_query",
@@ -2058,9 +2056,9 @@ describe("Glyph MCP server", () => {
       expect(out.modalities).toBeUndefined();
     });
 
-    it("glyph_modality_sync publishes a modality-tagged event consumable via await", async () => {
+    it("glyph_linked_publish carries modality through to await consumers", async () => {
       const group = "mm-group-1";
-      const pub = await callText(client, "glyph_modality_sync", {
+      const pub = await callText(client, "glyph_linked_publish", {
         group,
         predicate: "region = 'us'",
         modality: "table",
@@ -2071,7 +2069,7 @@ describe("Glyph MCP server", () => {
       expect(ev.modality).toBe("table");
       expect(ev.predicate).toBe("region = 'us'");
 
-      // Subscriber long-poll: the event must be visible.
+      // Subscriber long-poll: the event must be visible and carry modality.
       const sub = await callText(client, "glyph_linked_await", {
         group,
         since: 0,
@@ -2082,32 +2080,42 @@ describe("Glyph MCP server", () => {
       expect(out.event.modality).toBe("table");
     });
 
-    it("subscribers can filter out their own modality (echo filter)", async () => {
-      const group = "mm-group-2";
-      // Publish two events from different modalities.
-      await callText(client, "glyph_modality_sync", {
+    it("end-to-end echo filter: a table subscriber via linked_await skips its own events", async () => {
+      // This is the exact wire path agents use. Two modalities publish to
+      // the same group; a 'table'-modality subscriber should pull both
+      // events but treat modality==='table' as its own and skip them.
+      const group = "mm-group-3";
+      await callText(client, "glyph_linked_publish", {
         group,
         predicate: "x = 1",
         modality: "chart",
       });
-      await callText(client, "glyph_modality_sync", {
+      await callText(client, "glyph_linked_publish", {
         group,
         predicate: "x = 2",
         modality: "table",
       });
-      // A subscriber that only cares about non-table events scans the
-      // bus and filters by `event.modality !== 'table'`.
-      const r = await callText(client, "glyph_linked_handles", { group });
-      const out = JSON.parse(r.text);
-      // recent_events carries the full event list including modality.
-      const tableEvents = (
-        (out.recent_events as ReadonlyArray<{ modality?: string }>) ?? []
-      ).filter((e) => e.modality === "table");
-      const chartEvents = (
-        (out.recent_events as ReadonlyArray<{ modality?: string }>) ?? []
-      ).filter((e) => e.modality === "chart");
-      expect(tableEvents.length).toBe(1);
-      expect(chartEvents.length).toBe(1);
+      // Walk the bus via linked_await — the canonical subscriber path.
+      const received: Array<{ modality?: string; predicate: string }> = [];
+      let since = 0;
+      // The store currently buffers; await returns immediately when
+      // events are already present.
+      for (let i = 0; i < 2; i++) {
+        const r = await callText(client, "glyph_linked_await", {
+          group,
+          since,
+          timeout_ms: 500,
+        });
+        const out = JSON.parse(r.text);
+        if (!out.event) break;
+        received.push({ modality: out.event.modality, predicate: out.event.predicate });
+        since = out.index + 1;
+      }
+      expect(received.length).toBe(2);
+      // Echo filter: subscriber's own modality is 'table'; drop it.
+      const filtered = received.filter((e) => e.modality !== "table");
+      expect(filtered.length).toBe(1);
+      expect(filtered[0]?.predicate).toBe("x = 1");
     });
   });
 

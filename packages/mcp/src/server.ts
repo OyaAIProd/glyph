@@ -178,8 +178,6 @@ const MCP_TOOLS = [
   // ---- PR71 (PLAN 1.5) — local-only engagement signals ----------------
   { name: "glyph_engagement_record", since: "0.0.19" },
   { name: "glyph_engagement_query", since: "0.0.19" },
-  // ---- PR73 (PLAN 2.1) — multi-modal sync -----------------------------
-  { name: "glyph_modality_sync", since: "0.0.20" },
 ] as const;
 
 /** Best-effort browser launcher. Returns true on success. */
@@ -2467,7 +2465,7 @@ export function createServer(state: ServerState = new ServerState()): {
     {
       title: "Broadcast a SQL predicate to a linked-view group",
       description:
-        "Append a filter event to the named link_group's bus. All charts in the same group can consume it via glyph_linked_await. Use this when a user click in chart A should narrow chart B (e.g. clicking a region filters every other chart on the page).",
+        "Append a filter event to the named link_group's bus. All charts in the same group can consume it via glyph_linked_await. Use this when a user click in chart A should narrow chart B (e.g. clicking a region filters every other chart on the page).\n\nPR73 (PLAN 2.1) — pass optional `modality` ('chart' | 'table' | 'narrative' | host-defined) to tag the event with its originating surface. Subscribers can then filter out events from their own modality (echo filter) when multi-pane UIs would otherwise loop user gestures.",
       inputSchema: {
         group: z.string().min(1).describe("The shared link_group name from spec.link_group."),
         predicate: z
@@ -2482,55 +2480,22 @@ export function createServer(state: ServerState = new ServerState()): {
           .string()
           .optional()
           .describe("Human-readable summary, e.g. 'Region: us' — for the narrator."),
-      },
-    },
-    async ({ group, predicate, source_handle, summary }) => {
-      const event = state.links.publish({
-        group,
-        predicate,
-        ...(source_handle !== undefined ? { source_handle } : {}),
-        ...(summary !== undefined ? { summary } : {}),
-      });
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(event, null, 2) }],
-      };
-    },
-  );
-
-  // ----- glyph_modality_sync (PR73 / PLAN item 2.1) -------------------------
-  // Companion to glyph_linked_publish that tags the event with the
-  // originating modality so subscribers can avoid echoing user gestures
-  // back into the surface that produced them.
-  server.registerTool(
-    "glyph_modality_sync",
-    {
-      title: "Broadcast a multi-modal selection across chart / table / narrative",
-      description:
-        "Publish a selection (SQL predicate) onto a link_group, tagged with the modality that originated it ('chart' | 'table' | 'narrative' | host-defined). Subscribers receive the event via glyph_linked_await and can filter out their own modality to avoid echoes.\n\nThis is functionally a superset of glyph_linked_publish — the existing verb stays for back-compat; new multi-pane UIs should use this one.",
-      inputSchema: {
-        group: z.string().min(1).describe("The shared link_group name."),
-        predicate: z
-          .string()
-          .min(1)
-          .describe("SQL predicate to broadcast (e.g. \"region = 'us'\")."),
         modality: z
           .string()
           .min(1)
-          .describe("Originating modality. Convention: 'chart' | 'table' | 'narrative'."),
-        source_handle: z
-          .string()
           .optional()
-          .describe("Handle that originated the event (echo filter)."),
-        summary: z.string().optional().describe("Human-readable summary."),
+          .describe(
+            "PR73 (PLAN 2.1) — originating modality. Convention: 'chart' | 'table' | 'narrative'. Subscribers compare event.modality to their own to skip echoes.",
+          ),
       },
     },
-    async ({ group, predicate, modality, source_handle, summary }) => {
+    async ({ group, predicate, source_handle, summary, modality }) => {
       const event = state.links.publish({
         group,
         predicate,
-        modality,
         ...(source_handle !== undefined ? { source_handle } : {}),
         ...(summary !== undefined ? { summary } : {}),
+        ...(modality !== undefined ? { modality } : {}),
       });
       return {
         content: [{ type: "text" as const, text: JSON.stringify(event, null, 2) }],
