@@ -116,4 +116,40 @@ describe("glyph CLI", () => {
     const out = JSON.parse(stdoutChunks.join(""));
     expect(out.rowCount).toBe(5);
   });
+
+  it("diff returns 0 for byte-identical output (PR64 / PLAN 2.8)", async () => {
+    const code = await main(["diff", snapshotSpec, snapshotBaseline]);
+    expect(code).toBe(0);
+    expect(stdoutChunks.join("")).toContain("no diff");
+  });
+
+  it("diff returns 1 with a unified diff when output differs", async () => {
+    const fake = join(tmpDir, "fake.svg");
+    writeFileSync(fake, "<svg>NOT MATCHING</svg>", "utf8");
+    const code = await main(["diff", snapshotSpec, fake]);
+    expect(code).toBe(1);
+    const out = stdoutChunks.join("");
+    expect(out).toContain("---");
+    expect(out).toContain("+++");
+  });
+
+  it("diff --output md emits a markdown block", async () => {
+    const fake = join(tmpDir, "fake.svg");
+    writeFileSync(fake, "<svg>NOT MATCHING</svg>", "utf8");
+    const code = await main(["diff", snapshotSpec, fake, "--output", "md"]);
+    expect(code).toBe(1);
+    expect(stdoutChunks.join("")).toContain("```diff");
+  });
+
+  it("diff --threshold N tolerates up to N changed lines", async () => {
+    // Use a baseline that has a small whitespace-only mutation. Bytes
+    // differ; changed-line count = 2 (− and +). With threshold 5, accept.
+    const baseline = readFileSync(snapshotBaseline, "utf8");
+    const slightlyDifferent = join(tmpDir, "almost.svg");
+    // Mutate a single short attribute value so the diff is bounded.
+    writeFileSync(slightlyDifferent, baseline.replace('width="640"', 'width="641"'), "utf8");
+    const code = await main(["diff", snapshotSpec, slightlyDifferent, "--threshold", "100"]);
+    expect(code).toBe(0);
+    expect(stdoutChunks.join("")).toContain("within threshold");
+  });
 });

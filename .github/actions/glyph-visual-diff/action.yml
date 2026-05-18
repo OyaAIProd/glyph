@@ -1,0 +1,67 @@
+name: "Glyph visual diff"
+description: >-
+  PR64 / PLAN 2.8 — Spec-as-code CI gate. Renders every `*.glyph.json` spec
+  in the repo and unified-diffs it against its checked-in baseline SVG.
+  Posts the diff as a PR comment on mismatch.
+inputs:
+  specs-dir:
+    description: "Directory containing *.glyph.json spec files + baseline.svg neighbors."
+    required: false
+    default: "./specs"
+  threshold:
+    description: "Accept up to N changed lines per spec before failing the job."
+    required: false
+    default: "0"
+  comment-on-pr:
+    description: "Post a Markdown diff block as a PR comment on mismatch."
+    required: false
+    default: "true"
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+    - name: Install Glyph CLI
+      shell: bash
+      run: npm install -g @glyph/cli
+    - name: Diff every spec → its baseline SVG
+      id: diff
+      shell: bash
+      run: |
+        set +e
+        FAILED=0
+        DIFFS=""
+        for SPEC in $(find ${{ inputs.specs-dir }} -name "*.glyph.json"); do
+          BASELINE="${SPEC%.glyph.json}.baseline.svg"
+          if [ ! -f "$BASELINE" ]; then
+            echo "::warning::No baseline found for $SPEC ($BASELINE missing)"
+            continue
+          fi
+          OUT=$(glyph diff "$SPEC" "$BASELINE" --threshold ${{ inputs.threshold }} --output md)
+          if [ $? -ne 0 ]; then
+            DIFFS="$DIFFS"$'\n'"$OUT"
+            FAILED=1
+          fi
+        done
+        if [ "$FAILED" -eq 1 ]; then
+          echo "diffs<<EOF"   >> $GITHUB_OUTPUT
+          echo "$DIFFS"       >> $GITHUB_OUTPUT
+          echo "EOF"          >> $GITHUB_OUTPUT
+          exit 1
+        fi
+    - name: Comment diff on PR
+      if: failure() && inputs.comment-on-pr == 'true' && github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const body = `${{ steps.diff.outputs.diffs }}`;
+          if (body && body.length > 0) {
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+          }

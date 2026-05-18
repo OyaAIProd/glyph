@@ -38,6 +38,85 @@ export interface MetricDefinition {
   readonly dimensions?: ReadonlyArray<string> | undefined;
   /** Source columns that MUST be present in the data view for this metric. */
   readonly requires?: ReadonlyArray<string> | undefined;
+  /**
+   * PR64 (PLAN item 2.7) — names of upstream metrics or columns that
+   * causally drive this metric. e.g. `mrr.causal_of = ["new_customers",
+   * "avg_price", "churn"]`. Renderers can surface a "→ causal" badge when
+   * the chart encodes one of these against the metric. Used by
+   * `glyph_causal_graph` to build the DAG.
+   */
+  readonly causal_of?: ReadonlyArray<string> | undefined;
+}
+
+/** PR64 (PLAN item 2.7) — DAG view over registered metrics' causal_of links. */
+export interface CausalGraph {
+  /** Every metric in the registry, keyed by name. */
+  readonly nodes: ReadonlyArray<{ readonly name: string; readonly description?: string }>;
+  /** Directed edges: cause → effect. */
+  readonly edges: ReadonlyArray<{ readonly from: string; readonly to: string }>;
+  /** Cycles, if any (set of names in each cycle). v0 detects 1-step + 2-step cycles. */
+  readonly cycles: ReadonlyArray<ReadonlyArray<string>>;
+}
+
+/**
+ * Build a CausalGraph from a metric registry. Cycle detection runs a small
+ * DFS; cycles are reported but don't throw — consumers decide how to render
+ * (typical: draw a warning badge on the cycle's edge).
+ */
+export function buildCausalGraph(metrics: ReadonlyArray<MetricDefinition>): CausalGraph {
+  const nodes = metrics.map((m) =>
+    m.description !== undefined ? { name: m.name, description: m.description } : { name: m.name },
+  );
+  const edges: Array<{ from: string; to: string }> = [];
+  for (const m of metrics) {
+    for (const cause of m.causal_of ?? []) {
+      edges.push({ from: cause, to: m.name });
+    }
+  }
+  // Cycle detection — DFS-based, returns each strongly-connected component
+  // with > 1 node OR self-loops.
+  const cycles = detectCycles(metrics, edges);
+  return { nodes, edges, cycles };
+}
+
+function detectCycles(
+  metrics: ReadonlyArray<MetricDefinition>,
+  edges: ReadonlyArray<{ from: string; to: string }>,
+): ReadonlyArray<ReadonlyArray<string>> {
+  // Build adjacency (cause → effect).
+  const adj = new Map<string, string[]>();
+  for (const e of edges) {
+    const bucket = adj.get(e.from);
+    if (bucket) bucket.push(e.to);
+    else adj.set(e.from, [e.to]);
+  }
+  const cycles: string[][] = [];
+  const WHITE = 0;
+  const GRAY = 1;
+  const BLACK = 2;
+  const color = new Map<string, number>();
+  for (const m of metrics) color.set(m.name, WHITE);
+  const stack: string[] = [];
+  function visit(node: string): void {
+    color.set(node, GRAY);
+    stack.push(node);
+    for (const next of adj.get(node) ?? []) {
+      const c = color.get(next) ?? WHITE;
+      if (c === GRAY) {
+        // Cycle: extract the slice of stack from `next` to end.
+        const idx = stack.indexOf(next);
+        if (idx >= 0) cycles.push(stack.slice(idx));
+      } else if (c === WHITE) {
+        visit(next);
+      }
+    }
+    color.set(node, BLACK);
+    stack.pop();
+  }
+  for (const m of metrics) {
+    if ((color.get(m.name) ?? WHITE) === WHITE) visit(m.name);
+  }
+  return cycles;
 }
 
 /** Callback the materializer uses to resolve a metric name. */

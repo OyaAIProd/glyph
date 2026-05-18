@@ -427,8 +427,8 @@ These four items together close ~25% of the plan in one PR. The remaining 12 ite
 | 2.4 Multi-agent compare | ✅ PR62 | 62 | `diffWhyboards` pure-fn; `glyph_whyboard_diff` verb. Compare two agents' Whyboards branch-by-branch. |
 | 2.5 Workflow capture | ⏳ planned | — | Batch C |
 | 2.6 Scale tuning | ✅ this PR | 60 | starter batch |
-| 2.7 Causal-aware viz | ⏳ planned | — | Batch E |
-| 2.8 Spec-as-code CI | ⏳ planned | — | Batch B (needs 1.7) |
+| 2.7 Causal-aware viz | ✅ PR64 | 64 | `causal_of` field on MetricDefinition; `buildCausalGraph` pure-fn with cycle detection; `glyph_causal_graph` verb. |
+| 2.8 Spec-as-code CI | ✅ PR64 | 64 | `glyph diff` CLI subcommand with unified diff + HTML/MD output; GitHub Action template under .github/actions/glyph-visual-diff/. |
 
 ---
 

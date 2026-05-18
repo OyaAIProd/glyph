@@ -58,6 +58,7 @@ import {
   applyJsonPatch,
   attributeDrift,
   auditSpec,
+  buildCausalGraph,
   compileSpec,
   decomposeVariance,
   detectAnomalies,
@@ -147,6 +148,8 @@ const MCP_TOOLS = [
   { name: "glyph_whyboard_diff", since: "0.0.13" },
   // ---- PR63 (PLAN.md item 2.2) — chart auditor -------------------------
   { name: "glyph_audit_spec", since: "0.0.14" },
+  // ---- PR64 (PLAN.md item 2.7) — causal-aware viz ----------------------
+  { name: "glyph_causal_graph", since: "0.0.15" },
 ] as const;
 
 /** Best-effort browser launcher. Returns true on success. */
@@ -1368,6 +1371,12 @@ export function createServer(state: ServerState = new ServerState()): {
                   .describe("Coarse grain hint — 'daily', 'monthly', etc."),
                 dimensions: z.array(z.string()).optional(),
                 requires: z.array(z.string()).optional(),
+                causal_of: z
+                  .array(z.string())
+                  .optional()
+                  .describe(
+                    "PR64 (PLAN 2.7) — upstream metric/column names that causally drive this metric. Used by glyph_causal_graph to build the DAG, and (in a follow-up) by the renderer to emit a '→ causal' badge in legends.",
+                  ),
               })
               .strict(),
           )
@@ -2700,6 +2709,28 @@ export function createServer(state: ServerState = new ServerState()): {
           content: [{ type: "text" as const, text: `Invalid whyboard input: ${msg}` }],
         };
       }
+    },
+  );
+
+  // ----- glyph_causal_graph (PR64 / PLAN item 2.7) --------------------------
+  server.registerTool(
+    "glyph_causal_graph",
+    {
+      title: "Inspect the causal DAG over registered metrics",
+      description:
+        "Return the directed graph of `causal_of` links declared by metrics registered via glyph_metrics_register. Each edge is { from: causeName, to: effectName }. Cycles (if any) are detected and reported so consumers can render warnings on circular causal claims.",
+      inputSchema: {},
+    },
+    async () => {
+      const graph = buildCausalGraph(state.allMetrics());
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(graph, null, 2),
+          },
+        ],
+      };
     },
   );
 

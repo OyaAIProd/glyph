@@ -76,7 +76,7 @@ describe("Glyph MCP server", () => {
     rmSync(tempMemoryDir, { recursive: true, force: true });
   });
 
-  it("lists the forty-three tools", async () => {
+  it("lists the forty-four tools", async () => {
     const r = await client.listTools();
     const names = r.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -86,6 +86,7 @@ describe("Glyph MCP server", () => {
       "glyph_audit_spec",
       "glyph_await_interaction",
       "glyph_capabilities",
+      "glyph_causal_graph",
       "glyph_close_preview",
       "glyph_decompose",
       "glyph_describe",
@@ -141,6 +142,7 @@ describe("Glyph MCP server", () => {
       "glyph_audit_spec",
       "glyph_await_interaction",
       "glyph_capabilities",
+      "glyph_causal_graph",
       "glyph_close_preview",
       "glyph_decompose",
       "glyph_describe",
@@ -1863,6 +1865,38 @@ describe("Glyph MCP server", () => {
         board_b: { not_a_board: true },
       });
       expect(d.isError).toBe(true);
+    });
+  });
+
+  describe("glyph_causal_graph (PR64 / PLAN 2.7)", () => {
+    it("returns an empty graph when no metrics are registered", async () => {
+      const r = await callText(client, "glyph_causal_graph", {});
+      expect(r.isError).toBe(false);
+      const g = JSON.parse(r.text);
+      expect(g.nodes).toEqual([]);
+      expect(g.edges).toEqual([]);
+      expect(g.cycles).toEqual([]);
+    });
+
+    it("emits edges for registered causal_of links", async () => {
+      // Register two metrics with a cause/effect relationship.
+      await callText(client, "glyph_metrics_register", {
+        metrics: [
+          {
+            name: "mrr",
+            sql: "SUM(amount)",
+            causal_of: ["new_customers"],
+          },
+          {
+            name: "new_customers",
+            sql: "COUNT(DISTINCT customer_id)",
+          },
+        ],
+      });
+      const r = await callText(client, "glyph_causal_graph", {});
+      const g = JSON.parse(r.text);
+      expect(g.nodes.length).toBeGreaterThanOrEqual(2);
+      expect(g.edges).toContainEqual({ from: "new_customers", to: "mrr" });
     });
   });
 

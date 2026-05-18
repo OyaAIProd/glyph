@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  buildCausalGraph,
   buildMetricViewSql,
   collectGroupByFields,
   collectMetricNames,
@@ -207,5 +208,31 @@ describe("buildMetricViewSql", () => {
       metrics: [{ name: "x", sql: "SUM(v)" }],
     });
     expect(sql).toContain('"weird""name"');
+  });
+});
+
+describe("buildCausalGraph (PR64 / PLAN 2.7)", () => {
+  it("emits one edge per causal_of entry", () => {
+    const g = buildCausalGraph([
+      { name: "mrr", sql: "SUM(amount)", causal_of: ["new_customers", "avg_price"] },
+      { name: "new_customers", sql: "COUNT(DISTINCT customer_id)" },
+      { name: "avg_price", sql: "AVG(price)" },
+    ]);
+    expect(g.nodes.map((n) => n.name).sort()).toEqual(["avg_price", "mrr", "new_customers"]);
+    expect(g.edges).toContainEqual({ from: "new_customers", to: "mrr" });
+    expect(g.edges).toContainEqual({ from: "avg_price", to: "mrr" });
+    expect(g.cycles).toEqual([]);
+  });
+
+  it("detects a 2-step cycle", () => {
+    const g = buildCausalGraph([
+      { name: "a", sql: "SUM(x)", causal_of: ["b"] },
+      { name: "b", sql: "SUM(y)", causal_of: ["a"] },
+    ]);
+    expect(g.cycles.length).toBeGreaterThan(0);
+  });
+
+  it("returns an empty graph for an empty registry", () => {
+    expect(buildCausalGraph([])).toEqual({ nodes: [], edges: [], cycles: [] });
   });
 });
