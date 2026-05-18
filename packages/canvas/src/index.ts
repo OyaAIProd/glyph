@@ -444,8 +444,10 @@ export class MockCanvasContext2D implements CanvasContext2D {
     this.calls.push(`lineTo(${fmt(x)},${fmt(y)})`);
   }
   arc(x: number, y: number, r: number, sa: number, ea: number, ccw?: boolean): void {
-    void ccw;
-    this.calls.push(`arc(${fmt(x)},${fmt(y)},${fmt(r)},${fmt(sa)},${fmt(ea)})`);
+    // Record `ccw` in the call so tests can assert direction (a regression
+    // flipping the inner-arc winding would silently pass otherwise — PR76
+    // review nit on mock fidelity).
+    this.calls.push(`arc(${fmt(x)},${fmt(y)},${fmt(r)},${fmt(sa)},${fmt(ea)},ccw=${ccw === true})`);
   }
   rect(x: number, y: number, w: number, h: number): void {
     this.calls.push(`rect(${fmt(x)},${fmt(y)},${fmt(w)},${fmt(h)})`);

@@ -206,7 +206,7 @@ describe("parsePathD", () => {
 });
 
 describe("renderCanvas — arc marks (PR76 / D3 Gap 7)", () => {
-  it("pie slice (innerRadius=0) emits beginPath + outer arc + lineTo center + fill", () => {
+  it("pie slice respects 12-o'clock convention (startAngle=0 → ctx.arc sa ≈ −π/2)", () => {
     const scene = {
       width: 200,
       height: 200,
@@ -230,10 +230,18 @@ describe("renderCanvas — arc marks (PR76 / D3 Gap 7)", () => {
     renderCanvas(scene, ctx);
     const arcCalls = ctx.calls.filter((c) => c.startsWith("arc"));
     expect(arcCalls.length).toBe(1);
+    // The spec's startAngle=0 means "12 o'clock". renderMark subtracts
+    // π/2, so ctx.arc receives sa ≈ -1.57 (formatted to 2 decimals by
+    // the mock). A regression dropping the shift would record sa = 0
+    // and we'd silently lose the convention.
+    const arc = arcCalls[0] ?? "";
+    expect(arc).toContain(",-1.57,");
+    // Pie slice (innerRadius=0) → outer arc only, ccw=false.
+    expect(arc).toContain("ccw=false");
     expect(ctx.calls.some((c) => c.startsWith("fill["))).toBe(true);
   });
 
-  it("donut slice (innerRadius>0) emits two arcs", () => {
+  it("donut slice: outer-arc forward, inner-arc reverse (ccw=true)", () => {
     const scene = {
       width: 200,
       height: 200,
@@ -256,8 +264,13 @@ describe("renderCanvas — arc marks (PR76 / D3 Gap 7)", () => {
     const ctx = new MockCanvasContext2D();
     renderCanvas(scene, ctx);
     const arcCalls = ctx.calls.filter((c) => c.startsWith("arc"));
-    // Outer + inner arcs.
     expect(arcCalls.length).toBe(2);
+    // First arc is the outer ring (ccw=false).
+    expect(arcCalls[0]).toContain("ccw=false");
+    // Second arc is the inner ring traversed in reverse (ccw=true). A
+    // regression flipping the direction would break the closed-region
+    // winding and the canvas fill would be wrong.
+    expect(arcCalls[1]).toContain("ccw=true");
   });
 });
 
