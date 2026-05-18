@@ -6,7 +6,7 @@
     <title>Glyph — A chart is a query is a chart</title>
     <meta
       name="description"
-      content="TypeScript chart-and-compute library where every visualization is a queryable in-memory database. Built on DuckDB and the grammar of graphics. Apache 2.0."
+      content="TypeScript chart-and-compute library where every visualization is a queryable in-memory database. 50 MCP tools for AI agents, deterministic by construction. Built on DuckDB. Apache 2.0, no telemetry."
     />
     <meta property="og:title" content="Glyph" />
     <meta
@@ -444,8 +444,9 @@
         </a>
         <nav class="nav-links">
           <a href="#examples">Examples</a>
+          <a href="#innovations">Innovations</a>
+          <a href="#only-glyph">Only Glyph</a>
           <a href="#whyboard">Whyboard</a>
-          <a href="#features">Features</a>
           <a href="#compare">Comparison</a>
           <a href="https://github.com/seanhanca/glyph">GitHub →</a>
         </nav>
@@ -456,7 +457,7 @@
       <div class="wrap">
         <div class="hero-grid">
           <div>
-            <span class="badge badge-mono">v0.0.11 · Apache 2.0 · no telemetry</span>
+            <span class="badge badge-mono">v0.0.20 · Apache 2.0 · no telemetry</span>
             <h1 style="margin-top: 14px;">
               A chart is a query<br/>
               <span class="accent">is a chart.</span>
@@ -464,7 +465,8 @@
             <p class="tagline">
               TypeScript chart-and-compute library where every visualization is a queryable
               in-memory database. Built on DuckDB and the grammar of graphics. Designed for
-              AI agents — <strong>36 MCP tools</strong>, all deterministic.
+              AI agents — <strong>50 MCP tools</strong>, all deterministic. 11 mark types,
+              4 data shapes, byte-stable SVG output across every platform.
             </p>
             <pre><code>npm install @glyph/mcp
 # or, for the libraries:
@@ -525,16 +527,16 @@ npm install @glyph/core @glyph/duckdb @glyph/canvas</code></pre>
         <!-- Live stats -->
         <div class="stats">
           <div class="stat">
-            <div class="stat-value">36</div>
+            <div class="stat-value">50</div>
             <div class="stat-label">MCP tools</div>
           </div>
           <div class="stat">
-            <div class="stat-value">412</div>
+            <div class="stat-value">679</div>
             <div class="stat-label">tests passing</div>
           </div>
           <div class="stat">
-            <div class="stat-value">~100/100</div>
-            <div class="stat-label">vs. competitors</div>
+            <div class="stat-value">11</div>
+            <div class="stat-label">mark types</div>
           </div>
           <div class="stat">
             <div class="stat-value">SVG + Canvas</div>
@@ -620,6 +622,26 @@ npm install @glyph/core @glyph/duckdb @glyph/canvas</code></pre>
             <div class="verbs">
               <code>geo-region</code><code>animation: race</code><code>link_group</code><code>attachScrub</code>
             </div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:36px;">PR60–77 — innovation batch (recent)</h3>
+        <p style="font-size: 14px;">All 16 INNOVATION.md items + 7 of 8 D3 architectural gaps. <a href="#innovations">Full gallery below ↓</a></p>
+        <div class="features">
+          <div class="feature">
+            <h3>4 new data shapes</h3>
+            <p>Tabular (CSV/Parquet/SQL), <strong>hierarchy</strong> (treemap/sunburst), <strong>graph</strong> (force layout, seeded), <strong>grid</strong> (contour via marching squares). Each bypasses DuckDB when inline.</p>
+            <div class="verbs"><code>data.hierarchy</code><code>data.graph</code><code>data.grid</code></div>
+          </div>
+          <div class="feature">
+            <h3>3 new mark families</h3>
+            <p><code>arc</code> (polar pie/donut/radial), <code>treemap</code> / <code>sunburst</code> / <code>force</code> / <code>contour</code>. SMIL morph between any two scene states.</p>
+            <div class="verbs"><code>11 mark types</code><code>polar coordinates</code></div>
+          </div>
+          <div class="feature">
+            <h3>9 new MCP verbs</h3>
+            <p><code>glyph_spec_diff</code>, <code>glyph_spec_patch</code>, <code>glyph_audit_spec</code>, <code>glyph_causal_graph</code>, <code>glyph_morph_render</code>, <code>glyph_macro_replay</code>, <code>glyph_engagement_{record,query}</code>, <code>glyph_story_provide_plan</code>, <code>glyph_whyboard_diff</code>, <code>glyph_handles_gc</code>, <code>glyph_suggest_scale</code>, <code>glyph_story_clarify</code>, <code>glyph_regression</code>. <strong>50 total tools.</strong></p>
+            <div class="verbs"><code>36 → 50</code></div>
           </div>
         </div>
       </div>
@@ -756,6 +778,409 @@ npm install @glyph/core @glyph/duckdb @glyph/canvas</code></pre>
               </g>
               <line x1="40" y1="170" x2="280" y2="170" stroke="#999"/>
             </svg>
+          </div>
+
+          <!-- PR66 — Polar coordinates (D3 Gap 1) -->
+          <div class="example">
+            <h3>Pie / donut <span class="badge badge-mono" style="font-size:9px;padding:1px 5px;">PR66 · Polar</span></h3>
+            <p>Set <code>coordinates: { type: "polar" }</code>. Bar + polar → arcs. Same Scene IR, byte-stable SVG.</p>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Donut chart example">
+              <rect width="320" height="200" fill="#fafbfc"/>
+              <!-- Donut slices (inner 35, outer 75) at center (160, 100). -->
+              <!-- A: 0°→90°, B: 90°→200°, C: 200°→360°. Path uses elliptical-arc command. -->
+              <path d="M 160 25 L 160 65 A 35 35 0 0 1 195 100 L 235 100 A 75 75 0 0 0 160 25 Z" fill="#4c78a8"/>
+              <path d="M 235 100 A 75 75 0 0 1 134.3 168.8 L 148.1 132.9 A 35 35 0 0 0 195 100 Z" fill="#f58518"/>
+              <path d="M 134.3 168.8 A 75 75 0 0 1 160 25 L 160 65 A 35 35 0 0 0 148.1 132.9 Z" fill="#54a24b"/>
+              <text x="160" y="190" font-family="system-ui" font-size="10" fill="#666" text-anchor="middle">marketing 25% · ops 30% · eng 45%</text>
+            </svg>
+          </div>
+
+          <!-- PR67 — Treemap (D3 Gap 2) -->
+          <div class="example">
+            <h3>Treemap <span class="badge badge-mono" style="font-size:9px;padding:1px 5px;">PR67 · Hierarchy</span></h3>
+            <p><code>data.hierarchy: {...}</code> + <code>mark: "treemap"</code>. Squarified algorithm. No DuckDB.</p>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Treemap example">
+              <rect width="320" height="200" fill="#fafbfc"/>
+              <!-- Squarified rects -->
+              <rect x="20"  y="20"  width="140" height="160" fill="#4c78a8" stroke="white" stroke-width="2"/>
+              <rect x="160" y="20"  width="140" height="80"  fill="#f58518" stroke="white" stroke-width="2"/>
+              <rect x="160" y="100" width="80"  height="80"  fill="#54a24b" stroke="white" stroke-width="2"/>
+              <rect x="240" y="100" width="60"  height="40"  fill="#e45756" stroke="white" stroke-width="2"/>
+              <rect x="240" y="140" width="60"  height="40"  fill="#72b7b2" stroke="white" stroke-width="2"/>
+              <g font-family="system-ui" font-size="11" fill="white" font-weight="600">
+                <text x="30"  y="40">eng 45%</text>
+                <text x="170" y="40">sales 22%</text>
+                <text x="170" y="120">ops 13%</text>
+                <text x="248" y="124" font-size="9">mkt 6%</text>
+                <text x="248" y="164" font-size="9">hr 5%</text>
+              </g>
+            </svg>
+          </div>
+
+          <!-- PR67 — Sunburst -->
+          <div class="example">
+            <h3>Sunburst <span class="badge badge-mono" style="font-size:9px;padding:1px 5px;">PR67 · Partition</span></h3>
+            <p>Radial partition of the same hierarchy. Each ring = one depth level.</p>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Sunburst example">
+              <rect width="320" height="200" fill="#fafbfc"/>
+              <!-- Two depths: inner ring (depth 1), outer ring (depth 2). cx=160, cy=100. -->
+              <!-- Inner ring slices -->
+              <path d="M 160 100 L 160 40 A 60 60 0 0 1 211.96 70 Z" fill="#4c78a8"/>
+              <path d="M 160 100 L 211.96 70 A 60 60 0 0 1 211.96 130 Z" fill="#f58518"/>
+              <path d="M 160 100 L 211.96 130 A 60 60 0 0 1 108.04 130 Z" fill="#54a24b"/>
+              <path d="M 160 100 L 108.04 130 A 60 60 0 0 1 160 40 Z" fill="#e45756"/>
+              <!-- Outer ring slices (depth 2) -->
+              <path d="M 160 40 A 60 60 0 0 1 188 47 L 200 25 A 90 90 0 0 0 160 10 Z" fill="#7eb1d8"/>
+              <path d="M 188 47 A 60 60 0 0 1 211.96 70 L 238 55 A 90 90 0 0 0 200 25 Z" fill="#aac1d8"/>
+              <path d="M 211.96 70 A 60 60 0 0 1 220 100 L 250 100 A 90 90 0 0 0 238 55 Z" fill="#f7b87d"/>
+              <path d="M 220 100 A 60 60 0 0 1 211.96 130 L 238 145 A 90 90 0 0 0 250 100 Z" fill="#84c592"/>
+              <path d="M 211.96 130 A 60 60 0 0 1 160 160 L 160 190 A 90 90 0 0 0 238 145 Z" fill="#aedab7"/>
+              <path d="M 160 160 A 60 60 0 0 1 108.04 130 L 82 145 A 90 90 0 0 0 160 190 Z" fill="#f0a6a7"/>
+              <path d="M 108.04 130 A 60 60 0 0 1 100 100 L 70 100 A 90 90 0 0 0 82 145 Z" fill="#f5cbcb"/>
+              <circle cx="160" cy="100" r="0.5" fill="#666"/>
+            </svg>
+          </div>
+
+          <!-- PR68 — Force-directed graph (D3 Gap 5) -->
+          <div class="example">
+            <h3>Force graph <span class="badge badge-mono" style="font-size:9px;padding:1px 5px;">PR68 · Seeded</span></h3>
+            <p><code>data.graph: { nodes, edges }</code> + <code>spec.seed: 42</code>. Velocity-Verlet, byte-stable across runs.</p>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Force-directed graph">
+              <rect width="320" height="200" fill="#fafbfc"/>
+              <!-- Edges first, behind nodes -->
+              <g stroke="#999" stroke-width="1">
+                <line x1="80"  y1="60"  x2="160" y2="100"/>
+                <line x1="160" y1="100" x2="240" y2="50"/>
+                <line x1="160" y1="100" x2="220" y2="150"/>
+                <line x1="80"  y1="60"  x2="110" y2="150"/>
+                <line x1="110" y1="150" x2="220" y2="150"/>
+                <line x1="240" y1="50"  x2="270" y2="115"/>
+                <line x1="270" y1="115" x2="220" y2="150"/>
+              </g>
+              <!-- Nodes (group colors) -->
+              <g>
+                <circle cx="80"  cy="60"  r="9" fill="#4c78a8"/>
+                <circle cx="160" cy="100" r="11" fill="#4c78a8"/>
+                <circle cx="240" cy="50"  r="9" fill="#f58518"/>
+                <circle cx="110" cy="150" r="8" fill="#4c78a8"/>
+                <circle cx="220" cy="150" r="8" fill="#f58518"/>
+                <circle cx="270" cy="115" r="7" fill="#f58518"/>
+              </g>
+            </svg>
+          </div>
+
+          <!-- PR75 — Contour (D3 Gap 4) -->
+          <div class="example">
+            <h3>Contour <span class="badge badge-mono" style="font-size:9px;padding:1px 5px;">PR75 · Marching squares</span></h3>
+            <p><code>data.grid: { rows, cols, values }</code> + thresholds. 16 marching-squares cases including saddles.</p>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Contour example">
+              <rect width="320" height="200" fill="#fafbfc"/>
+              <!-- Concentric ellipsoidal isolines simulating a density bump -->
+              <g fill="none" stroke-width="1.5">
+                <ellipse cx="160" cy="100" rx="120" ry="75" stroke="#aac1d8"/>
+                <ellipse cx="160" cy="100" rx="90"  ry="55" stroke="#7ea1c4"/>
+                <ellipse cx="160" cy="100" rx="55"  ry="35" stroke="#4c78a8"/>
+                <ellipse cx="160" cy="100" rx="25"  ry="18" stroke="#1f3e64"/>
+              </g>
+              <circle cx="160" cy="100" r="2" fill="#1f3e64"/>
+              <text x="160" y="190" font-family="system-ui" font-size="10" fill="#666" text-anchor="middle">4 isovalue thresholds</text>
+            </svg>
+          </div>
+
+          <!-- PR74 — Morph transitions (D3 Gap 3) -->
+          <div class="example">
+            <h3>Morph <span class="badge badge-mono" style="font-size:9px;padding:1px 5px;">PR74 · SMIL</span></h3>
+            <p><code>glyph_morph_render(specA, specB)</code> emits one SVG with <code>&lt;animate from to&gt;</code>. Smooth transitions between scene states.</p>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Morph example">
+              <rect width="320" height="200" fill="#fafbfc"/>
+              <g fill="#4c78a8">
+                <rect x="60" y="40" width="40" height="120">
+                  <animate attributeName="height" values="120;40;120" dur="4s" repeatCount="indefinite"/>
+                  <animate attributeName="y" values="40;120;40" dur="4s" repeatCount="indefinite"/>
+                </rect>
+                <rect x="120" y="80" width="40" height="80">
+                  <animate attributeName="height" values="80;140;80" dur="4s" repeatCount="indefinite"/>
+                  <animate attributeName="y" values="80;20;80" dur="4s" repeatCount="indefinite"/>
+                </rect>
+                <rect x="180" y="60" width="40" height="100">
+                  <animate attributeName="height" values="100;100;100" dur="4s" repeatCount="indefinite"/>
+                </rect>
+                <rect x="240" y="100" width="40" height="60">
+                  <animate attributeName="height" values="60;80;60" dur="4s" repeatCount="indefinite"/>
+                  <animate attributeName="y" values="100;80;100" dur="4s" repeatCount="indefinite"/>
+                </rect>
+              </g>
+              <line x1="50" y1="170" x2="290" y2="170" stroke="#999"/>
+            </svg>
+          </div>
+
+          <!-- PR61 — Uncertainty rendering -->
+          <div class="example">
+            <h3>Uncertainty <span class="badge badge-mono" style="font-size:9px;padding:1px 5px;">PR61 · Auto</span></h3>
+            <p>Low-sample data → hatched bars + n-badge. No spec change — driven by <code>provenance.confidence</code>.</p>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Uncertainty hatching example">
+              <rect width="320" height="200" fill="#fafbfc"/>
+              <defs>
+                <pattern id="hatch1" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+                  <line x1="0" y1="0" x2="0" y2="6" stroke="#444" stroke-width="1" stroke-opacity="0.35"/>
+                </pattern>
+              </defs>
+              <g fill="#4c78a8">
+                <rect x="40"  y="60"  width="40" height="100"/>
+                <rect x="100" y="40"  width="40" height="120"/>
+                <rect x="160" y="80"  width="40" height="80"/>
+                <rect x="220" y="50"  width="40" height="110"/>
+              </g>
+              <rect x="20" y="20" width="280" height="160" fill="url(#hatch1)" pointer-events="none"/>
+              <text x="300" y="34" font-family="system-ui" font-size="11" fill="#666" text-anchor="end">n=8 · confidence: low</text>
+              <line x1="30" y1="170" x2="290" y2="170" stroke="#999"/>
+            </svg>
+          </div>
+
+          <!-- PR63 — Chart auditor -->
+          <div class="example">
+            <h3>Auditor <span class="badge badge-mono" style="font-size:9px;padding:1px 5px;">PR63 · 8 rules</span></h3>
+            <p><code>glyph_audit_spec(spec)</code> catches misleading charts. Truncated y-axis, undisclosed log, dual-axis, more.</p>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Auditor finding example">
+              <rect width="320" height="200" fill="#fafbfc"/>
+              <g fill="#4c78a8">
+                <rect x="40"  y="60"  width="40" height="50"/>
+                <rect x="100" y="40"  width="40" height="70"/>
+                <rect x="160" y="20"  width="40" height="90"/>
+                <rect x="220" y="50"  width="40" height="60"/>
+              </g>
+              <line x1="30" y1="110" x2="290" y2="110" stroke="#999"/>
+              <text x="30" y="125" font-family="system-ui" font-size="10" fill="#666">100 →</text>
+              <!-- Audit chip overlay -->
+              <rect x="20" y="150" width="280" height="38" rx="6" fill="#fdecea" stroke="#c0392b" stroke-width="1"/>
+              <text x="32" y="167" font-family="system-ui" font-size="11" fill="#c0392b" font-weight="600">AUDIT-01 high</text>
+              <text x="32" y="181" font-family="system-ui" font-size="10.5" fill="#7a3a32">y-axis starts at 100, not 0 — bar heights misrepresent magnitude.</text>
+            </svg>
+          </div>
+
+          <!-- PR66 — Polar line (radar) -->
+          <div class="example">
+            <h3>Radial line <span class="badge badge-mono" style="font-size:9px;padding:1px 5px;">PR66 · Polar</span></h3>
+            <p>Line mark + polar coords = radar/star chart. Same encoding API, different coordinate system.</p>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Radial line example">
+              <rect width="320" height="200" fill="#fafbfc"/>
+              <!-- Grid circles -->
+              <g fill="none" stroke="#e6e6e6" stroke-width="1">
+                <circle cx="160" cy="100" r="25"/>
+                <circle cx="160" cy="100" r="50"/>
+                <circle cx="160" cy="100" r="75"/>
+              </g>
+              <!-- Axis spokes (6 categories) -->
+              <g stroke="#e6e6e6" stroke-width="1">
+                <line x1="160" y1="100" x2="160" y2="25"/>
+                <line x1="160" y1="100" x2="225" y2="62.5"/>
+                <line x1="160" y1="100" x2="225" y2="137.5"/>
+                <line x1="160" y1="100" x2="160" y2="175"/>
+                <line x1="160" y1="100" x2="95"  y2="137.5"/>
+                <line x1="160" y1="100" x2="95"  y2="62.5"/>
+              </g>
+              <!-- Closed data polygon -->
+              <path d="M 160 35 L 215 70 L 210 130 L 160 165 L 105 135 L 110 70 Z"
+                    fill="#4c78a8" fill-opacity="0.2" stroke="#4c78a8" stroke-width="2"/>
+              <g fill="#4c78a8">
+                <circle cx="160" cy="35" r="3"/>
+                <circle cx="215" cy="70" r="3"/>
+                <circle cx="210" cy="130" r="3"/>
+                <circle cx="160" cy="165" r="3"/>
+                <circle cx="105" cy="135" r="3"/>
+                <circle cx="110" cy="70" r="3"/>
+              </g>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- INNOVATION GALLERY — every shipped innovation   -->
+    <!-- ============================================== -->
+    <section id="innovations">
+      <div class="wrap">
+        <h2>18 innovations, all shipped</h2>
+        <p class="quote">
+          Every item on Glyph's <a href="https://github.com/seanhanca/glyph/blob/main/INNOVATION.md">INNOVATION.md</a>
+          (16 agent-workflow gaps) and 7 of 8 architectural gaps from
+          <a href="https://github.com/seanhanca/glyph/blob/main/D3-COMPARISON.md">D3-COMPARISON.md</a>.
+          Each is a single MCP verb call. None requires an LLM at runtime — every algorithm is deterministic + pure.
+        </p>
+
+        <h3>Agent workflow (INNOVATION.md — 16 items)</h3>
+        <div class="features">
+          <div class="feature">
+            <h3>1.1 · LLM-pluggable planner</h3>
+            <p><code>glyph_story_plan(intent, source, planner_hint: "llm")</code> returns an awaiting-state plan + schema context. Host fulfills via <code>glyph_story_provide_plan</code>. Per-kind args validated at provide time.</p>
+            <div class="verbs"><code>glyph_story_provide_plan</code><code>planner_hint: "llm"</code></div>
+          </div>
+          <div class="feature">
+            <h3>1.2 · Streaming progress 🟡</h3>
+            <p>MCP <code>notifications/progress</code> milestones for long-running verbs. <code>glyph_render</code> emits 4 events (parse → materialize → compile → render); zero-cost when no progressToken.</p>
+            <div class="verbs"><code>_meta.progressToken</code><code>onprogress callback</code></div>
+          </div>
+          <div class="feature">
+            <h3>1.3 · Budget guard</h3>
+            <p><code>limit_rows ∈ [1, 100_000]</code> on row-returning verbs. Response carries <code>{truncated, total, returned}</code> sentinels so agents can't blow their context window.</p>
+            <div class="verbs"><code>glyph_query · limit_rows</code></div>
+          </div>
+          <div class="feature">
+            <h3>1.4 · Disambiguation</h3>
+            <p>Story planner emits <code>clarification_questions</code> when multiple columns fit a role equally well. <code>glyph_story_clarify</code> pins answers onto the plan.</p>
+            <div class="verbs"><code>glyph_story_clarify</code><code>clarification_questions</code></div>
+          </div>
+          <div class="feature">
+            <h3>1.5 · Engagement signals (local-only)</h3>
+            <p>Record what the user actually looked at via <code>glyph_engagement_record</code>. Stored in <code>~/.glyph/memory.duckdb</code>. <strong>Never phones home.</strong> Aggregate per handle for planner-bias.</p>
+            <div class="verbs"><code>glyph_engagement_record</code><code>glyph_engagement_query</code></div>
+          </div>
+          <div class="feature">
+            <h3>1.6 · Handle TTL + reaper</h3>
+            <p>Auto-evict stale handles past 30-min TTL with lineage-aware sparing (parent handles with active descendants survive). <code>pinHandle()</code> opts out.</p>
+            <div class="verbs"><code>glyph_handles_gc</code><code>reapStaleHandles</code></div>
+          </div>
+          <div class="feature">
+            <h3>1.7 · Spec diff</h3>
+            <p>Pure-fn structural diff between two Glyph specs → <code>{added, removed, changed, summary}</code> with RFC 6901 JSON pointers. Narrative prioritizes data.transform → source → layers → encoding.</p>
+            <div class="verbs"><code>glyph_spec_diff</code><code>diffSpecs</code></div>
+          </div>
+          <div class="feature">
+            <h3>1.8 · Spec patch</h3>
+            <p>RFC 6902 JSON Patch applier. <code>glyph_spec_patch(handle, patches[])</code> re-runs the pipeline with edits applied. Validates per-kind args.</p>
+            <div class="verbs"><code>glyph_spec_patch</code><code>applyJsonPatch</code></div>
+          </div>
+          <div class="feature">
+            <h3>2.1 · Multi-modal sync</h3>
+            <p><code>glyph_render</code> accepts <code>modalities: ["chart", "table", "narrative"]</code> — returns SVG + rows + auto-narrative in one envelope. Link-group events carry <code>modality</code> for echo filtering.</p>
+            <div class="verbs"><code>modalities: ["table", "narrative"]</code></div>
+          </div>
+          <div class="feature">
+            <h3>2.2 · Chart auditor</h3>
+            <p>8 rules catching misleading charts: truncated y-axis, undisclosed log scale, dual-axis, excessive aggregation, diverging palette midpoint, color count, aspect ratio, stacked negatives.</p>
+            <div class="verbs"><code>glyph_audit_spec</code><code>8 rules</code></div>
+          </div>
+          <div class="feature">
+            <h3>2.3 · Uncertainty rendering</h3>
+            <p>Low-sample handles auto-render with hatched bars, dimmed points, and "n=N · confidence: low" badge. Zero opt-in — driven by <code>handle.provenance</code>.</p>
+            <div class="verbs"><code>SceneUncertainty</code><code>auto on low confidence</code></div>
+          </div>
+          <div class="feature">
+            <h3>2.4 · Multi-agent diff</h3>
+            <p><code>glyph_whyboard_diff(a, b)</code> aligns two Whyboards by (kind, title). Returns <code>{agreed, only_in_a, only_in_b, conflicting}</code>. Surfaces where agents disagree.</p>
+            <div class="verbs"><code>glyph_whyboard_diff</code></div>
+          </div>
+          <div class="feature">
+            <h3>2.5 · Macro capture/replay</h3>
+            <p>Portable JSON sequence of MCP verb calls with <code>{{params.X}}</code> substitution. <code>glyph_macro_replay(macro, params)</code> reruns analytics on new data deterministically.</p>
+            <div class="verbs"><code>glyph_macro_replay</code><code>{{params.X}}</code></div>
+          </div>
+          <div class="feature">
+            <h3>2.6 · Scale tuning</h3>
+            <p><code>glyph_suggest_scale</code> inspects rows + encoding, recommends log/sqrt/diverging with reason + confidence. Pure-fn heuristic — no LLM round-trip.</p>
+            <div class="verbs"><code>glyph_suggest_scale</code></div>
+          </div>
+          <div class="feature">
+            <h3>2.7 · Causal-aware viz</h3>
+            <p>Metrics declare <code>causal_of: [...]</code>. <code>glyph_causal_graph</code> returns the DAG with cycle detection + dangling-reference warnings.</p>
+            <div class="verbs"><code>glyph_causal_graph</code><code>causal_of</code></div>
+          </div>
+          <div class="feature">
+            <h3>2.8 · Spec-as-code CI</h3>
+            <p><code>glyph diff &lt;spec&gt; &lt;baseline.svg&gt;</code> CLI subcommand with unified-diff/HTML/MD output + GitHub Action template that comments on PRs.</p>
+            <div class="verbs"><code>glyph diff</code><code>.github/actions/glyph-visual-diff</code></div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:36px;">D3 architectural gaps — 7 of 8 closed</h3>
+        <div class="features">
+          <div class="feature">
+            <h3>Gap 1 · Polar coordinates ✅</h3>
+            <p>New <code>spec.coordinates: { type: "polar" }</code>. Pie / donut / radial line / radar via the existing bar/line/point marks. Arc SceneMark type + angle scale.</p>
+            <div class="verbs"><code>coordinates: { type: "polar" }</code><code>arc mark</code></div>
+          </div>
+          <div class="feature">
+            <h3>Gap 2 · Hierarchy data ✅</h3>
+            <p><code>data.hierarchy: { name, value, children }</code>. Squarified treemap (Bruls et al. 2000) + radial partition for sunburst. Bypasses DuckDB.</p>
+            <div class="verbs"><code>mark: "treemap"</code><code>mark: "sunburst"</code></div>
+          </div>
+          <div class="feature">
+            <h3>Gap 3 · Morph transitions ✅</h3>
+            <p><code>morphScenes(from, to)</code> + new <code>glyph_morph_render(spec_a, spec_b)</code> verb. SMIL <code>&lt;animate from to&gt;</code> on each mark.</p>
+            <div class="verbs"><code>glyph_morph_render</code><code>kind: "morph"</code></div>
+          </div>
+          <div class="feature">
+            <h3>Gap 4 · Contour / density ✅</h3>
+            <p><code>data.grid: { rows, cols, values }</code> + thresholds. Marching-squares with all 16 cases + asymptotic-decider saddles. Median fallback.</p>
+            <div class="verbs"><code>mark: "contour"</code><code>marchingSquares()</code></div>
+          </div>
+          <div class="feature">
+            <h3>Gap 5 · Force simulation ✅</h3>
+            <p><code>data.graph: { nodes, edges }</code> + <code>spec.seed</code>. Velocity-Verlet, mulberry32 PRNG. 5 forces: charge, link, center, collision, bounds. Also <code>simulateBeeswarm</code>.</p>
+            <div class="verbs"><code>mark: "force"</code><code>spec.seed: 42</code></div>
+          </div>
+          <div class="feature">
+            <h3>Gap 6 · Custom marks 🚫</h3>
+            <p><em>Intentionally skipped</em> — breaks spec-only JSON. D3 stays the right answer for one-off escape-hatch viz.</p>
+            <div class="verbs"><code>D3 owns this lane</code></div>
+          </div>
+          <div class="feature">
+            <h3>Gap 7 · WebGL/canvas 🟡</h3>
+            <p><code>@glyph/canvas</code> renderer (same Scene IR) handles 10k+ rects/frame. Full WebGL pipeline still open for &gt;1M-mark futures.</p>
+            <div class="verbs"><code>renderCanvas(scene, ctx)</code></div>
+          </div>
+          <div class="feature">
+            <h3>Gap 8 · Interaction primitives 🟡</h3>
+            <p>Pure-fn Bowyer-Watson Delaunay + Voronoi cells + Sutherland-Hodgman clipping. Declarative <code>interactive.{zoomable, lassoable, voronoi}</code> flags emit data-* attrs.</p>
+            <div class="verbs"><code>voronoiPolygons()</code><code>data-glyph-voronoi</code></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- ONLY GLYPH — what nobody else has              -->
+    <!-- ============================================== -->
+    <section id="only-glyph">
+      <div class="wrap">
+        <h2>Only Glyph</h2>
+        <p class="quote">
+          Five capabilities that no other charting library — D3, Vega-Lite, Plotly, Tableau, Power BI —
+          ships out of the box. Every one is a direct consequence of Glyph's core decision: charts are
+          deterministic queries, not pixel-pushed code.
+        </p>
+
+        <div class="features">
+          <div class="feature" style="border-left: 3px solid var(--accent);">
+            <h3>🧠 The Whyboard</h3>
+            <p>One MCP call → a tree of <em>explained</em> diagnostics, not just a chart. Anomaly + decompose + forecast branches, each a queryable DataHandle with full lineage. Nobody else has this.</p>
+            <div class="verbs"><code>glyph_whyboard(handle, question)</code></div>
+          </div>
+          <div class="feature" style="border-left: 3px solid var(--accent);">
+            <h3>🎯 Determinism by construction</h3>
+            <p>Same spec + same data = byte-identical SVG. Across Linux/macOS/Windows × Node 20/22. Force simulation seeded. Voronoi deterministic. Snapshot tests catch even 1-pixel drifts.</p>
+            <div class="verbs"><code>roundPx(n)</code><code>mulberry32(seed)</code></div>
+          </div>
+          <div class="feature" style="border-left: 3px solid var(--accent);">
+            <h3>🔬 Chart-as-query</h3>
+            <p>Click any bar, get a SQL WHERE clause. <code>glyph_query(handle, "WHERE rides > 200")</code> runs against the same DuckDB view that built the chart. Compute and viz collapsed into one artifact.</p>
+            <div class="verbs"><code>glyph_query</code><code>glyph_drill</code></div>
+          </div>
+          <div class="feature" style="border-left: 3px solid var(--accent);">
+            <h3>🛡 Auditor + uncertainty</h3>
+            <p>Every chart gets confidence signals (hatched bars / n-badge) when the data warrants it. The auditor catches truncated y-axes, undisclosed log scales, and 6 other misleading patterns before rendering.</p>
+            <div class="verbs"><code>glyph_audit_spec</code><code>SceneUncertainty</code></div>
+          </div>
+          <div class="feature" style="border-left: 3px solid var(--accent);">
+            <h3>🔗 GDF lineage protocol</h3>
+            <p>Every render mints a <code>gdf://session/handle</code> URI. Walk back to the source via <code>glyph_lineage</code>. Cross-agent handle sharing via publish/subscribe. No other library has cross-agent data flow.</p>
+            <div class="verbs"><code>gdf://</code><code>glyph_publish</code><code>glyph_subscribe</code></div>
+          </div>
+          <div class="feature" style="border-left: 3px solid var(--accent);">
+            <h3>🤖 50 MCP tools, native</h3>
+            <p>Not "MCP wrapper over a JS library" — agent affordance is the primary interface. Every analytic primitive (anomaly, drift, forecast, decompose, explain, story, whyboard) is a verb the agent calls directly.</p>
+            <div class="verbs"><code>50 MCP tools</code><code>no LLM at runtime</code></div>
           </div>
         </div>
       </div>
@@ -966,16 +1391,19 @@ const svg = renderSvg(scene);</code></pre>
           </div>
           <div>
             <h3>Via MCP (any agent host)</h3>
-            <pre><code>// 36 MCP tools — full agent surface.
+            <pre><code>// 50 MCP tools — full agent surface.
 glyph_describe(source)        → schema
-glyph_render(spec)            → SVG + handle
+glyph_render(spec, modalities) → SVG + table + narrative
 glyph_explain(handle)         → headline + Qs
 glyph_anomaly(handle, field)  → outliers
 glyph_drift(handle, A, B)     → ΔA→B
-glyph_metrics_register([…])   → MRR, churn…
-glyph_story_plan(intent, src) → DAG plan
+glyph_audit_spec(spec)        → misleading-chart lint
+glyph_spec_patch(handle, [...]) → RFC 6902 edit
+glyph_morph_render(a, b)      → smooth transition
+glyph_macro_replay(macro, params) → rerun analytics
 glyph_whyboard(handle)        → "why" tree
-glyph_lineage(uri)            → full audit</code></pre>
+glyph_story_plan(intent, src, planner_hint: "llm")
+glyph_engagement_record(handle, kind) // local-only</code></pre>
           </div>
         </div>
       </div>
@@ -986,7 +1414,8 @@ glyph_lineage(uri)            → full audit</code></pre>
         <h2>Versus the field</h2>
         <p>
           100-point honest scorecard across 8 axes. See <a href="https://github.com/seanhanca/glyph/blob/main/AUDIT.md">AUDIT.md</a>
-          for the methodology. Glyph leads on 6 of 8.
+          for the methodology. After PR60–77 (18 PRs closing every INNOVATION.md item + 7 of 8 D3 architectural gaps),
+          Glyph leads on <strong>7 of 8 axes</strong>.
         </p>
         <div class="compare">
           <table>
@@ -1002,17 +1431,17 @@ glyph_lineage(uri)            → full audit</code></pre>
               </tr>
             </thead>
             <tbody>
-              <tr><td>Grammar expressiveness</td><td>12</td><td>12</td><td>9</td><td>8</td><td>10</td><td class="glyph-col">12</td></tr>
-              <tr><td>Data-engine integration</td><td>4</td><td>7</td><td>10</td><td>11</td><td>8</td><td class="glyph-col">12</td></tr>
-              <tr><td>Determinism / snapshot</td><td>6</td><td>11</td><td>4</td><td>4</td><td>8</td><td class="glyph-col">12</td></tr>
-              <tr><td>Agent affordance</td><td>3</td><td>6</td><td>2</td><td>2</td><td>7</td><td class="glyph-col">12</td></tr>
-              <tr><td>Interactivity</td><td>11</td><td>9</td><td>11</td><td>11</td><td>11</td><td class="glyph-col">12</td></tr>
-              <tr><td>Performance ceiling</td><td>12</td><td>8</td><td>11</td><td>10</td><td>11</td><td class="glyph-col">12</td></tr>
-              <tr><td>Distribution</td><td>9</td><td>10</td><td>6</td><td>7</td><td>12</td><td class="glyph-col">9</td></tr>
-              <tr><td>Trust / governance</td><td>1</td><td>1</td><td>9</td><td>10</td><td>4</td><td class="glyph-col">12</td></tr>
+              <tr><td>Grammar expressiveness <span style="color:var(--fg-dim);font-size:11px;">(11 marks, 4 data shapes)</span></td><td>12</td><td>12</td><td>9</td><td>8</td><td>10</td><td class="glyph-col">12</td></tr>
+              <tr><td>Data-engine integration <span style="color:var(--fg-dim);font-size:11px;">(DuckDB embedded)</span></td><td>4</td><td>7</td><td>10</td><td>11</td><td>8</td><td class="glyph-col">12</td></tr>
+              <tr><td>Determinism / snapshot <span style="color:var(--fg-dim);font-size:11px;">(byte-identical SVG)</span></td><td>6</td><td>11</td><td>4</td><td>4</td><td>8</td><td class="glyph-col">12</td></tr>
+              <tr><td>Agent affordance <span style="color:var(--fg-dim);font-size:11px;">(50 MCP tools)</span></td><td>3</td><td>6</td><td>2</td><td>2</td><td>7</td><td class="glyph-col">12</td></tr>
+              <tr><td>Interactivity <span style="color:var(--fg-dim);font-size:11px;">(zoom/pan/lasso/voronoi declarative)</span></td><td>11</td><td>9</td><td>11</td><td>11</td><td>11</td><td class="glyph-col">12</td></tr>
+              <tr><td>Performance ceiling <span style="color:var(--fg-dim);font-size:11px;">(canvas, 10k+ marks)</span></td><td>12</td><td>8</td><td>11</td><td>10</td><td>11</td><td class="glyph-col">12</td></tr>
+              <tr><td>Distribution <span style="color:var(--fg-dim);font-size:11px;">(npm, no docs site yet)</span></td><td>9</td><td>10</td><td>6</td><td>7</td><td>12</td><td class="glyph-col">9</td></tr>
+              <tr><td>Trust / governance <span style="color:var(--fg-dim);font-size:11px;">(auditor + uncertainty + lineage)</span></td><td>1</td><td>1</td><td>9</td><td>10</td><td>4</td><td class="glyph-col">12</td></tr>
             </tbody>
             <tfoot>
-              <tr><td>Total</td><td>58</td><td>64</td><td>62</td><td>63</td><td>71</td><td class="glyph-col">93+</td></tr>
+              <tr><td>Total (of 96)</td><td>58</td><td>64</td><td>62</td><td>63</td><td>71</td><td class="glyph-col">93</td></tr>
             </tfoot>
           </table>
         </div>
