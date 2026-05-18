@@ -76,7 +76,7 @@ describe("Glyph MCP server", () => {
     rmSync(tempMemoryDir, { recursive: true, force: true });
   });
 
-  it("lists the forty-seven tools", async () => {
+  it("lists the forty-nine tools", async () => {
     const r = await client.listTools();
     const names = r.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -92,6 +92,8 @@ describe("Glyph MCP server", () => {
       "glyph_describe",
       "glyph_drift",
       "glyph_drill",
+      "glyph_engagement_query",
+      "glyph_engagement_record",
       "glyph_explain",
       "glyph_forecast",
       "glyph_handles",
@@ -151,6 +153,8 @@ describe("Glyph MCP server", () => {
       "glyph_describe",
       "glyph_drift",
       "glyph_drill",
+      "glyph_engagement_query",
+      "glyph_engagement_record",
       "glyph_explain",
       "glyph_forecast",
       "glyph_handles",
@@ -2003,6 +2007,83 @@ describe("Glyph MCP server", () => {
       const g = JSON.parse(r.text);
       expect(g.nodes.length).toBeGreaterThanOrEqual(2);
       expect(g.edges).toContainEqual({ from: "new_customers", to: "mrr" });
+    });
+  });
+
+  describe("glyph_engagement_record + _query (PR71 / PLAN 1.5)", () => {
+    it("records + reads back a view event for a handle", async () => {
+      const rec = await callText(client, "glyph_engagement_record", {
+        handle_id: "h_abc",
+        kind: "view",
+      });
+      expect(rec.isError).toBeFalsy();
+      const out = JSON.parse(rec.text);
+      expect(out.recorded).toBe(true);
+
+      const q = await callText(client, "glyph_engagement_query", {
+        handle_id: "h_abc",
+      });
+      expect(q.isError).toBeFalsy();
+      const list = JSON.parse(q.text);
+      expect(list.count).toBe(1);
+      expect(list.rows[0].kind).toBe("view");
+      expect(list.rows[0].handleId).toBe("h_abc");
+    });
+
+    it("records numeric value + detail and round-trips them", async () => {
+      await callText(client, "glyph_engagement_record", {
+        handle_id: "h_xyz",
+        kind: "focus",
+        value: 2500,
+        detail: "panel-3",
+      });
+      const q = await callText(client, "glyph_engagement_query", {
+        handle_id: "h_xyz",
+        kind: "focus",
+      });
+      const list = JSON.parse(q.text);
+      expect(list.rows[0].value).toBe(2500);
+      expect(list.rows[0].detail).toBe("panel-3");
+    });
+
+    it("aggregate mode returns per-handle view/click counts + focus total", async () => {
+      const handle = "h_agg";
+      await callText(client, "glyph_engagement_record", { handle_id: handle, kind: "view" });
+      await callText(client, "glyph_engagement_record", { handle_id: handle, kind: "view" });
+      await callText(client, "glyph_engagement_record", { handle_id: handle, kind: "click" });
+      await callText(client, "glyph_engagement_record", {
+        handle_id: handle,
+        kind: "focus",
+        value: 1000,
+      });
+      await callText(client, "glyph_engagement_record", {
+        handle_id: handle,
+        kind: "focus",
+        value: 500,
+      });
+
+      const q = await callText(client, "glyph_engagement_query", { aggregate: true });
+      const list = JSON.parse(q.text);
+      const ours = (list.rows as ReadonlyArray<{ handleId: string }>).find(
+        (r) => r.handleId === handle,
+      );
+      expect(ours).toBeDefined();
+      expect((ours as { views: number }).views).toBe(2);
+      expect((ours as { clicks: number }).clicks).toBe(1);
+      expect((ours as { focus_ms_total: number }).focus_ms_total).toBe(1500);
+    });
+
+    it("filter by kind restricts the row set", async () => {
+      const handle = "h_filter";
+      await callText(client, "glyph_engagement_record", { handle_id: handle, kind: "view" });
+      await callText(client, "glyph_engagement_record", { handle_id: handle, kind: "click" });
+      const q = await callText(client, "glyph_engagement_query", {
+        handle_id: handle,
+        kind: "click",
+      });
+      const list = JSON.parse(q.text);
+      expect(list.count).toBe(1);
+      expect(list.rows[0].kind).toBe("click");
     });
   });
 

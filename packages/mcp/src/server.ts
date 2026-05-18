@@ -174,6 +174,9 @@ const MCP_TOOLS = [
   { name: "glyph_story_provide_plan", since: "0.0.17" },
   // ---- PR70 (PLAN 2.5) — macro capture/replay -------------------------
   { name: "glyph_macro_replay", since: "0.0.18" },
+  // ---- PR71 (PLAN 1.5) — local-only engagement signals ----------------
+  { name: "glyph_engagement_record", since: "0.0.19" },
+  { name: "glyph_engagement_query", since: "0.0.19" },
 ] as const;
 
 /** Best-effort browser launcher. Returns true on success. */
@@ -3076,6 +3079,107 @@ export function createServer(state: ServerState = new ServerState()): {
         ],
       };
     },
+  );
+
+  // ----- glyph_engagement_record + _query (PR71 / PLAN 1.5) -----------------
+  server.registerTool(
+    "glyph_engagement_record",
+    {
+      title: "Record an engagement event for a handle (local-only telemetry)",
+      description:
+        "Append one engagement event (view / click / focus / host-defined) to the LOCAL ~/.glyph/memory.duckdb file. Never transmitted off the user's machine — there is no network path. Useful for the host UI to record what the user actually looked at, so future plans can bias toward what got engagement.",
+      inputSchema: {
+        handle_id: z.string().min(1).describe("The handle the event pertains to."),
+        kind: z
+          .string()
+          .min(1)
+          .describe(
+            "Event kind. v0 conventions: 'view', 'click', 'focus'. Hosts may define their own.",
+          ),
+        value: z
+          .number()
+          .optional()
+          .describe("Optional numeric value (e.g. focus duration in ms). Stored as DOUBLE."),
+        detail: z
+          .string()
+          .optional()
+          .describe("Optional free-form detail (e.g. a clicked-row key)."),
+      },
+    },
+    async ({ handle_id, kind, value, detail }) =>
+      state.serial(async () => {
+        const engine = await state.getEngine();
+        const id = randomActionId();
+        await state.memory.recordEngagement(engine, {
+          id,
+          handleId: handle_id,
+          kind,
+          ...(value !== undefined ? { value } : {}),
+          ...(detail !== undefined ? { detail } : {}),
+        });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ recorded: true, id, handle_id, kind }, null, 2),
+            },
+          ],
+        };
+      }),
+  );
+
+  server.registerTool(
+    "glyph_engagement_query",
+    {
+      title: "Query local engagement signals",
+      description:
+        "Read engagement events from the local ~/.glyph/memory.duckdb file. Supports filtering by handle_id, by kind, or aggregating per-handle counts. Always local — no network surface.",
+      inputSchema: {
+        handle_id: z
+          .string()
+          .optional()
+          .describe("Filter to events for this handle. Omit to query all handles."),
+        kind: z
+          .string()
+          .optional()
+          .describe("Filter to events of this kind ('view' | 'click' | 'focus' | ...)."),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(10_000)
+          .optional()
+          .describe("Cap on returned rows. Default 200."),
+        aggregate: z
+          .boolean()
+          .optional()
+          .describe(
+            "When true, return one row per handle with view/click counts + total focus ms. When false (default), return individual events.",
+          ),
+      },
+    },
+    async ({ handle_id, kind, limit, aggregate }) =>
+      state.serial(async () => {
+        const engine = await state.getEngine();
+        if (aggregate) {
+          const rows = await state.memory.aggregateEngagement(engine);
+          return {
+            content: [
+              { type: "text" as const, text: JSON.stringify({ aggregate: true, rows }, null, 2) },
+            ],
+          };
+        }
+        const rows = await state.memory.listEngagement(engine, {
+          ...(handle_id !== undefined ? { handleId: handle_id } : {}),
+          ...(kind !== undefined ? { kind } : {}),
+          ...(limit !== undefined ? { limit } : {}),
+        });
+        return {
+          content: [
+            { type: "text" as const, text: JSON.stringify({ count: rows.length, rows }, null, 2) },
+          ],
+        };
+      }),
   );
 
   // ----- glyph_macro_replay (PR70 / PLAN item 2.5) --------------------------
