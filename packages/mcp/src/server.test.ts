@@ -2040,6 +2040,14 @@ describe("Glyph MCP server", () => {
       const last = events[events.length - 1];
       expect(last?.progress).toBe(4);
       expect(last?.total).toBe(4);
+      // Monotonic invariant (PR72 review): progress values must be
+      // non-decreasing within a single request. A future refactor that
+      // reorders milestones would silently break this without the check.
+      const progresses = events.map((e) => e.progress);
+      const sorted = [...progresses].sort((a, b) => a - b);
+      expect(progresses).toEqual(sorted);
+      // Also strictly increasing — no duplicate-progress emits.
+      expect(new Set(progresses).size).toBe(progresses.length);
     });
 
     it("glyph_render with NO progressToken stays backward-compatible (no events)", async () => {

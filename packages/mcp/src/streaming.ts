@@ -65,10 +65,16 @@ export async function sendProgress(
         ...(args.message !== undefined ? { message: args.message } : {}),
       },
     });
-  } catch {
+  } catch (err) {
     // Swallow: a transport error on a *progress* notification should not
     // bubble up and fail the user's actual request. The final result
-    // still returns normally.
+    // still returns normally. Log once to stderr so a *systematic*
+    // transport breakage doesn't hide forever (PR72 review nit).
+    if (process.env.NODE_ENV !== "test") {
+      process.stderr.write(
+        `glyph: progress notification failed (token=${token}): ${(err as Error).message ?? String(err)}\n`,
+      );
+    }
   }
 }
 

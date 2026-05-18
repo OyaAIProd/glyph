@@ -413,11 +413,11 @@ These four items together close ~25% of the plan in one PR. The remaining 12 ite
 
 | Item | Status | PR | Notes |
 |---|---|---|---|
-| 1.1 LLM planner | ⏸ deferred | — | Decision point: requires host-supplied LLM callback contract; needs design review before implementation. Skipped this session per scope. |
-| 1.2 Streaming | ⏸ deferred | — | MCP-transport refactor; risk-heavy. Skipped this session — backward-compat path is unclear and existing verbs already return fast for normal payloads. |
+| 1.1 LLM planner | ✅ PR69 | 69 | `glyph_story_plan` accepts `planner_hint: "llm"` → returns awaiting-state plan with schema context. `glyph_story_provide_plan(plan_id, nodes)` fulfills it. Per-kind args validated at provide-plan time. |
+| 1.2 Streaming | 🟡 partial (PR72) | 72 | Milestone-level progress via the MCP SDK's `notifications/progress` channel. `glyph_render` emits 4 milestones (parse → materialize → compile → render); `glyph_query` emits 2. Backward-compatible: no progressToken = no notifications. **Open follow-up**: row-batch streaming ("every 1000 rows") and progressive scenegraph emit ("10k of 50k marks") from INNOVATION.md §1.2 are not yet wired — they need a streaming-renderer rewrite. The current PR enables the "abort-early UX" at milestone boundaries only. |
 | 1.3 Budget management | ✅ this PR | 60 | starter batch |
 | 1.4 Disambiguation | ✅ PR62 | 62 | Heuristic planner emits `clarification_questions`; `glyph_story_clarify` pins answers onto the plan. |
-| 1.5 Engagement signals | ⏸ deferred | — | Telemetry tone shift — needs clear "local-only / opt-in / never phones home" framing in marketing before code lands. Per PLAN.md "Decision 1". |
+| 1.5 Engagement signals | ✅ PR71 | 71 | Local-only telemetry table in `~/.glyph/memory.duckdb`. `glyph_engagement_record(handle_id, kind, value?, detail?)` + `glyph_engagement_query(handle_id?, kind?, aggregate?)`. **Never** transmitted off the machine. |
 | 1.6 Handle TTL | ✅ this PR | 60 | starter batch |
 | 1.7 Spec diff | ✅ this PR | 60 | starter batch |
 | 1.8 Spec patch | ✅ PR62 | 62 | RFC 6902 applier in `@glyph/core/spec-diff/patch.ts`; `glyph_spec_patch` re-runs pipeline + emits new handle. |
@@ -425,7 +425,7 @@ These four items together close ~25% of the plan in one PR. The remaining 12 ite
 | 2.2 Chart auditing | ✅ PR63 | 63 | `@glyph/core/audit` with 8 implemented rules (truncated y, log disclosure, dual-axis, excessive aggregation, diverging palette midpoint, color count, aspect ratio, stacked negatives). `glyph_audit_spec` verb. |
 | 2.3 Uncertainty rendering | ✅ PR61 | 61 | hatched bars + dim points + corner badge; provenance plumbed through compileSpec; opt-out via spec.interactive.uncertainty=false |
 | 2.4 Multi-agent compare | ✅ PR62 | 62 | `diffWhyboards` pure-fn; `glyph_whyboard_diff` verb. Compare two agents' Whyboards branch-by-branch. |
-| 2.5 Workflow capture | ⏸ deferred | — | Replay semantics need careful design — MCP verb signatures evolve and macros must remain idempotent. Audit log substrate (PR40) is already in place. |
+| 2.5 Workflow capture | ✅ PR70 | 70 | Pure-fn Macro JSON shape (`{name, version:1, steps:[{verb,args}]}`). `glyph_macro_replay(macro, params?)` walks the macro with `{{params.X}}` substitution. v0 supports render/describe/query — mutating verbs intentionally excluded. |
 | 2.6 Scale tuning | ✅ this PR | 60 | starter batch |
 | 2.7 Causal-aware viz | ✅ PR64 | 64 | `causal_of` field on MetricDefinition; `buildCausalGraph` pure-fn with cycle detection; `glyph_causal_graph` verb. |
 | 2.8 Spec-as-code CI | ✅ PR64 | 64 | `glyph diff` CLI subcommand with unified diff + HTML/MD output; GitHub Action template under .github/actions/glyph-visual-diff/. |
