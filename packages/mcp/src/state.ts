@@ -41,6 +41,13 @@ export class ServerState {
   /** Per-session id for minted URIs. Random per ServerState instance. */
   readonly sessionId: string;
   private readonly svgsByHandle = new Map<string, string>();
+  /**
+   * PR62 (PLAN item 1.8) — remembers the spec that produced each handle.
+   * Used by `glyph_spec_patch` to re-run the pipeline with RFC 6902 edits
+   * applied. Stored as the *original* spec (pre-materializer rewrites) so
+   * patches operate on the same JSON the caller originally sent.
+   */
+  private readonly specByHandle = new Map<string, unknown>();
   /** Phase 3 §1: session-scoped registry of named metrics. */
   private readonly metrics = new Map<string, MetricDefinition>();
   /** Phase 3 §4: actions declared in the spec that produced each handle. */
@@ -126,6 +133,7 @@ export class ServerState {
       this.handleLastAccess.delete(id);
       this.actionsByHandle.delete(id);
       this.svgsByHandle.delete(id);
+      this.specByHandle.delete(id);
       evicted.push(id);
     }
     return evicted;
@@ -177,6 +185,16 @@ export class ServerState {
   /** All actions registered for a handle (empty if none). */
   actionsFor(handleId: string): ReadonlyArray<SpecAction> {
     return this.actionsByHandle.get(handleId) ?? [];
+  }
+
+  /** PR62 (PLAN item 1.8) — remember the originating spec for a handle. */
+  storeSpec(handleId: string, spec: unknown): void {
+    this.specByHandle.set(handleId, spec);
+  }
+
+  /** PR62 (PLAN item 1.8) — fetch the originating spec for a handle. */
+  getSpec(handleId: string): unknown | undefined {
+    return this.specByHandle.get(handleId);
   }
 
   /** Cache the rendered SVG for a handle so the preview server can serve it. */

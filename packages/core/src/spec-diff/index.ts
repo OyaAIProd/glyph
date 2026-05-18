@@ -1,3 +1,6 @@
+export { applyJsonPatch } from "./patch.js";
+export type { JsonPatchOp } from "./patch.js";
+
 /**
  * Spec diff — PR60 item 1.7.
  *

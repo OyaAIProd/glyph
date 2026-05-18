@@ -76,7 +76,7 @@ describe("Glyph MCP server", () => {
     rmSync(tempMemoryDir, { recursive: true, force: true });
   });
 
-  it("lists the thirty-nine tools", async () => {
+  it("lists the forty-two tools", async () => {
     const r = await client.listTools();
     const names = r.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -110,7 +110,9 @@ describe("Glyph MCP server", () => {
       "glyph_query",
       "glyph_render",
       "glyph_spec_diff",
+      "glyph_spec_patch",
       "glyph_story_await_checkpoint",
+      "glyph_story_clarify",
       "glyph_story_execute",
       "glyph_story_get",
       "glyph_story_list",
@@ -119,6 +121,7 @@ describe("Glyph MCP server", () => {
       "glyph_suggest_scale",
       "glyph_trust",
       "glyph_whyboard",
+      "glyph_whyboard_diff",
     ]);
   });
 
@@ -161,7 +164,9 @@ describe("Glyph MCP server", () => {
       "glyph_query",
       "glyph_render",
       "glyph_spec_diff",
+      "glyph_spec_patch",
       "glyph_story_await_checkpoint",
+      "glyph_story_clarify",
       "glyph_story_execute",
       "glyph_story_get",
       "glyph_story_list",
@@ -170,6 +175,7 @@ describe("Glyph MCP server", () => {
       "glyph_suggest_scale",
       "glyph_trust",
       "glyph_whyboard",
+      "glyph_whyboard_diff",
     ]);
   });
 
@@ -1724,6 +1730,176 @@ describe("Glyph MCP server", () => {
       });
       expect(r.isError).toBe(false);
       expect(JSON.parse(r.text).row_count).toBe(3);
+    });
+  });
+
+  // ---- PR62 / PLAN 1.8 + 1.4 + 2.4 ----------------------------------------
+  describe("glyph_spec_patch (PR62 / PLAN 1.8)", () => {
+    it("re-renders after a JSON Patch swaps the y field", async () => {
+      const r1 = await callText(client, "glyph_render", {
+        spec: {
+          data: { source: fixture, format: "csv" },
+          layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+        },
+      });
+      const out1 = JSON.parse(r1.text);
+      const r2 = await callText(client, "glyph_spec_patch", {
+        handle_id: out1.handle_id,
+        patches: [{ op: "replace", path: "/layers/0/encoding/y", value: "fare" }],
+      });
+      expect(r2.isError).toBe(false);
+      const out2 = JSON.parse(r2.text);
+      expect(out2.handle_id).toBeTruthy();
+      expect(out2.handle_id).not.toBe(out1.handle_id);
+      expect(out2.svg).toContain("<svg");
+    });
+
+    it("rejects an unknown handle_id with a clear error", async () => {
+      const r = await callText(client, "glyph_spec_patch", {
+        handle_id: "nope",
+        patches: [{ op: "replace", path: "/mark", value: "line" }],
+      });
+      expect(r.isError).toBe(true);
+      expect(r.text).toContain("Unknown handle_id");
+    });
+
+    it("returns a clear error for a malformed patch", async () => {
+      const r1 = await callText(client, "glyph_render", {
+        spec: {
+          data: { source: fixture, format: "csv" },
+          layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+        },
+      });
+      const out1 = JSON.parse(r1.text);
+      const r2 = await callText(client, "glyph_spec_patch", {
+        handle_id: out1.handle_id,
+        // missing path → applyJsonPatch fails on the first op.
+        patches: [{ op: "replace", path: "/nonexistent/key", value: "x" }],
+      });
+      expect(r2.isError).toBe(true);
+    });
+  });
+
+  describe("glyph_whyboard_diff (PR62 / PLAN 2.4)", () => {
+    // Construct two boards in-memory so the diff tests don't depend on the
+    // whyboard builder's small-fixture behavior.
+    function makeBoard(
+      children: Array<{ kind: string; title: string; summary: string; handle_id?: string }>,
+    ): unknown {
+      return {
+        source_handle: "src1",
+        question: null,
+        link_group: null,
+        depth_reached: 1,
+        total_nodes: 1 + children.length,
+        root: {
+          id: "root1",
+          kind: "root",
+          title: "root",
+          summary: "root",
+          handle_id: "src1",
+          children: children.map((c, i) => ({
+            id: `n${i}`,
+            kind: c.kind,
+            title: c.title,
+            summary: c.summary,
+            handle_id: c.handle_id ?? `h${i}`,
+            children: [],
+          })),
+        },
+      };
+    }
+
+    it("identical boards yield an empty diff", async () => {
+      const board = makeBoard([
+        { kind: "anomaly", title: "Anomalies in rides", summary: "1 outlier" },
+        { kind: "forecast", title: "7-step forecast", summary: "stable" },
+      ]);
+      const d = await callText(client, "glyph_whyboard_diff", {
+        board_a: board,
+        board_b: board,
+      });
+      expect(d.isError).toBe(false);
+      const diff = JSON.parse(d.text);
+      expect(diff.summary).toBe("");
+      expect(diff.only_in_a).toEqual([]);
+      expect(diff.only_in_b).toEqual([]);
+      expect(diff.conflicting).toEqual([]);
+    });
+
+    it("flags branches only in one board as only_in_*", async () => {
+      const board_a = makeBoard([
+        { kind: "anomaly", title: "Anomalies in rides", summary: "1 outlier" },
+        { kind: "forecast", title: "7-step forecast", summary: "stable" },
+      ]);
+      const board_b = makeBoard([
+        { kind: "forecast", title: "7-step forecast", summary: "stable" },
+      ]);
+      const d = await callText(client, "glyph_whyboard_diff", { board_a, board_b });
+      const diff = JSON.parse(d.text);
+      expect(diff.only_in_a.length).toBe(1);
+      expect(diff.only_in_a[0].kind).toBe("anomaly");
+      expect(diff.summary).toMatch(/only in A/);
+    });
+
+    it("flags branches with conflicting summaries", async () => {
+      const board_a = makeBoard([
+        { kind: "anomaly", title: "Anomalies in rides", summary: "1 outlier" },
+      ]);
+      const board_b = makeBoard([
+        { kind: "anomaly", title: "Anomalies in rides", summary: "no outliers found" },
+      ]);
+      const d = await callText(client, "glyph_whyboard_diff", { board_a, board_b });
+      const diff = JSON.parse(d.text);
+      expect(diff.conflicting.length).toBe(1);
+      expect(diff.conflicting[0].conflict_reason).toContain("summaries differ");
+    });
+
+    it("rejects a malformed Whyboard input", async () => {
+      const d = await callText(client, "glyph_whyboard_diff", {
+        board_a: { root: { children: [] } },
+        board_b: { not_a_board: true },
+      });
+      expect(d.isError).toBe(true);
+    });
+  });
+
+  describe("glyph_story_clarify (PR62 / PLAN 1.4)", () => {
+    it("planner emits clarification_questions when multiple columns fit a role", async () => {
+      // The taxi fixture has 3 INTEGER columns — fare and rides both fit
+      // the "quantitative y" role, so the planner should ask.
+      const r = await callText(client, "glyph_story_plan", {
+        intent: "tell me about taxi data",
+        source: fixture,
+      });
+      expect(r.isError).toBe(false);
+      const plan = JSON.parse(r.text);
+      expect(plan.clarification_questions).toBeDefined();
+      expect(plan.clarification_questions.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("clarify round-trips an answer onto the plan", async () => {
+      const r1 = await callText(client, "glyph_story_plan", {
+        intent: "tell me about taxi data",
+        source: fixture,
+      });
+      const plan = JSON.parse(r1.text);
+      const r2 = await callText(client, "glyph_story_clarify", {
+        plan_id: plan.id,
+        answers: [{ field: "y", choice: "rides" }],
+      });
+      expect(r2.isError).toBe(false);
+      const out = JSON.parse(r2.text);
+      expect(out.status).toBe("clarified");
+      expect(out.answers).toEqual([{ field: "y", choice: "rides" }]);
+    });
+
+    it("rejects an unknown plan_id", async () => {
+      const r = await callText(client, "glyph_story_clarify", {
+        plan_id: "nope",
+        answers: [{ field: "y", choice: "rides" }],
+      });
+      expect(r.isError).toBe(true);
     });
   });
 });

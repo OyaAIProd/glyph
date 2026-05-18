@@ -416,15 +416,15 @@ These four items together close ~25% of the plan in one PR. The remaining 12 ite
 | 1.1 LLM planner | ⏳ planned | — | Batch C |
 | 1.2 Streaming | ⏳ planned | — | Batch F |
 | 1.3 Budget management | ✅ this PR | 60 | starter batch |
-| 1.4 Disambiguation | ⏳ planned | — | Batch C |
+| 1.4 Disambiguation | ✅ PR62 | 62 | Heuristic planner emits `clarification_questions`; `glyph_story_clarify` pins answers onto the plan. |
 | 1.5 Engagement signals | ⏳ planned | — | Batch F |
 | 1.6 Handle TTL | ✅ this PR | 60 | starter batch |
 | 1.7 Spec diff | ✅ this PR | 60 | starter batch |
-| 1.8 Spec patch | ⏳ planned | — | Batch B |
+| 1.8 Spec patch | ✅ PR62 | 62 | RFC 6902 applier in `@glyph/core/spec-diff/patch.ts`; `glyph_spec_patch` re-runs pipeline + emits new handle. |
 | 2.1 Multi-modal sync | ⏳ planned | — | Batch D (needs 1.7) |
 | 2.2 Chart auditing | ⏳ planned | — | Batch E |
 | 2.3 Uncertainty rendering | ✅ PR61 | 61 | hatched bars + dim points + corner badge; provenance plumbed through compileSpec; opt-out via spec.interactive.uncertainty=false |
-| 2.4 Multi-agent compare | ⏳ planned | — | Batch D (needs 1.7) |
+| 2.4 Multi-agent compare | ✅ PR62 | 62 | `diffWhyboards` pure-fn; `glyph_whyboard_diff` verb. Compare two agents' Whyboards branch-by-branch. |
 | 2.5 Workflow capture | ⏳ planned | — | Batch C |
 | 2.6 Scale tuning | ✅ this PR | 60 | starter batch |
 | 2.7 Causal-aware viz | ⏳ planned | — | Batch E |

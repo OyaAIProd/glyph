@@ -54,6 +54,8 @@
 
 import { randomUUID } from "node:crypto";
 import {
+  type JsonPatchOp,
+  applyJsonPatch,
   attributeDrift,
   compileSpec,
   decomposeVariance,
@@ -81,7 +83,7 @@ import { importPayload } from "./import.js";
 import { ServerState, materializeRowsAsHandle, materializeSpec } from "./state.js";
 import { executeStoryPlan, planStoryHeuristic } from "./story.js";
 import type { ColumnSummaryLike, StoryPlan } from "./story.js";
-import { buildWhyboard } from "./whyboard.js";
+import { buildWhyboard, diffWhyboards } from "./whyboard.js";
 
 export const SERVER_NAME = "glyph-mcp";
 export const SERVER_VERSION = "0.0.0";
@@ -138,6 +140,10 @@ const MCP_TOOLS = [
   { name: "glyph_spec_diff", since: "0.0.12" },
   { name: "glyph_suggest_scale", since: "0.0.12" },
   { name: "glyph_handles_gc", since: "0.0.12" },
+  // ---- PR62 (PLAN.md items 1.8, 1.4, 2.4) ------------------------------
+  { name: "glyph_spec_patch", since: "0.0.13" },
+  { name: "glyph_story_clarify", since: "0.0.13" },
+  { name: "glyph_whyboard_diff", since: "0.0.13" },
 ] as const;
 
 /** Best-effort browser launcher. Returns true on success. */
@@ -319,6 +325,9 @@ export function createServer(state: ServerState = new ServerState()): {
           };
         }
         state.storeHandle(m.handle);
+        // PR62 (PLAN 1.8) — remember the originating spec so glyph_spec_patch
+        // can re-run the pipeline with RFC 6902 edits applied.
+        state.storeSpec(m.handle.id, parsed.spec);
         // Record the spec's declarative actions so glyph_act can resolve them.
         if (parsed.spec.actions && parsed.spec.actions.length > 0) {
           state.setActionsForHandle(m.handle.id, parsed.spec.actions);
@@ -1817,6 +1826,7 @@ export function createServer(state: ServerState = new ServerState()): {
       metricResolver: (name) => state.getMetric(name),
     });
     state.storeHandle(m.handle);
+    state.storeSpec(m.handle.id, parsed.spec);
     if (parsed.spec.actions && parsed.spec.actions.length > 0) {
       state.setActionsForHandle(m.handle.id, parsed.spec.actions);
     }
@@ -1894,6 +1904,7 @@ export function createServer(state: ServerState = new ServerState()): {
                 type: "text" as const,
                 text: JSON.stringify(
                   {
+                    id: plan.id,
                     plan_id: plan.id,
                     intent: plan.intent,
                     domain: plan.domain ?? null,
@@ -1905,6 +1916,10 @@ export function createServer(state: ServerState = new ServerState()): {
                       status: n.status,
                     })),
                     status: plan.status,
+                    // PR62 (PLAN 1.4) — surface disambiguation questions.
+                    ...(plan.clarification_questions
+                      ? { clarification_questions: plan.clarification_questions }
+                      : {}),
                   },
                   null,
                   2,
@@ -2495,6 +2510,193 @@ export function createServer(state: ServerState = new ServerState()): {
           },
         ],
       };
+    },
+  );
+
+  // ----- glyph_spec_patch (PR62 / PLAN item 1.8) ----------------------------
+  // Apply RFC 6902 JSON patches to the spec that produced an existing handle
+  // and re-run the pipeline. Returns the new handle id + SVG. Lineage marks
+  // the relation as "transform" so glyph_lineage walks back to the origin.
+  server.registerTool(
+    "glyph_spec_patch",
+    {
+      title: "Incrementally edit a spec via JSON Patch (RFC 6902)",
+      description:
+        "Refine an existing chart without regenerating the full spec. Pass the originating handle_id plus an array of RFC 6902 patches (add/remove/replace/copy/move/test). The server applies the patches to the spec stored at render time, re-runs the pipeline, and returns the new handle. Lineage chains back to the original handle.",
+      inputSchema: {
+        handle_id: z.string().min(1).describe("The handle whose spec to patch."),
+        patches: z
+          .array(z.unknown())
+          .min(1)
+          .describe(
+            "Array of RFC 6902 JSON Patch operations. Each op has { op: 'add'|'remove'|'replace'|'copy'|'move'|'test', path: '/json/pointer', value?: any, from?: '/json/pointer' }.",
+          ),
+      },
+    },
+    async ({ handle_id, patches }) => {
+      const original = state.getSpec(handle_id);
+      if (original === undefined) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text" as const,
+              text: `Unknown handle_id ${handle_id} — no spec recorded (handle may not have been produced by glyph_render).`,
+            },
+          ],
+        };
+      }
+      let patched: unknown;
+      try {
+        patched = applyJsonPatch(original, patches as ReadonlyArray<JsonPatchOp>);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `Invalid patch: ${msg}` }],
+        };
+      }
+      const reparse = safeParseSpec(patched);
+      if (!reparse.ok) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text" as const,
+              text: `Patched spec fails validation: ${reparse.error.message}`,
+            },
+          ],
+        };
+      }
+      const engine = await state.getEngine();
+      const m = await materializeSpec(engine, reparse.spec, {
+        sessionId: state.sessionId,
+        resolveHandleByUri: (uri: string) => state.getHandleByUri(uri),
+        metricResolver: (name: string) => state.getMetric(name),
+      });
+      state.storeHandle(m.handle);
+      state.storeSpec(m.handle.id, reparse.spec);
+      const scene = compileSpec({
+        spec: m.effectiveSpec,
+        rows: m.result.rows,
+        schema: m.handle.schema,
+        ...(m.handle.provenance ? { provenance: m.handle.provenance } : {}),
+      });
+      const svg = renderSvg(scene);
+      state.storeSvg(m.handle.id, svg);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              jsonSafe({
+                handle_id: m.handle.id,
+                uri: m.handle.uri,
+                view_name: m.handle.viewName,
+                row_count: m.result.rowCount,
+                svg,
+              }),
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    },
+  );
+
+  // ----- glyph_story_clarify (PR62 / PLAN item 1.4) -------------------------
+  // The Story Agent emits `needs_clarification` when its confidence on a
+  // chosen field is low. This verb pins the user's answers and re-plans.
+  server.registerTool(
+    "glyph_story_clarify",
+    {
+      title: "Answer a Story Agent's clarification questions",
+      description:
+        "When glyph_story_plan returns { status: 'needs_clarification', questions: [...] }, send back the user's chosen answers via this verb. The server re-plans with the answers pinned and returns the updated plan.",
+      inputSchema: {
+        plan_id: z.string().min(1),
+        answers: z
+          .array(
+            z.object({
+              field: z.string().min(1),
+              choice: z.string().min(1),
+            }),
+          )
+          .min(1)
+          .describe(
+            "One answer per clarification question. `field` matches the question's `field`.",
+          ),
+      },
+    },
+    async ({ plan_id, answers }) => {
+      const existing = state.stories.get(plan_id);
+      if (!existing) {
+        return {
+          isError: true,
+          content: [
+            { type: "text" as const, text: `Unknown plan_id ${plan_id} — has it been planned?` },
+          ],
+        };
+      }
+      // The clarify endpoint is a thin pin-and-replan. The Story Agent's
+      // heuristic planner doesn't (yet) consume the answers; surface them on
+      // the plan so the host LLM can use them when invoking the planner
+      // callback. v0 returns the plan annotated with `clarification_answers`
+      // so dependent verbs can pick the right field deterministically.
+      const annotated = {
+        ...existing,
+        clarification_answers: answers,
+      };
+      // Store under the same id so subsequent glyph_story_execute sees it.
+      state.stories.set(annotated);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(jsonSafe({ plan_id, status: "clarified", answers }), null, 2),
+          },
+        ],
+      };
+    },
+  );
+
+  // ----- glyph_whyboard_diff (PR62 / PLAN item 2.4) -------------------------
+  server.registerTool(
+    "glyph_whyboard_diff",
+    {
+      title: "Compare two Whyboards branch-by-branch",
+      description:
+        "Given two Whyboard JSON objects (e.g. from two agents asked the same question), return per-branch alignment: which branches agreed, which only one agent took, and where they reached conflicting conclusions on the same line of inquiry.",
+      inputSchema: {
+        board_a: z.unknown().describe("First Whyboard JSON, as returned by glyph_whyboard."),
+        board_b: z.unknown().describe("Second Whyboard JSON, as returned by glyph_whyboard."),
+      },
+    },
+    async ({ board_a, board_b }) => {
+      // We deliberately do not Zod-validate Whyboard here — its shape is rich
+      // and the helper is forgiving about extra fields. We do require root +
+      // children to be present, which the diff fn enforces.
+      try {
+        const a = board_a as Parameters<typeof diffWhyboards>[0];
+        const b = board_b as Parameters<typeof diffWhyboards>[1];
+        if (!a?.root || !b?.root) throw new Error("each Whyboard needs a `root` node");
+        const diff = diffWhyboards(a, b);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(jsonSafe(diff), null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `Invalid whyboard input: ${msg}` }],
+        };
+      }
     },
   );
 

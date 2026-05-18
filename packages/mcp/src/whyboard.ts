@@ -408,3 +408,107 @@ function findPeriodField(
   }
   return undefined;
 }
+
+// ---------------------------------------------------------------------------
+// Whyboard diff — PR62 / PLAN item 2.4
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-node-kind diff result. `nodes_a` / `nodes_b` are the (kind, title)
+ * keys used to align children for comparison (since IDs are random per
+ * board, we identify by content).
+ */
+export interface WhyboardNodeDiff {
+  readonly kind: WhyboardNodeKind;
+  readonly title: string;
+  /** The node from board A (if present). */
+  readonly node_a?: WhyboardNode;
+  /** The node from board B (if present). */
+  readonly node_b?: WhyboardNode;
+  /** "agreed" — both present, same summary; "only_a" / "only_b"; "conflicting" — both present, different summaries. */
+  readonly status: "agreed" | "only_a" | "only_b" | "conflicting";
+  /** When status==="conflicting", a one-line description of the disagreement. */
+  readonly conflict_reason?: string;
+}
+
+/**
+ * Result of `diffWhyboards(a, b)` — a per-branch alignment showing where
+ * two agents (or two runs of the same agent) agreed, disagreed, or chose
+ * different lines of inquiry entirely.
+ */
+export interface WhyboardDiff {
+  /** Children present in both boards with matching summaries. */
+  readonly agreed: ReadonlyArray<WhyboardNodeDiff>;
+  /** Children only in board A. */
+  readonly only_in_a: ReadonlyArray<WhyboardNodeDiff>;
+  /** Children only in board B. */
+  readonly only_in_b: ReadonlyArray<WhyboardNodeDiff>;
+  /** Children present in both, summaries differ. */
+  readonly conflicting: ReadonlyArray<WhyboardNodeDiff>;
+  /** One-line narrative for tool consumers. "" when boards are identical. */
+  readonly summary: string;
+}
+
+/**
+ * Compare two Whyboards branch-by-branch. Pure function — no clock, no
+ * randomness, no side effects. The comparison key is `(kind, title)` —
+ * since titles are deterministic from the source data (e.g. "Anomalies
+ * (z > 3.0)"), agents producing the same chain of inquiry on the same
+ * data yield identical keys.
+ *
+ * Agents that *disagree* — e.g. one says "Anomalies in revenue" while
+ * the other says "Drift in revenue" — surface as `only_in_*` entries.
+ * Agents that follow the *same* line of inquiry but reach different
+ * conclusions surface as `conflicting`.
+ */
+export function diffWhyboards(a: Whyboard, b: Whyboard): WhyboardDiff {
+  const aByKey = new Map<string, WhyboardNode>();
+  const bByKey = new Map<string, WhyboardNode>();
+  for (const c of a.root.children) aByKey.set(`${c.kind}::${c.title}`, c);
+  for (const c of b.root.children) bByKey.set(`${c.kind}::${c.title}`, c);
+
+  const agreed: WhyboardNodeDiff[] = [];
+  const only_in_a: WhyboardNodeDiff[] = [];
+  const only_in_b: WhyboardNodeDiff[] = [];
+  const conflicting: WhyboardNodeDiff[] = [];
+
+  // Stable iteration order: by board A's child order first, then board B's.
+  const seenKeys = new Set<string>();
+  for (const child of a.root.children) {
+    const key = `${child.kind}::${child.title}`;
+    seenKeys.add(key);
+    const peer = bByKey.get(key);
+    if (!peer) {
+      only_in_a.push({ kind: child.kind, title: child.title, node_a: child, status: "only_a" });
+      continue;
+    }
+    if (peer.summary === child.summary) {
+      agreed.push({
+        kind: child.kind,
+        title: child.title,
+        node_a: child,
+        node_b: peer,
+        status: "agreed",
+      });
+    } else {
+      conflicting.push({
+        kind: child.kind,
+        title: child.title,
+        node_a: child,
+        node_b: peer,
+        status: "conflicting",
+        conflict_reason: `summaries differ ("${child.summary.slice(0, 60)}" vs "${peer.summary.slice(0, 60)}")`,
+      });
+    }
+  }
+  for (const child of b.root.children) {
+    const key = `${child.kind}::${child.title}`;
+    if (seenKeys.has(key)) continue;
+    only_in_b.push({ kind: child.kind, title: child.title, node_b: child, status: "only_b" });
+  }
+  const summary =
+    agreed.length === a.root.children.length && agreed.length === b.root.children.length
+      ? ""
+      : `${agreed.length} agreed; ${conflicting.length} conflicting; ${only_in_a.length} only in A; ${only_in_b.length} only in B.`;
+  return { agreed, only_in_a, only_in_b, conflicting, summary };
+}

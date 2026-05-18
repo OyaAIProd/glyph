@@ -90,6 +90,32 @@ export interface StoryBoard {
   readonly handles: ReadonlyArray<string>;
 }
 
+/**
+ * PR62 (PLAN item 1.4) — a clarification answer pinning one ambiguous field
+ * to a user-chosen value. Stored on the StoryPlan after glyph_story_clarify
+ * fires; consumers (or future LLM planner callbacks) read these to pin
+ * field choices on re-plan.
+ */
+export interface ClarificationAnswer {
+  readonly field: string;
+  readonly choice: string;
+}
+
+/**
+ * PR62 (PLAN item 1.4) — a clarification question the planner emits when
+ * multiple equally-qualified columns could fill a given role (x, y, color).
+ * Hosts render the question; the user picks one of `options`; the host
+ * calls glyph_story_clarify with the answer pinned.
+ */
+export interface ClarificationQuestion {
+  /** The role being asked about — "x" | "y" | "color" | ... */
+  readonly field: string;
+  /** Human-readable question. */
+  readonly prompt: string;
+  /** Eligible column names; the user picks one. */
+  readonly options: ReadonlyArray<string>;
+}
+
 export interface StoryPlan {
   readonly id: string;
   readonly intent: string;
@@ -101,6 +127,15 @@ export interface StoryPlan {
   storyboard?: StoryBoard | undefined;
   /** Append-only narrative log; useful for live streaming. */
   checkpoints: Array<StoryCheckpoint>;
+  /** PR62 (PLAN item 1.4) — pinned field choices from glyph_story_clarify. */
+  clarification_answers?: ReadonlyArray<ClarificationAnswer>;
+  /**
+   * PR62 (PLAN item 1.4) — questions the planner wants the user to answer
+   * to disambiguate equally-qualified columns. When set, the host should
+   * surface these and then call glyph_story_clarify with the answers
+   * before glyph_story_execute.
+   */
+  clarification_questions?: ReadonlyArray<ClarificationQuestion>;
 }
 
 export interface StoryCheckpoint {
@@ -142,6 +177,9 @@ export function pickStoryRoles(columns: ReadonlyArray<ColumnSummaryLike>): {
   readonly x: ColumnSummaryLike | undefined;
   readonly color: ColumnSummaryLike | undefined;
   readonly hasTemporal: boolean;
+  /** PR62 (PLAN 1.4) — alternative candidates for each role. */
+  readonly y_candidates: ReadonlyArray<ColumnSummaryLike>;
+  readonly x_candidates: ReadonlyArray<ColumnSummaryLike>;
 } {
   const tagged = columns.map((c) => ({ col: c, role: inferRole(c) }));
   const y = tagged.find((t) => t.role === "quantitative")?.col;
@@ -157,11 +195,22 @@ export function pickStoryRoles(columns: ReadonlyArray<ColumnSummaryLike>): {
   const colorCol = tagged.find(
     (t) => t.col !== x && t.col !== y && (t.role === "nominal" || t.role === "ordinal"),
   )?.col;
+  // PR62 (PLAN 1.4) — every column eligible for the role. When > 1, the
+  // planner emits a disambiguation question for the host to surface.
+  const y_candidates = tagged.filter((t) => t.role === "quantitative").map((t) => t.col);
+  const x_candidates = tagged
+    .filter(
+      (t) =>
+        t.role === "temporal" || (t.col !== y && (t.role === "nominal" || t.role === "ordinal")),
+    )
+    .map((t) => t.col);
   return {
     y,
     x,
     color: colorCol,
     hasTemporal: temporal !== undefined,
+    y_candidates,
+    x_candidates,
   };
 }
 
@@ -306,10 +355,44 @@ export function planStoryHeuristic(input: PlanInput): StoryPlan {
     status: "pending",
   });
 
-  return basePlan(id, input, nodes);
+  // PR62 (PLAN 1.4) — disambiguation: when more than one column would fit
+  // a role equally well, surface a question for the host to ask the user.
+  const questions = deriveClarificationQuestions(roles);
+  return basePlan(id, input, nodes, questions);
 }
 
-function basePlan(id: string, input: PlanInput, nodes: StoryNode[]): StoryPlan {
+/**
+ * PR62 (PLAN 1.4) — emit clarification questions when the heuristic had
+ * multiple equally-qualified candidates for x or y. Returns [] when the
+ * picks were unambiguous.
+ */
+function deriveClarificationQuestions(
+  roles: ReturnType<typeof pickStoryRoles>,
+): ReadonlyArray<ClarificationQuestion> {
+  const out: ClarificationQuestion[] = [];
+  if (roles.y_candidates.length > 1 && roles.y) {
+    out.push({
+      field: "y",
+      prompt: `Which numeric column should drive the y-axis? Chose "${roles.y.name}" by default.`,
+      options: roles.y_candidates.map((c) => c.name),
+    });
+  }
+  if (roles.x_candidates.length > 1 && roles.x) {
+    out.push({
+      field: "x",
+      prompt: `Which column should be the x-axis category? Chose "${roles.x.name}" by default.`,
+      options: roles.x_candidates.map((c) => c.name),
+    });
+  }
+  return out;
+}
+
+function basePlan(
+  id: string,
+  input: PlanInput,
+  nodes: StoryNode[],
+  clarification_questions: ReadonlyArray<ClarificationQuestion> = [],
+): StoryPlan {
   return {
     id,
     intent: input.intent,
@@ -319,6 +402,7 @@ function basePlan(id: string, input: PlanInput, nodes: StoryNode[]): StoryPlan {
     status: "planned",
     nodes,
     checkpoints: [],
+    ...(clarification_questions.length > 0 ? { clarification_questions } : {}),
   };
 }
 
