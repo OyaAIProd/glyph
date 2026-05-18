@@ -233,6 +233,15 @@ describe("buildCausalGraph (PR64 / PLAN 2.7)", () => {
   });
 
   it("returns an empty graph for an empty registry", () => {
-    expect(buildCausalGraph([])).toEqual({ nodes: [], edges: [], cycles: [] });
+    expect(buildCausalGraph([])).toEqual({ nodes: [], edges: [], cycles: [], dangling: [] });
+  });
+
+  it("surfaces dangling cause references (I4 from PR review)", () => {
+    const g = buildCausalGraph([
+      // 'b' references an unregistered cause 'a'.
+      { name: "b", sql: "SUM(y)", causal_of: ["a", "c"] },
+      { name: "c", sql: "SUM(z)" },
+    ]);
+    expect(g.dangling).toEqual(["a"]);
   });
 });

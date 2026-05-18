@@ -269,8 +269,11 @@ function layoutArcNode(
   innerRadius: number,
   ringStep: number,
 ): LaidOutArcNode {
-  const r0 = innerRadius + node.depth * ringStep;
-  const r1 = r0 + ringStep;
+  // Root (depth 0) has no visible ring; visible rings are depth 1..maxDepth.
+  // Shifting by -1 ensures the deepest leaves end exactly at the requested
+  // outer radius (fixes B3 from PR review).
+  const r0 = node.depth === 0 ? 0 : innerRadius + (node.depth - 1) * ringStep;
+  const r1 = node.depth === 0 ? 0 : innerRadius + node.depth * ringStep;
   const base: LaidOutArcNode = {
     name: node.name,
     depth: node.depth,

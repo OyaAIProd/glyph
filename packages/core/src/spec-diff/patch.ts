@@ -33,7 +33,11 @@ export function applyJsonPatch(doc: unknown, patches: ReadonlyArray<JsonPatchOp>
   let current = deepClone(doc);
   for (let i = 0; i < patches.length; i++) {
     const p = patches[i];
-    if (!p) continue;
+    // Reject null / undefined ops loudly — silently skipping them masks
+    // construction bugs (H6 from PR review).
+    if (p == null) {
+      throw new Error(`JSON Patch op[${i}] is null or undefined`);
+    }
     try {
       current = applyOne(current, p);
     } catch (err) {

@@ -234,6 +234,74 @@ describe("Glyph MCP server", () => {
     expect(r.text).toContain("Unknown handle_id");
   });
 
+  it("glyph_query honors limit_rows + emits truncation sentinel (PR60 / PLAN 1.3)", async () => {
+    // Set up a handle backed by the taxi fixture (12 rows).
+    const r1 = await callText(client, "glyph_render", {
+      spec: {
+        data: { source: fixture, format: "csv" },
+        layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+      },
+    });
+    const handleId = JSON.parse(r1.text).handle_id as string;
+    const r2 = await callText(client, "glyph_query", {
+      handle_id: handleId,
+      limit_rows: 3,
+    });
+    expect(r2.isError).toBe(false);
+    const out = JSON.parse(r2.text);
+    expect(out.truncated).toBe(true);
+    expect(out.returned).toBe(3);
+    expect(out.total).toBeGreaterThan(out.returned);
+    expect(out.rows.length).toBe(3);
+  });
+
+  it("glyph_query omits truncation sentinel when result fits within limit_rows", async () => {
+    const r1 = await callText(client, "glyph_render", {
+      spec: {
+        data: { source: fixture, format: "csv" },
+        layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+      },
+    });
+    const handleId = JSON.parse(r1.text).handle_id as string;
+    const r2 = await callText(client, "glyph_query", {
+      handle_id: handleId,
+      limit_rows: 1000,
+    });
+    const out = JSON.parse(r2.text);
+    expect(out.truncated).toBeFalsy();
+  });
+
+  it("glyph_spec_diff returns added/removed/changed (PR60 / PLAN 1.7)", async () => {
+    const r = await callText(client, "glyph_spec_diff", {
+      spec_a: {
+        data: { source: "x.csv" },
+        layers: [{ mark: "bar", encoding: { x: "x", y: "y" } }],
+      },
+      spec_b: {
+        data: { source: "x.csv" },
+        layers: [{ mark: "line", encoding: { x: "x", y: "y" } }],
+      },
+    });
+    expect(r.isError).toBe(false);
+    const diff = JSON.parse(r.text);
+    expect(diff.changed).toBeDefined();
+    expect(diff.changed.some((c: { path: string }) => c.path.includes("/mark"))).toBe(true);
+  });
+
+  it("glyph_spec_diff handles identical specs as no-op", async () => {
+    const spec = {
+      data: { source: "x.csv" },
+      layers: [{ mark: "bar", encoding: { x: "x", y: "y" } }],
+    };
+    const r = await callText(client, "glyph_spec_diff", { spec_a: spec, spec_b: spec });
+    expect(r.isError).toBe(false);
+    const diff = JSON.parse(r.text);
+    expect(diff.added).toEqual([]);
+    expect(diff.removed).toEqual([]);
+    expect(diff.changed).toEqual([]);
+    expect(diff.summary).toBe("");
+  });
+
   describe("glyph_drill", () => {
     async function getHandleId(): Promise<string> {
       const r = await callText(client, "glyph_render", {
@@ -2006,7 +2074,7 @@ describe("Glyph MCP server", () => {
       });
       expect(r2.isError).toBe(false);
       const out = JSON.parse(r2.text);
-      expect(out.status).toBe("clarified");
+      expect(out.status).toBe("clarified_but_not_yet_applied");
       expect(out.answers).toEqual([{ field: "y", choice: "rides" }]);
     });
 

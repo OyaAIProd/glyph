@@ -142,8 +142,8 @@ export function thresholdScale<T>(
 /**
  * PR65 — quantile scale. Sorts the sample, divides into N equal-rank
  * buckets, returns the i-th output for each input. Deterministic on a
- * given sample. Tie-breaking: lower index wins (i.e. boundary values
- * fall into the *lower* bucket).
+ * given sample. Tie-breaking: boundary values land in the *upper*
+ * bucket (the comparison uses `v >= threshold` to advance the index).
  *
  *   samples = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
  *   outputs = ["low", "mid", "high"]  → 3 buckets, 33% each

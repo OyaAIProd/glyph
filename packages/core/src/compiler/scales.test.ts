@@ -105,7 +105,7 @@ describe("thresholdScale (PR65 D3 fix-ups)", () => {
   });
 });
 
-describe("quantileScale (PR65 D3 fix-uups)", () => {
+describe("quantileScale (PR65 D3 fix-ups)", () => {
   it("splits sample into N equal-rank buckets", () => {
     const samples = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     const s = quantileScale<string>(samples, ["low", "mid", "high"]);

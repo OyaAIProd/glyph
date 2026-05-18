@@ -67,13 +67,12 @@ export function linearRegressionPairs(
 ): LinearRegressionFit {
   const n = xs.length;
   if (n === 0) {
-    return {
-      slope: 0,
-      intercept: 0,
-      r2: 0,
-      n: 0,
-      line: () => [],
-    };
+    // Returning slope=0 / intercept=0 / r²=0 silently looks like a "fit
+    // through the origin" — agents would draw an overlay on empty data.
+    // Throw so callers handle the no-data case explicitly (C4 from review).
+    throw new Error(
+      "linearRegression: no finite (x, y) pairs to fit. Drop the regression overlay or check the data filters.",
+    );
   }
   let sumX = 0;
   let sumY = 0;

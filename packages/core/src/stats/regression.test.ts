@@ -53,6 +53,24 @@ describe("linearRegression", () => {
     ).toThrow(/not in schema/);
   });
 
+  it("throws on empty input rather than returning a fake zero-fit", () => {
+    expect(() => linearRegressionPairs([], [])).toThrow(/no finite \(x, y\) pairs/);
+  });
+
+  it("throws when every row is filtered as non-finite", () => {
+    expect(() =>
+      linearRegression(
+        [
+          [null, null],
+          ["bad", "data"],
+        ],
+        [{ name: "x" }, { name: "y" }],
+        "x",
+        "y",
+      ),
+    ).toThrow(/no finite \(x, y\) pairs/);
+  });
+
   it("is deterministic — same input → same fit", () => {
     const rows: ReadonlyArray<ReadonlyArray<unknown>> = [
       [1, 2],

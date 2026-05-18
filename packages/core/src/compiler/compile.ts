@@ -853,8 +853,12 @@ function compilePolar(input: CompileInput): Scene {
         fill: "none",
       });
     } else {
-      // Other marks aren't supported in polar v0 — fall back to no-op.
-      // Renderer-visible: the chart will just show legends.
+      // Fail loudly rather than emit an empty chart. Polar v0 supports
+      // bar (pie/donut), point, and line; other marks need explicit
+      // polar-mode support — see H3 from PR review.
+      throw new Error(
+        `Layer ${li}: polar coordinates support marks "bar" | "point" | "line" in v0, got "${layer.mark}". Drop spec.coordinates to render in cartesian space.`,
+      );
     }
   }
 
@@ -1074,6 +1078,17 @@ function compileGraph(input: CompileInput): Scene {
     plotArea.x + plotArea.width,
     plotArea.y + plotArea.height,
   ];
+  // Validate edges reference real nodes — silent skip masks data bugs the
+  // user needs to know about (H4 from PR review).
+  const nodeIds = new Set(graph.nodes.map((n) => n.id));
+  for (const e of graph.edges ?? []) {
+    if (!nodeIds.has(e.source)) {
+      throw new Error(`Edge { source: "${e.source}" } references an unknown node id`);
+    }
+    if (!nodeIds.has(e.target)) {
+      throw new Error(`Edge { target: "${e.target}" } references an unknown node id`);
+    }
+  }
   const positioned = simulateForce(
     graph.nodes.map((n) => ({
       id: n.id,

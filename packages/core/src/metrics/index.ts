@@ -56,6 +56,13 @@ export interface CausalGraph {
   readonly edges: ReadonlyArray<{ readonly from: string; readonly to: string }>;
   /** Cycles, if any (set of names in each cycle). v0 detects 1-step + 2-step cycles. */
   readonly cycles: ReadonlyArray<ReadonlyArray<string>>;
+  /**
+   * PR64 + I4 from PR review — names referenced in some metric's
+   * `causal_of` array but not registered as metrics themselves.
+   * Surfaced so callers can warn about typos / missing registrations
+   * instead of silently dropping them.
+   */
+  readonly dangling: ReadonlyArray<string>;
 }
 
 /**
@@ -67,16 +74,20 @@ export function buildCausalGraph(metrics: ReadonlyArray<MetricDefinition>): Caus
   const nodes = metrics.map((m) =>
     m.description !== undefined ? { name: m.name, description: m.description } : { name: m.name },
   );
+  const knownNames = new Set(metrics.map((m) => m.name));
   const edges: Array<{ from: string; to: string }> = [];
+  const danglingSet = new Set<string>();
   for (const m of metrics) {
     for (const cause of m.causal_of ?? []) {
       edges.push({ from: cause, to: m.name });
+      if (!knownNames.has(cause)) danglingSet.add(cause);
     }
   }
+  const dangling = [...danglingSet];
   // Cycle detection — DFS-based, returns each strongly-connected component
   // with > 1 node OR self-loops.
   const cycles = detectCycles(metrics, edges);
-  return { nodes, edges, cycles };
+  return { nodes, edges, cycles, dangling };
 }
 
 function detectCycles(

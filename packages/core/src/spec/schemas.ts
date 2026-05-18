@@ -182,8 +182,9 @@ export const CoordinatesSchema = z
      */
     innerRadius: z.number().min(0).max(0.95).optional(),
     /**
-     * Outer radius as a fraction of the smaller plot dimension. Defaults
-     * to 0.45 (leaves ~10% padding inside the plot area).
+     * Outer radius as a fraction of the smaller plot dimension's half
+     * (i.e. 1.0 fills the disc that fits inside the plot area). Defaults
+     * to 0.9 — leaves a small margin so strokes don't clip the edge.
      */
     outerRadius: z.number().min(0).max(1).optional(),
     /**

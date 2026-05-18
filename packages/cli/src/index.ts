@@ -217,10 +217,26 @@ async function cmdDiff(args: string[]): Promise<number> {
   let outputFormat: "diff" | "html" | "md" = "diff";
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
-    if (a === "--threshold") threshold = Number(args[++i]) || 0;
-    else if (a === "--output") {
+    if (a === "--threshold") {
+      // Explicitly validate so a typo (e.g. `--threshold abc`) is loud
+      // rather than silently 0 (H7 from PR review).
+      const raw = args[++i];
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 0) {
+        process.stderr.write(
+          `glyph diff: --threshold expects a non-negative number, got "${raw}"\n`,
+        );
+        return 2;
+      }
+      threshold = n;
+    } else if (a === "--output") {
       const v = args[++i];
-      if (v === "html" || v === "md" || v === "diff") outputFormat = v;
+      if (v === "html" || v === "md" || v === "diff") {
+        outputFormat = v;
+      } else {
+        process.stderr.write(`glyph diff: --output expects "html" | "md" | "diff", got "${v}"\n`);
+        return 2;
+      }
     } else if (!specPath && a) specPath = a;
     else if (!baselinePath && a) baselinePath = a;
   }

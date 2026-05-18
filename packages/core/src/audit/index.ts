@@ -16,8 +16,6 @@
  *                     title / subtitle (readers can't tell from a glance).
  *   AUDIT-04 (medium) Excessive aggregation — fewer than 5 underlying
  *                     rows per visible bar/point (low statistical power).
- *   AUDIT-05 (low)    Time axis with gaps not flagged (irregular
- *                     temporal sampling without a note).
  *   AUDIT-06 (low)    Color count > 8 (categorical palette confusion).
  *   AUDIT-07 (low)    Extreme aspect ratio (width:height < 0.5 or > 3).
  *   AUDIT-08 (medium) Diverging palette without explicit midpoint
@@ -25,9 +23,12 @@
  *                     doesn't specify what it is).
  *   AUDIT-09 (medium) Stacked layers on top of negative values
  *                     (numeric reading is ambiguous; bars can cancel).
- *   AUDIT-10 (low)    Title implies a comparison the data doesn't
- *                     support — n/a in v0 (requires LLM judgment),
- *                     reserved.
+ *
+ * Reserved (planned for a follow-up; not yet implemented):
+ *   AUDIT-05 — Time axis with gaps. Needs a temporal-axis schema check
+ *              that the audit module doesn't have full coverage for yet.
+ *   AUDIT-10 — Title vs. data mismatch. Requires LLM judgment; deferred
+ *              until the audit module can call a host-supplied callback.
  *
  * Deterministic, no clock, no LLM. Each rule lives in its own function so
  * adding rules is a single-file extension.
@@ -213,7 +214,9 @@ function auditExcessiveAggregation(
           "Show the raw data as points or document the sample size in the chart subtitle.",
         path: `/layers/${i}`,
       });
-      return;
+      // Falls through to the next iteration — a multi-bar-layer spec
+      // gets one finding per layer rather than stopping at the first
+      // (M2 from PR review changed `return` to a fall-through).
     }
   }
 }

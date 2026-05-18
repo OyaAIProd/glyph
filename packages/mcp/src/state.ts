@@ -38,6 +38,11 @@ export class ServerState {
   private readonly pinnedHandles = new Set<string>();
   /** PR60 item 1.6 — TTL in ms; default 30 min. Configurable via constructor option. */
   private readonly handleTtlMs: number;
+  /**
+   * PR67 / PR68 — monotonic counter for synthesizing inline-data handle ids
+   * deterministically. Same session + same call order → same ids.
+   */
+  private inlineDataCounter = 0;
   /** Per-session id for minted URIs. Random per ServerState instance. */
   readonly sessionId: string;
   private readonly svgsByHandle = new Map<string, string>();
@@ -106,6 +111,12 @@ export class ServerState {
     this.pinnedHandles.add(id);
   }
 
+  /** PR67 / PR68 — next deterministic counter for synthesizing inline-data handle ids. */
+  nextInlineDataCounter(): number {
+    this.inlineDataCounter += 1;
+    return this.inlineDataCounter;
+  }
+
   /**
    * PR60 item 1.6 — drop handles untouched for `handleTtlMs`. Pinned
    * handles and ones with descendant handles in the session are spared.
@@ -134,6 +145,9 @@ export class ServerState {
       this.actionsByHandle.delete(id);
       this.svgsByHandle.delete(id);
       this.specByHandle.delete(id);
+      // Pinned set is normally tiny; clean it too to avoid a slow leak on
+      // long sessions that pin → unpin via eviction edge cases.
+      this.pinnedHandles.delete(id);
       evicted.push(id);
     }
     return evicted;
@@ -247,3 +261,59 @@ export class ServerState {
 }
 
 export { materializeSpec, materializeRowsAsHandle };
+
+/**
+ * PR67 / PR68 — synthesize a minimal `MaterializedSpec` for specs whose
+ * data is an inline hierarchy or graph. Both bypass DuckDB; the compiler
+ * reads the inline tree / graph directly.
+ *
+ * **Determinism**: this function MUST NOT call `new Date()` (the lineage
+ * timestamp is intentionally a stable sentinel) and uses a deterministic
+ * id derived from the session id and a monotonically-increasing counter.
+ * The caller is responsible for ensuring `counter` is unique within the
+ * session.
+ *
+ * **No provenance**: we deliberately omit `provenance` so the uncertainty
+ * pass (`deriveUncertainty`) returns undefined — lying about a sample
+ * size of 1 with confidence "high" would trigger a false low-sample
+ * overlay on every hierarchy/graph chart.
+ */
+export function synthesizeInlineDataHandle(
+  sessionId: string,
+  counter: number,
+  effectiveSpec: import("@glyph/core").GlyphSpec,
+): {
+  readonly handle: import("@glyph/core").DataHandle;
+  readonly result: {
+    readonly rows: ReadonlyArray<ReadonlyArray<unknown>>;
+    readonly columns: ReadonlyArray<import("@glyph/core").ColumnInfo>;
+    readonly rowCount: number;
+  };
+  readonly effectiveSpec: import("@glyph/core").GlyphSpec;
+} {
+  const handleId = `inline_${counter.toString(16).padStart(12, "0")}`;
+  const uri = `gdf://${sessionId}/${handleId}`;
+  return {
+    handle: {
+      id: handleId,
+      viewName: `__inline_${handleId}`,
+      schema: [],
+      uri,
+      version: 1,
+      lineage: {
+        parents: [],
+        sql: "(inline data — no SQL)",
+        producer: {
+          agent: "@glyph/mcp",
+          tool: "synthesizeInlineDataHandle",
+          sessionId,
+          // Stable sentinel; using new Date() here would break determinism
+          // for hierarchy/graph specs (B1 from PR review).
+          at: "1970-01-01T00:00:00.000Z",
+        },
+      },
+    },
+    result: { rows: [], columns: [], rowCount: 0 },
+    effectiveSpec,
+  };
+}

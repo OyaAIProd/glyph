@@ -83,7 +83,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Resvg } from "@resvg/resvg-js";
 import { z } from "zod";
 import { importPayload } from "./import.js";
-import { ServerState, materializeRowsAsHandle, materializeSpec } from "./state.js";
+import {
+  ServerState,
+  materializeRowsAsHandle,
+  materializeSpec,
+  synthesizeInlineDataHandle,
+} from "./state.js";
 import { executeStoryPlan, planStoryHeuristic } from "./story.js";
 import type { ColumnSummaryLike, StoryPlan } from "./story.js";
 import { buildWhyboard, diffWhyboards } from "./whyboard.js";
@@ -323,38 +328,14 @@ export function createServer(state: ServerState = new ServerState()): {
         let m: Awaited<ReturnType<typeof materializeSpec>>;
         try {
           // PR67 / PR68 — hierarchy and graph data both bypass DuckDB.
-          // Synthesize a minimal MaterializedSpec the rest of the path
-          // can consume.
+          // Use the deterministic synthesizer (no `new Date()`, no fake
+          // provenance — see B1 from PR review).
           if (parsed.spec.data?.hierarchy || parsed.spec.data?.graph) {
-            const handleId = randomUUID().replace(/-/g, "").slice(0, 12);
-            const uri = `gdf://${state.sessionId}/${handleId}`;
-            m = {
-              handle: {
-                id: handleId,
-                viewName: `__hierarchy_${handleId}`,
-                schema: [],
-                uri,
-                version: 1,
-                lineage: {
-                  parents: [],
-                  sql: "(inline hierarchy — no SQL)",
-                  producer: {
-                    agent: "@glyph/mcp",
-                    tool: "materializeHierarchy",
-                    sessionId: state.sessionId,
-                    at: new Date().toISOString(),
-                  },
-                },
-                provenance: {
-                  freshness: new Date().toISOString(),
-                  sampleRows: 1,
-                  filteredOut: 0,
-                  confidence: "high",
-                },
-              },
-              result: { rows: [], columns: [], rowCount: 0 },
-              effectiveSpec: parsed.spec,
-            };
+            m = synthesizeInlineDataHandle(
+              state.sessionId,
+              state.nextInlineDataCounter(),
+              parsed.spec,
+            );
           } else {
             m = await materializeSpec(engine, parsed.spec, {
               sessionId: state.sessionId,
@@ -2619,11 +2600,16 @@ export function createServer(state: ServerState = new ServerState()): {
         };
       }
       const engine = await state.getEngine();
-      const m = await materializeSpec(engine, reparse.spec, {
-        sessionId: state.sessionId,
-        resolveHandleByUri: (uri: string) => state.getHandleByUri(uri),
-        metricResolver: (name: string) => state.getMetric(name),
-      });
+      // PR67 / PR68 — hierarchy and graph patches bypass DuckDB just like
+      // their initial render did (B2 from PR review).
+      const m =
+        reparse.spec.data?.hierarchy || reparse.spec.data?.graph
+          ? synthesizeInlineDataHandle(state.sessionId, state.nextInlineDataCounter(), reparse.spec)
+          : await materializeSpec(engine, reparse.spec, {
+              sessionId: state.sessionId,
+              resolveHandleByUri: (uri: string) => state.getHandleByUri(uri),
+              metricResolver: (name: string) => state.getMetric(name),
+            });
       state.storeHandle(m.handle);
       state.storeSpec(m.handle.id, reparse.spec);
       const scene = compileSpec({
@@ -2689,22 +2675,65 @@ export function createServer(state: ServerState = new ServerState()): {
           ],
         };
       }
-      // The clarify endpoint is a thin pin-and-replan. The Story Agent's
-      // heuristic planner doesn't (yet) consume the answers; surface them on
-      // the plan so the host LLM can use them when invoking the planner
-      // callback. v0 returns the plan annotated with `clarification_answers`
-      // so dependent verbs can pick the right field deterministically.
+      // Validate that each answer corresponds to a real clarification
+      // question and the choice is in that question's options. Silently
+      // accepting unknown fields would mask agent bugs (H2 from review).
+      const questions = existing.clarification_questions ?? [];
+      if (questions.length === 0) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text" as const,
+              text: `Plan ${plan_id} has no clarification_questions to answer.`,
+            },
+          ],
+        };
+      }
+      const questionByField = new Map(questions.map((q) => [q.field, q]));
+      for (const a of answers) {
+        const q = questionByField.get(a.field);
+        if (!q) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: "text" as const,
+                text: `Unknown clarification field "${a.field}". Expected one of: ${questions.map((x) => x.field).join(", ")}.`,
+              },
+            ],
+          };
+        }
+        if (!q.options.includes(a.choice)) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: "text" as const,
+                text: `Choice "${a.choice}" for field "${a.field}" is not in the question's options: ${q.options.join(", ")}.`,
+              },
+            ],
+          };
+        }
+      }
+      // Annotate the plan with the answers. The heuristic planner doesn't
+      // *yet* consume them (an LLM-callback planner would) — surface that
+      // honestly via `status: "clarified_but_not_yet_applied"` so callers
+      // know the data is recorded but not acted upon.
       const annotated = {
         ...existing,
         clarification_answers: answers,
       };
-      // Store under the same id so subsequent glyph_story_execute sees it.
       state.stories.set(annotated);
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(jsonSafe({ plan_id, status: "clarified", answers }), null, 2),
+            text: JSON.stringify(
+              jsonSafe({ plan_id, status: "clarified_but_not_yet_applied", answers }),
+              null,
+              2,
+            ),
           },
         ],
       };
