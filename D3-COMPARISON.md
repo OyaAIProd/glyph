@@ -334,4 +334,23 @@ So the honest answer: **build polar + hierarchies next.** Build force layouts be
 
 ---
 
+## Status update (post PR66 / PR67 / PR68)
+
+The "right call" has been executed:
+
+| Gap | Status | PR | What landed |
+|---|---|---|---|
+| Gap 1 — Polar coordinates | ✅ shipped | PR66 | `spec.coordinates: { type: "polar", innerRadius?, outerRadius?, startAngle?, endAngle? }`. `arc` SceneMark. `angleScale`, `polarToCartesian`. Unlocks pie, donut, radial-point, radial-line. Snapshot byte-identity preserved. |
+| Gap 2 — Hierarchy data shape | ✅ shipped | PR67 | `data.hierarchy: { name, value?, children?[] }`. Marks `treemap` + `sunburst`. Squarified treemap (Bruls et al. 2000) + radial partition. Hierarchy specs bypass DuckDB. |
+| Gap 5 — Force simulation | ✅ shipped | PR68 | `data.graph: { nodes, edges }`. `mark: "force"`. Seeded `mulberry32` PRNG keyed off `spec.seed` (default 42). Velocity-Verlet integration with 5 forces. Also exports `simulateBeeswarm` for 1D collision-resolved scatter. |
+| Gap 6 — Custom marks | ❌ skipped | — | Per user direction. Breaks spec-only JSON. D3 stays the right answer here. |
+| Gap 3 — Morph transitions | ⏳ open | — | Architectural; defer. |
+| Gap 4 — Contour / density | ⏳ open | — | Medium-sized; defer. |
+| Gap 7 — 3D / WebGL | ⏳ open | — | Distribution play, not architecture. |
+| Gap 8 — Interaction primitives (zoom/pan/lasso/voronoi) | ⏳ open | — | Browser-side; needs preview-server UI work. |
+
+After PR68: **558 tests, ~85% D3 gallery coverage by architectural reach** — every chart family the original analysis flagged as "right-call" is now reachable.
+
+---
+
 *See also: `AUDIT.md` for the 100-point competitive scoreboard, `INNOVATION.md` for the agent-workflow innovations.*
