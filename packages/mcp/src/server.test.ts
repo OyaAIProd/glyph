@@ -76,7 +76,7 @@ describe("Glyph MCP server", () => {
     rmSync(tempMemoryDir, { recursive: true, force: true });
   });
 
-  it("lists the forty-six tools", async () => {
+  it("lists the forty-seven tools", async () => {
     const r = await client.listTools();
     const names = r.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -101,6 +101,7 @@ describe("Glyph MCP server", () => {
       "glyph_linked_await",
       "glyph_linked_handles",
       "glyph_linked_publish",
+      "glyph_macro_replay",
       "glyph_memory_forget",
       "glyph_memory_list",
       "glyph_memory_recall",
@@ -159,6 +160,7 @@ describe("Glyph MCP server", () => {
       "glyph_linked_await",
       "glyph_linked_handles",
       "glyph_linked_publish",
+      "glyph_macro_replay",
       "glyph_memory_forget",
       "glyph_memory_list",
       "glyph_memory_recall",
@@ -2001,6 +2003,129 @@ describe("Glyph MCP server", () => {
       const g = JSON.parse(r.text);
       expect(g.nodes.length).toBeGreaterThanOrEqual(2);
       expect(g.edges).toContainEqual({ from: "new_customers", to: "mrr" });
+    });
+  });
+
+  describe("glyph_macro_replay (PR70 / PLAN 2.5)", () => {
+    it("replays a render → query macro deterministically", async () => {
+      const macro = {
+        name: "describe-then-render",
+        version: 1,
+        steps: [
+          { verb: "glyph_describe", args: { source: "{{params.src}}" } },
+          {
+            verb: "glyph_render",
+            args: {
+              spec: {
+                data: { source: "{{params.src}}", format: "csv" },
+                layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+              },
+            },
+          },
+        ],
+      };
+      const r = await callText(client, "glyph_macro_replay", {
+        macro,
+        params: { src: fixture },
+      });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.text);
+      expect(out.total_steps).toBe(2);
+      expect(out.completed_steps).toBe(2);
+      expect(out.steps[0].ok).toBe(true);
+      expect(out.steps[1].ok).toBe(true);
+      expect((out.steps[1].result as { handle_id: string }).handle_id).toBeTruthy();
+    });
+
+    it("rejects a macro referencing a verb outside the v0 replay set", async () => {
+      const r = await callText(client, "glyph_macro_replay", {
+        macro: {
+          name: "bad",
+          version: 1,
+          steps: [{ verb: "glyph_act", args: {} }],
+        },
+      });
+      expect(r.isError).toBe(true);
+      expect(r.text).toContain("not in the supported replay set");
+    });
+
+    it("rejects a macro that references unsupplied params", async () => {
+      const r = await callText(client, "glyph_macro_replay", {
+        macro: {
+          name: "x",
+          version: 1,
+          steps: [{ verb: "glyph_describe", args: { source: "{{params.src}}" } }],
+        },
+        // No params supplied.
+      });
+      expect(r.isError).toBe(true);
+      expect(r.text).toContain("not supplied");
+    });
+
+    it("fails fast on a mid-macro step error and marks overall as error", async () => {
+      const macro = {
+        name: "chain",
+        version: 1,
+        steps: [
+          { verb: "glyph_describe", args: { source: "{{params.src}}" } },
+          { verb: "glyph_query", args: { handle_id: "nonexistent_handle" } },
+        ],
+      };
+      const r = await callText(client, "glyph_macro_replay", {
+        macro,
+        params: { src: fixture },
+      });
+      expect(r.isError).toBe(true);
+      const out = JSON.parse(r.text);
+      expect(out.completed_steps).toBe(1);
+      expect(out.steps[0].ok).toBe(true);
+      expect(out.steps[1].ok).toBe(false);
+      expect(out.steps[1].error).toMatch(/Unknown handle_id/i);
+    });
+
+    it("rejects an empty steps array up front", async () => {
+      const r = await callText(client, "glyph_macro_replay", {
+        macro: { name: "empty", version: 1, steps: [] },
+      });
+      expect(r.isError).toBe(true);
+      expect(r.text).toContain("at least one");
+    });
+
+    it("is deterministic — same macro + params → same handles", async () => {
+      const macro = {
+        name: "dt",
+        version: 1,
+        steps: [
+          {
+            verb: "glyph_render",
+            args: {
+              spec: {
+                data: { source: "{{params.src}}", format: "csv" },
+                layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+              },
+            },
+          },
+        ],
+      };
+      const r1 = await callText(client, "glyph_macro_replay", {
+        macro,
+        params: { src: fixture },
+      });
+      const r2 = await callText(client, "glyph_macro_replay", {
+        macro,
+        params: { src: fixture },
+      });
+      // Two different handle ids (each render mints a new one), but the
+      // *content* of step 0's result should structurally match (same
+      // row_count, same title).
+      const o1 = JSON.parse(r1.text);
+      const o2 = JSON.parse(r2.text);
+      expect((o1.steps[0].result as { row_count: number }).row_count).toBe(
+        (o2.steps[0].result as { row_count: number }).row_count,
+      );
+      expect((o1.steps[0].result as { title?: string }).title).toBe(
+        (o2.steps[0].result as { title?: string }).title,
+      );
     });
   });
 

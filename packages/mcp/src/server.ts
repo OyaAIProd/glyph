@@ -84,6 +84,13 @@ import { Resvg } from "@resvg/resvg-js";
 import { z } from "zod";
 import { importPayload } from "./import.js";
 import {
+  type Macro,
+  type MacroReplayStepResult,
+  collectMacroParams,
+  substituteParams,
+  validateMacro,
+} from "./macro.js";
+import {
   ServerState,
   materializeRowsAsHandle,
   materializeSpec,
@@ -165,6 +172,8 @@ const MCP_TOOLS = [
   { name: "glyph_regression", since: "0.0.16" },
   // ---- PR69 (PLAN 1.1) — LLM-pluggable planner ------------------------
   { name: "glyph_story_provide_plan", since: "0.0.17" },
+  // ---- PR70 (PLAN 2.5) — macro capture/replay -------------------------
+  { name: "glyph_macro_replay", since: "0.0.18" },
 ] as const;
 
 /** Best-effort browser launcher. Returns true on success. */
@@ -1894,6 +1903,34 @@ export function createServer(state: ServerState = new ServerState()): {
     return jsonSafe(summary) as Record<string, unknown>;
   }
 
+  /**
+   * Internal: glyph_query equivalent. Used by macro replay (PR70) and
+   * potentially by other internal verbs that need to drill into a
+   * stored handle without going through the full MCP roundtrip.
+   */
+  async function runQueryInternal(
+    handle_id: string,
+    where?: string,
+    limit_rows?: number,
+  ): Promise<Record<string, unknown>> {
+    const handle = state.getHandle(handle_id);
+    if (!handle) throw new Error(`Unknown handle_id ${handle_id}`);
+    const engine = await state.getEngine();
+    const sql = where !== undefined ? where : "";
+    const result = await engine.queryHandle(handle, sql);
+    const total = result.rowCount;
+    const truncated = limit_rows !== undefined && total > limit_rows;
+    const rows = truncated ? result.rows.slice(0, limit_rows) : result.rows;
+    return jsonSafe({
+      handle_id,
+      total,
+      returned: rows.length,
+      ...(truncated ? { truncated: true } : {}),
+      columns: result.columns.map((c) => c.name),
+      rows,
+    }) as Record<string, unknown>;
+  }
+
   server.registerTool(
     "glyph_story_plan",
     {
@@ -3035,6 +3072,131 @@ export function createServer(state: ServerState = new ServerState()): {
         ],
       };
     },
+  );
+
+  // ----- glyph_macro_replay (PR70 / PLAN item 2.5) --------------------------
+  server.registerTool(
+    "glyph_macro_replay",
+    {
+      title: "Replay a captured macro against new data",
+      description:
+        "Walk a Macro JSON document's steps in order, substituting `{{params.X}}` placeholders in each step's args with the provided params. Each step dispatches to its corresponding internal verb. Returns a per-step result array.\n\nv0 supports verbs: glyph_render, glyph_describe, glyph_query. Mutating verbs (memory_save, metrics_register, act) are intentionally excluded — their side effects shouldn't auto-replay.\n\nMacros are author-supplied JSON; future work: glyph_macro_capture to assemble them from the audit log.",
+      inputSchema: {
+        macro: z
+          .unknown()
+          .describe("Macro JSON: { name, version: 1, steps: [{ verb, args, note? }, ...] }"),
+        params: z
+          .record(z.unknown())
+          .optional()
+          .describe(
+            "Optional substitution params. A step's arg containing exactly the string `{{params.foo}}` will be replaced with `params.foo`. Embedded placeholders inside larger strings are NOT expanded (avoids SQL/path footguns).",
+          ),
+      },
+    },
+    async ({ macro, params }) =>
+      state.serial(async () => {
+        const err = validateMacro(macro);
+        if (err) {
+          return {
+            isError: true,
+            content: [{ type: "text" as const, text: `Invalid macro: ${err}` }],
+          };
+        }
+        const m = macro as Macro;
+        const ps = (params ?? {}) as Record<string, unknown>;
+        // Pre-flight: every referenced param must be supplied.
+        const referenced = collectMacroParams(m);
+        const missing = referenced.filter((p) => !(p in ps));
+        if (missing.length > 0) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: "text" as const,
+                text: `Macro references params not supplied: ${missing.join(", ")}. Pass them in the \`params\` arg.`,
+              },
+            ],
+          };
+        }
+
+        const stepResults: MacroReplayStepResult[] = [];
+        let completed = 0;
+        for (let i = 0; i < m.steps.length; i++) {
+          const step = m.steps[i];
+          if (!step) continue;
+          let resolved: Record<string, unknown>;
+          try {
+            resolved = substituteParams(step.args, ps) as Record<string, unknown>;
+          } catch (subErr) {
+            stepResults.push({
+              step_index: i,
+              verb: step.verb,
+              ok: false,
+              error: (subErr as Error).message,
+            });
+            break;
+          }
+          try {
+            let result: unknown;
+            switch (step.verb) {
+              case "glyph_render":
+                result = await runRenderInternal(resolved.spec);
+                break;
+              case "glyph_describe":
+                if (typeof resolved.source !== "string") {
+                  throw new Error("glyph_describe requires args.source: string");
+                }
+                result = await runDescribeInternal(resolved.source);
+                break;
+              case "glyph_query":
+                if (typeof resolved.handle_id !== "string") {
+                  throw new Error("glyph_query requires args.handle_id: string");
+                }
+                result = await runQueryInternal(
+                  resolved.handle_id,
+                  typeof resolved.where === "string" ? resolved.where : undefined,
+                  typeof resolved.limit_rows === "number" ? resolved.limit_rows : undefined,
+                );
+                break;
+              default:
+                throw new Error(
+                  `Macro replay does not support verb "${step.verb}" yet. Allowed in v0: glyph_render, glyph_describe, glyph_query.`,
+                );
+            }
+            stepResults.push({ step_index: i, verb: step.verb, ok: true, result });
+            completed += 1;
+          } catch (stepErr) {
+            stepResults.push({
+              step_index: i,
+              verb: step.verb,
+              ok: false,
+              error: (stepErr as Error).message ?? String(stepErr),
+            });
+            // Fail-fast: subsequent steps may depend on this one (especially
+            // glyph_query on a handle produced by an upstream glyph_render).
+            break;
+          }
+        }
+        const allOk = completed === m.steps.length;
+        return {
+          ...(allOk ? {} : { isError: true }),
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  name: m.name,
+                  total_steps: m.steps.length,
+                  completed_steps: completed,
+                  steps: stepResults,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }),
   );
 
   return { server, state };
