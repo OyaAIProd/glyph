@@ -2010,6 +2010,109 @@ describe("Glyph MCP server", () => {
     });
   });
 
+  describe("streaming progress notifications (PR72 / PLAN 1.2)", () => {
+    it("glyph_render with progressToken emits at least 4 progress notifications", async () => {
+      const events: Array<{ progress: number; message?: string; total?: number }> = [];
+      await client.callTool(
+        {
+          name: "glyph_render",
+          arguments: {
+            spec: {
+              data: { source: fixture, format: "csv" },
+              layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+            },
+          },
+        },
+        undefined,
+        {
+          onprogress: (p) => {
+            events.push({
+              progress: p.progress,
+              ...(p.total !== undefined ? { total: p.total } : {}),
+              ...(p.message !== undefined ? { message: p.message } : {}),
+            });
+          },
+        },
+      );
+      // glyph_render emits: 0 starting → 1 parsed → 2 materialized → 3 compiled → 4 rendered.
+      expect(events.length).toBeGreaterThanOrEqual(4);
+      // The last event should report the final progress.
+      const last = events[events.length - 1];
+      expect(last?.progress).toBe(4);
+      expect(last?.total).toBe(4);
+    });
+
+    it("glyph_render with NO progressToken stays backward-compatible (no events)", async () => {
+      const r = await callText(client, "glyph_render", {
+        spec: {
+          data: { source: fixture, format: "csv" },
+          layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+        },
+      });
+      expect(r.isError).toBeFalsy();
+      // No throw; result body is the same as before — no synthetic progress
+      // payload leaks into the final result.
+      const out = JSON.parse(r.text);
+      expect(out.svg).toContain("<svg");
+      expect(out.handle_id).toBeTruthy();
+    });
+
+    it("glyph_query with progressToken emits at least 2 progress notifications", async () => {
+      // First render to get a handle.
+      const r1 = await callText(client, "glyph_render", {
+        spec: {
+          data: { source: fixture, format: "csv" },
+          layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+        },
+      });
+      const handleId = JSON.parse(r1.text).handle_id as string;
+      const events: Array<{ progress: number }> = [];
+      await client.callTool(
+        {
+          name: "glyph_query",
+          arguments: { handle_id: handleId },
+        },
+        undefined,
+        {
+          onprogress: (p) => {
+            events.push({ progress: p.progress });
+          },
+        },
+      );
+      expect(events.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("progress notification failure does NOT fail the underlying verb", async () => {
+      // Even if the host's onprogress callback throws, the final result
+      // must still arrive. sendProgress swallows errors defensively.
+      const r = await client.callTool(
+        {
+          name: "glyph_render",
+          arguments: {
+            spec: {
+              data: { source: fixture, format: "csv" },
+              layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+            },
+          },
+        },
+        undefined,
+        {
+          onprogress: () => {
+            // simulate flaky receiver
+            throw new Error("client side progress handler crashed");
+          },
+        },
+      );
+      // The call returned (didn't reject) — that's the contract.
+      const content = ((r as { content?: ReadonlyArray<unknown> }).content ?? []) as ReadonlyArray<{
+        type: string;
+        text?: string;
+      }>;
+      const tb = content.find((c) => c.type === "text");
+      expect(tb?.text).toBeTruthy();
+    });
+  });
+
   describe("glyph_engagement_record + _query (PR71 / PLAN 1.5)", () => {
     it("records + reads back a view event for a handle", async () => {
       const rec = await callText(client, "glyph_engagement_record", {

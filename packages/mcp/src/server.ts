@@ -103,6 +103,7 @@ import {
   validateLLMNodes,
 } from "./story.js";
 import type { ColumnSummaryLike, StoryNode, StoryPlan } from "./story.js";
+import { sendProgress } from "./streaming.js";
 import { buildWhyboard, diffWhyboards } from "./whyboard.js";
 
 export const SERVER_NAME = "glyph-mcp";
@@ -298,8 +299,12 @@ export function createServer(state: ServerState = new ServerState()): {
           ),
       },
     },
-    async ({ spec, vegaLite }) =>
+    async ({ spec, vegaLite }, extra) =>
       state.serial(async () => {
+        // PR72 — progress streaming. When the client requested progress
+        // via `_meta.progressToken`, emit milestones at parse / materialize
+        // / compile / render boundaries. No-op otherwise (backward-compat).
+        await sendProgress(extra, { progress: 0, total: 4, message: "starting" });
         // Either spec OR vegaLite, not both.
         if (spec === undefined && vegaLite === undefined) {
           return {
@@ -343,6 +348,7 @@ export function createServer(state: ServerState = new ServerState()): {
             content: [{ type: "text" as const, text: parsed.error.message }],
           };
         }
+        await sendProgress(extra, { progress: 1, total: 4, message: "parsed spec" });
         const engine = await state.getEngine();
         let m: Awaited<ReturnType<typeof materializeSpec>>;
         try {
@@ -368,6 +374,7 @@ export function createServer(state: ServerState = new ServerState()): {
             content: [{ type: "text" as const, text: (err as Error).message ?? String(err) }],
           };
         }
+        await sendProgress(extra, { progress: 2, total: 4, message: "materialized data" });
         state.storeHandle(m.handle);
         // PR62 (PLAN 1.8) — remember the originating spec so glyph_spec_patch
         // can re-run the pipeline with RFC 6902 edits applied.
@@ -393,12 +400,14 @@ export function createServer(state: ServerState = new ServerState()): {
           // sample is small. Opt-out via spec.interactive.uncertainty=false.
           ...(m.handle.provenance ? { provenance: m.handle.provenance } : {}),
         });
+        await sendProgress(extra, { progress: 3, total: 4, message: "compiled scene" });
         const svg = renderSvg(scene);
         // Cache the SVG so a later `glyph_preview` deep-link can serve it.
         state.storeSvg(m.handle.id, svg);
         // Rasterize once so hosts that render `image/*` content inline can
         // display the chart directly (Claude Code, Cursor, IDE previews).
         const pngB64 = svgToPngBase64(svg);
+        await sendProgress(extra, { progress: 4, total: 4, message: "rendered svg" });
         const textBlock = {
           type: "text" as const,
           text: JSON.stringify(
@@ -446,8 +455,9 @@ export function createServer(state: ServerState = new ServerState()): {
           ),
       },
     },
-    async ({ handle_id, where, limit_rows }) =>
+    async ({ handle_id, where, limit_rows }, extra) =>
       state.serial(async () => {
+        await sendProgress(extra, { progress: 0, total: 2, message: "resolving handle" });
         const handle = state.getHandle(handle_id);
         if (!handle) {
           return {
@@ -462,10 +472,12 @@ export function createServer(state: ServerState = new ServerState()): {
         }
         const engine = await state.getEngine();
         const result = await engine.queryHandle(handle, where);
+        await sendProgress(extra, { progress: 1, total: 2, message: "query complete" });
         // PR60 item 1.3: truncate in JS post-query so we can return the
         // truthful total. SQL-level pushdown is a follow-up optimization.
         const truncated = limit_rows !== undefined && result.rows.length > limit_rows;
         const returnedRows = truncated ? result.rows.slice(0, limit_rows) : result.rows;
+        await sendProgress(extra, { progress: 2, total: 2, message: "serialized" });
         return {
           content: [
             {
