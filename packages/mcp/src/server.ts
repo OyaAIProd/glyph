@@ -1918,7 +1918,11 @@ export function createServer(state: ServerState = new ServerState()): {
     const engine = await state.getEngine();
     const sql = where !== undefined ? where : "";
     const result = await engine.queryHandle(handle, sql);
-    const total = result.rowCount;
+    // Mirror the main glyph_query handler: compare against rows.length,
+    // not rowCount. They can diverge when the engine has already applied
+    // its own cap, in which case reporting `truncated: true` would be a
+    // lie (review finding on PR70).
+    const total = result.rows.length;
     const truncated = limit_rows !== undefined && total > limit_rows;
     const rows = truncated ? result.rows.slice(0, limit_rows) : result.rows;
     return jsonSafe({
@@ -3124,18 +3128,10 @@ export function createServer(state: ServerState = new ServerState()): {
         for (let i = 0; i < m.steps.length; i++) {
           const step = m.steps[i];
           if (!step) continue;
-          let resolved: Record<string, unknown>;
-          try {
-            resolved = substituteParams(step.args, ps) as Record<string, unknown>;
-          } catch (subErr) {
-            stepResults.push({
-              step_index: i,
-              verb: step.verb,
-              ok: false,
-              error: (subErr as Error).message,
-            });
-            break;
-          }
+          // The pre-flight check above guarantees every referenced param
+          // is supplied, so substituteParams cannot throw here. No need
+          // for a try/catch (review nit on PR70).
+          const resolved = substituteParams(step.args, ps) as Record<string, unknown>;
           try {
             let result: unknown;
             switch (step.verb) {

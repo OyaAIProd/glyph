@@ -9,22 +9,17 @@
  * Determinism: replay is pure — same macro + same params + same data
  * → same handles + same SVGs. No clock, no PRNG.
  *
- * Scope (v0): replay supports the high-value verbs
- *   - glyph_render
- *   - glyph_query
- *   - glyph_describe
- *   - glyph_explain
- *   - glyph_anomaly
- *   - glyph_forecast
- *   - glyph_drift
- *   - glyph_decompose
- *   - glyph_audit_spec
- *   - glyph_suggest_scale
+ * Scope (v0): the analytic core — see SUPPORTED_REPLAY_VERBS below.
+ * Each entry has a corresponding internal helper in server.ts
+ * (runRenderInternal / runDescribeInternal / runQueryInternal) so the
+ * verb can be dispatched without going through the MCP wire.
  *
- * Verbs that mutate registries (metrics_register, memory_save,
- * trust, act) are *not* supported in v0 — they have side effects
- * the user typically doesn't want re-applied on replay. Future
- * work: an explicit `side_effects: "allow"` flag.
+ * Out of v0 scope (single-line extension once their internal helpers
+ * are extracted): glyph_explain, glyph_anomaly, glyph_forecast,
+ * glyph_drift, glyph_decompose, glyph_audit_spec, glyph_suggest_scale.
+ *
+ * Permanently excluded (side effects shouldn't auto-replay):
+ * glyph_act, glyph_memory_save, glyph_metrics_register, glyph_trust.
  */
 
 /**
@@ -96,6 +91,20 @@ export function validateMacro(macro: unknown): string | undefined {
   if (m.version !== 1) return `macro.version must be 1, got ${JSON.stringify(m.version)}`;
   if (!Array.isArray(m.steps)) return "macro.steps must be an array";
   if (m.steps.length === 0) return "macro.steps must contain at least one entry";
+  // Validate optional declared params (purely informational, but check
+  // shape so a malformed entry doesn't surface later as an opaque type
+  // error in consumers — review nit on PR70).
+  if (m.params !== undefined) {
+    if (!Array.isArray(m.params)) return "macro.params must be an array when set";
+    for (let i = 0; i < m.params.length; i++) {
+      const p = m.params[i];
+      if (!p || typeof p !== "object") return `macro.params[${i}] must be an object`;
+      const pp = p as Record<string, unknown>;
+      if (typeof pp.name !== "string" || !pp.name) {
+        return `macro.params[${i}].name is required`;
+      }
+    }
+  }
   for (let i = 0; i < m.steps.length; i++) {
     const s = m.steps[i];
     if (!s || typeof s !== "object") return `macro.steps[${i}] must be an object`;
@@ -108,6 +117,26 @@ export function validateMacro(macro: unknown): string | undefined {
     }
     if (step.args === undefined || step.args === null || typeof step.args !== "object") {
       return `macro.steps[${i}].args must be an object`;
+    }
+    // note is informational; if present it must be a string.
+    if (step.note !== undefined && typeof step.note !== "string") {
+      return `macro.steps[${i}].note must be a string when set`;
+    }
+  }
+  // Cross-check declared params against the placeholders actually used.
+  // This catches the case where a macro author declared `params: [{name:
+  // "foo"}]` but referenced `{{params.bar}}` — would fail at replay
+  // otherwise (review nit on PR70).
+  if (Array.isArray(m.params)) {
+    const declared = new Set((m.params as ReadonlyArray<{ name: string }>).map((p) => p.name));
+    const referenced = collectMacroParams({
+      name: m.name as string,
+      version: 1,
+      steps: m.steps as ReadonlyArray<MacroStep>,
+    });
+    const undeclared = referenced.filter((r) => !declared.has(r));
+    if (undeclared.length > 0) {
+      return `macro references undeclared params: ${undeclared.join(", ")}. Add them to macro.params or remove from macro.steps.`;
     }
   }
   return undefined;

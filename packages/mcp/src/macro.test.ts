@@ -44,6 +44,38 @@ describe("validateMacro", () => {
     ).toContain("not in the supported replay set");
   });
 
+  it("rejects an undeclared-but-referenced param", () => {
+    expect(
+      validateMacro({
+        name: "x",
+        version: 1,
+        params: [{ name: "src" }],
+        steps: [{ verb: "glyph_describe", args: { source: "{{params.path}}" } }],
+      }),
+    ).toContain("undeclared params");
+  });
+
+  it("accepts a macro whose declared params match every reference", () => {
+    expect(
+      validateMacro({
+        name: "x",
+        version: 1,
+        params: [{ name: "src" }, { name: "unused" }],
+        steps: [{ verb: "glyph_describe", args: { source: "{{params.src}}" } }],
+      }),
+    ).toBeUndefined();
+  });
+
+  it("rejects a malformed note (non-string)", () => {
+    expect(
+      validateMacro({
+        name: "x",
+        version: 1,
+        steps: [{ verb: "glyph_render", args: { spec: {} }, note: 42 }],
+      }),
+    ).toContain("note");
+  });
+
   it("rejects non-object args", () => {
     expect(
       validateMacro({
