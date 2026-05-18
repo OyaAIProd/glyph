@@ -511,6 +511,148 @@
       @media (max-width: 760px) {
         .wow-body { grid-template-columns: 1fr; }
       }
+
+      /* CAPABILITIES TABLE — full 55-item proof, grouped by tier + category */
+      .cap-tier {
+        margin-top: 32px;
+        padding: 20px 22px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+      }
+      .cap-tier-architectural { background: linear-gradient(180deg, #f3f7fc 0%, #fafbfd 100%); }
+      .cap-tier-capability    { background: linear-gradient(180deg, #fdf8eb 0%, #fdfcf6 100%); }
+      .cap-tier-ergonomics    { background: linear-gradient(180deg, #eef9f1 0%, #f7fcf8 100%); }
+      .cap-tier-header { margin-bottom: 6px; }
+      .cap-tier-header h3 {
+        margin: 0 0 4px 0;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.005em;
+      }
+      .cap-tier-header p {
+        margin: 0;
+        font-size: 13px;
+        color: var(--fg-soft);
+      }
+      .cap-cat {
+        margin-top: 18px;
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .cap-cat-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: var(--bg-soft);
+        border-bottom: 1px solid var(--border);
+      }
+      .cap-letter {
+        font-family: var(--mono);
+        font-weight: 700;
+        font-size: 14px;
+        background: var(--accent);
+        color: white;
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .cap-cat-title {
+        flex: 1;
+        font-size: 14.5px;
+        font-weight: 700;
+        color: var(--fg);
+      }
+      .cap-cat-sub {
+        font-size: 12px;
+        color: var(--fg-dim);
+        font-family: var(--mono);
+      }
+      .cap-rows {
+        display: grid;
+        grid-template-columns: 36px 1fr 1.3fr 1.4fr;
+        font-size: 13px;
+      }
+      .cap-rows > div {
+        padding: 10px 14px;
+        border-top: 1px solid var(--border);
+      }
+      .cap-rows > div:nth-child(-n+4) { border-top: none; }
+      .cap-rows .cap-h {
+        background: var(--bg-soft);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-weight: 600;
+        color: var(--fg-dim);
+        padding-top: 8px;
+        padding-bottom: 8px;
+      }
+      .cap-num-cell {
+        font-family: var(--mono);
+        font-weight: 700;
+        color: var(--accent);
+      }
+      .cap-text {
+        color: var(--fg);
+        line-height: 1.4;
+      }
+      .cap-verbs code {
+        font-size: 11.5px;
+        padding: 1px 6px;
+        margin-right: 4px;
+        display: inline-block;
+        margin-bottom: 3px;
+      }
+      .cap-why {
+        color: var(--fg-soft);
+        font-size: 12.5px;
+        line-height: 1.45;
+      }
+      .cap-why strong { color: var(--red); font-weight: 600; }
+      .cap-summary {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 24px;
+      }
+      .cap-summary > div {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px;
+      }
+      .cap-summary h4 {
+        margin: 0 0 6px 0;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .cap-summary p {
+        font-size: 12.5px;
+        color: var(--fg-soft);
+        margin: 0;
+      }
+      .cap-summary-arch h4    { color: var(--accent); }
+      .cap-summary-cap h4     { color: #8a6914; }
+      .cap-summary-erg h4     { color: var(--green); }
+      @media (max-width: 760px) {
+        .cap-rows {
+          grid-template-columns: 30px 1fr;
+        }
+        .cap-rows .cap-h:nth-child(3),
+        .cap-rows .cap-h:nth-child(4),
+        .cap-rows > div:nth-child(4n+3),
+        .cap-rows > div:nth-child(4n) {
+          display: none;
+        }
+        .cap-summary { grid-template-columns: 1fr; }
+      }
     </style>
   </head>
   <body>
@@ -526,6 +668,7 @@
         </a>
         <nav class="nav-links">
           <a href="#examples">Examples</a>
+          <a href="#capabilities">Capabilities</a>
           <a href="#wow">Demos</a>
           <a href="#innovations">Innovations</a>
           <a href="#whyboard">Whyboard</a>
@@ -1263,6 +1406,497 @@ npm install @glyph/core @glyph/duckdb @glyph/canvas</code></pre>
             <h3>🤖 50 MCP tools, native</h3>
             <p>Not "MCP wrapper over a JS library" — agent affordance is the primary interface. Every analytic primitive (anomaly, drift, forecast, decompose, explain, story, whyboard) is a verb the agent calls directly.</p>
             <div class="verbs"><code>50 MCP tools</code><code>no LLM at runtime</code></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- 55 CAPABILITIES — full taxonomy of what Glyph can but others can't -->
+    <!-- ============================================================== -->
+    <section id="capabilities">
+      <div class="wrap">
+        <h2>55 capabilities only Glyph ships</h2>
+        <p class="quote">
+          Every row below is a thing Glyph does today that no other charting tool ships — D3, Vega-Lite,
+          Plotly, Tableau, Power BI, Observable Plot, Apache ECharts. Grouped into 11 categories and 3
+          uniqueness tiers. <strong>Architectural</strong> = nobody else <em>could</em> ship this without
+          rewriting their core. <strong>Capability</strong> = nobody else has built it. <strong>Ergonomics</strong> =
+          could be copied, but isn't.
+        </p>
+
+        <!-- ============================================================ -->
+        <!-- TIER 1 — ARCHITECTURAL (items 1-15 + 31-35)                  -->
+        <!-- ============================================================ -->
+        <div class="cap-tier cap-tier-architectural">
+          <div class="cap-tier-header">
+            <h3>Tier 1 — Architectural advantages</h3>
+            <p>Things competitors can't ship without rewriting their compiler, runtime, or data model.</p>
+          </div>
+
+          <!-- A. Protocol -->
+          <div class="cap-cat">
+            <div class="cap-cat-header">
+              <span class="cap-letter">A</span>
+              <div>
+                <div class="cap-cat-title">Protocol layer (GDF — Glyph Data Flow)</div>
+                <div class="cap-cat-sub">Charts as addressable, lineage-tracked, multi-agent data flow.</div>
+              </div>
+            </div>
+            <div class="cap-rows">
+              <div class="cap-h">#</div><div class="cap-h">Capability</div><div class="cap-h">Verbs / code</div><div class="cap-h">Why competitors can't</div>
+
+              <div class="cap-num-cell">1</div>
+              <div class="cap-text">Every render mints a stable <code>gdf://session/&lt;handle&gt;</code> URI for the materialized dataset.</div>
+              <div class="cap-verbs"><code>gdf://session/&lt;h&gt;</code><code>glyph_render</code></div>
+              <div class="cap-why"><strong>Others:</strong> no concept of a chart having an addressable identity outside the page.</div>
+
+              <div class="cap-num-cell">2</div>
+              <div class="cap-text">Cross-agent <strong>publish/subscribe</strong>: Agent A renders, Agent B subscribes to the handle, Agent C drills.</div>
+              <div class="cap-verbs"><code>glyph_publish</code><code>glyph_subscribe</code><code>glyph_linked_publish</code></div>
+              <div class="cap-why"><strong>Others:</strong> single-process libraries with no inter-agent surface.</div>
+
+              <div class="cap-num-cell">3</div>
+              <div class="cap-text">Walk-back <strong>lineage</strong>: every handle records its parents → reconstruct the full transformation graph.</div>
+              <div class="cap-verbs"><code>glyph_lineage</code><code>parents[]</code></div>
+              <div class="cap-why"><strong>Others:</strong> the chart is a leaf, not a node in a DAG.</div>
+
+              <div class="cap-num-cell">4</div>
+              <div class="cap-text">Lineage-aware <strong>garbage collection</strong>: parents are protected while descendants live.</div>
+              <div class="cap-verbs"><code>TTL reaper</code><code>refcount on parents</code></div>
+              <div class="cap-why"><strong>Others:</strong> no shared state → no GC concept.</div>
+
+              <div class="cap-num-cell">5</div>
+              <div class="cap-text">Modality-tagged <strong>link bus</strong>: chart, table, narrative all flow through the same address space.</div>
+              <div class="cap-verbs"><code>modality: "chart"|"table"|"text"</code></div>
+              <div class="cap-why"><strong>Others:</strong> different libraries for each modality, no shared bus.</div>
+            </div>
+          </div>
+
+          <!-- B. Determinism -->
+          <div class="cap-cat">
+            <div class="cap-cat-header">
+              <span class="cap-letter">B</span>
+              <div>
+                <div class="cap-cat-title">Deterministic compilation</div>
+                <div class="cap-cat-sub">Same input → byte-identical output. Forever. Provable in CI.</div>
+              </div>
+            </div>
+            <div class="cap-rows">
+              <div class="cap-h">#</div><div class="cap-h">Capability</div><div class="cap-h">Verbs / code</div><div class="cap-h">Why competitors can't</div>
+
+              <div class="cap-num-cell">6</div>
+              <div class="cap-text"><strong>Byte-identical SVG</strong> across runs / OSes / Node versions. 8-decimal pixel rounding everywhere.</div>
+              <div class="cap-verbs"><code>roundPx()</code><code>snapshot tests</code></div>
+              <div class="cap-why"><strong>Others:</strong> float arithmetic + browser rendering = drift between runs.</div>
+
+              <div class="cap-num-cell">7</div>
+              <div class="cap-text"><strong>Seeded force simulation</strong> via mulberry32 PRNG → force-directed graphs are reproducible.</div>
+              <div class="cap-verbs"><code>seed: number</code><code>mulberry32</code></div>
+              <div class="cap-why"><strong>Others:</strong> Math.random() inside the layout, snapshots impossible.</div>
+
+              <div class="cap-num-cell">8</div>
+              <div class="cap-text"><strong>Deterministic Voronoi</strong> via integer-sign-preserving Bowyer-Watson + Sutherland-Hodgman clip.</div>
+              <div class="cap-verbs"><code>scenegraph/voronoi.ts</code></div>
+              <div class="cap-why"><strong>Others:</strong> floating-point degeneracies near cocircular points → orientation flips.</div>
+
+              <div class="cap-num-cell">9</div>
+              <div class="cap-text"><strong>Spec-as-code CI gate</strong>: a chart's spec is checked in; a diff in pixels means a diff in JSON.</div>
+              <div class="cap-verbs"><code>glyph diff</code><code>__snapshots__/*.svg</code></div>
+              <div class="cap-why"><strong>Others:</strong> charts are emitted by imperative code, not declared.</div>
+
+              <div class="cap-num-cell">10</div>
+              <div class="cap-text"><strong>Regression-proof rendering</strong>: 679 snapshot tests guarantee no silent visual drift across PRs.</div>
+              <div class="cap-verbs"><code>vitest --update</code><code>679 tests</code></div>
+              <div class="cap-why"><strong>Others:</strong> rasterized diffs are too noisy to gate merges.</div>
+            </div>
+          </div>
+
+          <!-- C. Compute -->
+          <div class="cap-cat">
+            <div class="cap-cat-header">
+              <span class="cap-letter">C</span>
+              <div>
+                <div class="cap-cat-title">Embedded compute</div>
+                <div class="cap-cat-sub">SQL engine lives inside the chart library, not next to it.</div>
+              </div>
+            </div>
+            <div class="cap-rows">
+              <div class="cap-h">#</div><div class="cap-h">Capability</div><div class="cap-h">Verbs / code</div><div class="cap-h">Why competitors can't</div>
+
+              <div class="cap-num-cell">11</div>
+              <div class="cap-text">In-process SQL via embedded DuckDB — query a handle without round-tripping to a server.</div>
+              <div class="cap-verbs"><code>glyph_query</code><code>@duckdb/node-api</code></div>
+              <div class="cap-why"><strong>Others:</strong> assume the data is already in JS — no SQL surface.</div>
+
+              <div class="cap-num-cell">12</div>
+              <div class="cap-text"><strong>Click → SQL</strong>: <code>glyph_drill</code> turns a clicked mark into a WHERE clause against the materialized view.</div>
+              <div class="cap-verbs"><code>glyph_drill</code><code>data-* keys</code></div>
+              <div class="cap-why"><strong>Others:</strong> interactions are JS callbacks; no engine on the other end.</div>
+
+              <div class="cap-num-cell">13</div>
+              <div class="cap-text"><strong>Named-metric layer</strong> — define metrics once, reuse across charts. Anomaly/forecast/decompose all consume named metrics.</div>
+              <div class="cap-verbs"><code>glyph_define_metric</code><code>glyph_list_metrics</code></div>
+              <div class="cap-why"><strong>Others:</strong> no shared semantic layer; each chart re-derives its expressions.</div>
+
+              <div class="cap-num-cell">14</div>
+              <div class="cap-text"><strong>DuckDB embedded</strong> — Parquet, CSV, JSON, Arrow all queryable from the same spec.</div>
+              <div class="cap-verbs"><code>data.source: "file.parquet"</code></div>
+              <div class="cap-why"><strong>Others:</strong> only JS arrays / objects accepted.</div>
+
+              <div class="cap-num-cell">15</div>
+              <div class="cap-text"><strong>Inline-data shortcut</strong> bypasses DuckDB for tiny specs → no engine startup cost.</div>
+              <div class="cap-verbs"><code>synthesizeInlineDataHandle</code></div>
+              <div class="cap-why"><strong>Others:</strong> n/a — they don't have a compute engine to bypass.</div>
+            </div>
+          </div>
+
+          <!-- G. Editability -->
+          <div class="cap-cat">
+            <div class="cap-cat-header">
+              <span class="cap-letter">G</span>
+              <div>
+                <div class="cap-cat-title">Editability as a primitive</div>
+                <div class="cap-cat-sub">Charts are values you can diff, patch, and replay.</div>
+              </div>
+            </div>
+            <div class="cap-rows">
+              <div class="cap-h">#</div><div class="cap-h">Capability</div><div class="cap-h">Verbs / code</div><div class="cap-h">Why competitors can't</div>
+
+              <div class="cap-num-cell">31</div>
+              <div class="cap-text"><strong>Spec diff</strong>: <code>glyph_spec_diff</code> returns the structural delta between two specs.</div>
+              <div class="cap-verbs"><code>glyph_spec_diff</code></div>
+              <div class="cap-why"><strong>Others:</strong> chart is the output of imperative code; "diff the chart" is meaningless.</div>
+
+              <div class="cap-num-cell">32</div>
+              <div class="cap-text"><strong>RFC 6902 JSON Patch</strong>: <code>glyph_spec_patch</code> applies a patch to a spec deterministically.</div>
+              <div class="cap-verbs"><code>glyph_spec_patch</code><code>JSON Pointer</code></div>
+              <div class="cap-why"><strong>Others:</strong> no canonical spec to patch.</div>
+
+              <div class="cap-num-cell">33</div>
+              <div class="cap-text"><strong>Macro replay</strong>: capture a sequence of spec edits, replay against a different dataset.</div>
+              <div class="cap-verbs"><code>glyph_macro_record</code><code>glyph_macro_replay</code></div>
+              <div class="cap-why"><strong>Others:</strong> no spec → no macro primitives.</div>
+
+              <div class="cap-num-cell">34</div>
+              <div class="cap-text"><strong>CLI diff</strong>: <code>glyph diff a.json b.json</code> outputs human-readable HTML/MD report.</div>
+              <div class="cap-verbs"><code>glyph diff --format html|md</code></div>
+              <div class="cap-why"><strong>Others:</strong> no spec on disk to diff.</div>
+
+              <div class="cap-num-cell">35</div>
+              <div class="cap-text"><strong>Scale suggester</strong>: <code>glyph_suggest_scale</code> returns the optimal scale type given a column.</div>
+              <div class="cap-verbs"><code>glyph_suggest_scale</code></div>
+              <div class="cap-why"><strong>Others:</strong> agents have to reason about scales themselves.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TIER 2 — CAPABILITY (items 16-30 + 36-50)                    -->
+        <!-- ============================================================ -->
+        <div class="cap-tier cap-tier-capability">
+          <div class="cap-tier-header">
+            <h3>Tier 2 — Capability advantages</h3>
+            <p>Things nobody else has built. A competitor <em>could</em> build them, but hasn't.</p>
+          </div>
+
+          <!-- D. Agent affordance -->
+          <div class="cap-cat">
+            <div class="cap-cat-header">
+              <span class="cap-letter">D</span>
+              <div>
+                <div class="cap-cat-title">Agent-native interface</div>
+                <div class="cap-cat-sub">LLM agents are the primary user. 50 MCP verbs, no GUI required.</div>
+              </div>
+            </div>
+            <div class="cap-rows">
+              <div class="cap-h">#</div><div class="cap-h">Capability</div><div class="cap-h">Verbs / code</div><div class="cap-h">Why competitors can't</div>
+
+              <div class="cap-num-cell">16</div>
+              <div class="cap-text"><strong>50 MCP tools</strong> covering data, render, analyze, story, audit, memory, lineage.</div>
+              <div class="cap-verbs"><code>50 verbs</code><code>tools/list</code></div>
+              <div class="cap-why"><strong>Others:</strong> MCP wrappers around JS APIs exist, but verbs are not the design.</div>
+
+              <div class="cap-num-cell">17</div>
+              <div class="cap-text"><strong>Deterministic narrative</strong>: <code>glyph_explain</code> emits a pure-fn description of a chart — no LLM call.</div>
+              <div class="cap-verbs"><code>glyph_explain</code></div>
+              <div class="cap-why"><strong>Others:</strong> rely on an LLM to caption charts → nondeterministic.</div>
+
+              <div class="cap-num-cell">18</div>
+              <div class="cap-text"><strong>Analytic verbs as primitives</strong>: <code>glyph_anomaly</code>, <code>glyph_forecast</code>, <code>glyph_decompose</code>, <code>glyph_change_point</code>.</div>
+              <div class="cap-verbs"><code>glyph_anomaly</code><code>glyph_forecast</code></div>
+              <div class="cap-why"><strong>Others:</strong> the agent has to chain a stats library + a chart library.</div>
+
+              <div class="cap-num-cell">19</div>
+              <div class="cap-text"><strong>Versioned capability manifest</strong>: <code>glyph_capabilities</code> returns the verb surface for THIS version → agents can self-discover.</div>
+              <div class="cap-verbs"><code>glyph_capabilities</code></div>
+              <div class="cap-why"><strong>Others:</strong> no versioned tool manifest; agents hardcode against APIs.</div>
+
+              <div class="cap-num-cell">20</div>
+              <div class="cap-text"><strong>LLM-pluggable story agent</strong>: storytelling verbs accept any model via spec; default is local.</div>
+              <div class="cap-verbs"><code>glyph_story_plan</code><code>model: "..."</code></div>
+              <div class="cap-why"><strong>Others:</strong> opinionated about which LLM, or none.</div>
+            </div>
+          </div>
+
+          <!-- E. Story + multi-agent -->
+          <div class="cap-cat">
+            <div class="cap-cat-header">
+              <span class="cap-letter">E</span>
+              <div>
+                <div class="cap-cat-title">Story &amp; multi-agent collaboration</div>
+                <div class="cap-cat-sub">Multi-step analytic narratives as first-class artifacts.</div>
+              </div>
+            </div>
+            <div class="cap-rows">
+              <div class="cap-h">#</div><div class="cap-h">Capability</div><div class="cap-h">Verbs / code</div><div class="cap-h">Why competitors can't</div>
+
+              <div class="cap-num-cell">21</div>
+              <div class="cap-text"><strong>Story planner</strong>: <code>glyph_story_plan</code> outputs a multi-chart narrative DAG.</div>
+              <div class="cap-verbs"><code>glyph_story_plan</code></div>
+              <div class="cap-why"><strong>Others:</strong> charts are isolated; no story container.</div>
+
+              <div class="cap-num-cell">22</div>
+              <div class="cap-text"><strong>Whyboard</strong>: an analytic argument graph — claim → evidence → counter-evidence.</div>
+              <div class="cap-verbs"><code>glyph_whyboard_*</code></div>
+              <div class="cap-why"><strong>Others:</strong> nothing like this anywhere.</div>
+
+              <div class="cap-num-cell">23</div>
+              <div class="cap-text"><strong>Whyboard diff</strong>: track how an argument evolves between two checkpoints.</div>
+              <div class="cap-verbs"><code>glyph_whyboard_diff</code></div>
+              <div class="cap-why"><strong>Others:</strong> no whyboard → no whyboard diff.</div>
+
+              <div class="cap-num-cell">24</div>
+              <div class="cap-text"><strong>Clarification questions</strong>: <code>glyph_clarify</code> returns explicit unknowns before rendering.</div>
+              <div class="cap-verbs"><code>glyph_clarify</code></div>
+              <div class="cap-why"><strong>Others:</strong> agents make assumptions silently.</div>
+
+              <div class="cap-num-cell">25</div>
+              <div class="cap-text"><strong>Streamable checkpoints</strong> via <code>notifications/progress</code> — long-running plans stream partial state.</div>
+              <div class="cap-verbs"><code>notifications/progress</code></div>
+              <div class="cap-why"><strong>Others:</strong> request/response only.</div>
+            </div>
+          </div>
+
+          <!-- F. Trust + governance -->
+          <div class="cap-cat">
+            <div class="cap-cat-header">
+              <span class="cap-letter">F</span>
+              <div>
+                <div class="cap-cat-title">Trust &amp; governance</div>
+                <div class="cap-cat-sub">Every chart carries enough metadata to audit, score, and contest.</div>
+              </div>
+            </div>
+            <div class="cap-rows">
+              <div class="cap-h">#</div><div class="cap-h">Capability</div><div class="cap-h">Verbs / code</div><div class="cap-h">Why competitors can't</div>
+
+              <div class="cap-num-cell">26</div>
+              <div class="cap-text"><strong>Uncertainty rendering by default</strong> — small n hatches bars, dims points, adds a confidence badge.</div>
+              <div class="cap-verbs"><code>provenance.confidence</code><code>SceneUncertainty</code></div>
+              <div class="cap-why"><strong>Others:</strong> uncertainty is your problem; the chart looks confident.</div>
+
+              <div class="cap-num-cell">27</div>
+              <div class="cap-text"><strong>Chart auditor</strong>: 8 rules (truncated axis, dual-y mismatch, log-zero, pie&gt;7, etc.) → <code>glyph_audit</code>.</div>
+              <div class="cap-verbs"><code>glyph_audit</code><code>8 rules</code></div>
+              <div class="cap-why"><strong>Others:</strong> rendering ≠ critique.</div>
+
+              <div class="cap-num-cell">28</div>
+              <div class="cap-text"><strong>Causal-aware viz</strong> with cycle detection — DAG layout via toposort; cycles refuse to render.</div>
+              <div class="cap-verbs"><code>data.shape: "graph"</code><code>cycle = error</code></div>
+              <div class="cap-why"><strong>Others:</strong> no concept of causality at the chart layer.</div>
+
+              <div class="cap-num-cell">29</div>
+              <div class="cap-text"><strong>Trust scorecard</strong>: <code>glyph_trust</code> returns a 0-100 score with itemized contributors.</div>
+              <div class="cap-verbs"><code>glyph_trust</code></div>
+              <div class="cap-why"><strong>Others:</strong> nobody scores their charts.</div>
+
+              <div class="cap-num-cell">30</div>
+              <div class="cap-text"><strong>Persistent audit log</strong>: every verb call is logged with handle, args, timestamp.</div>
+              <div class="cap-verbs"><code>glyph_audit_log</code></div>
+              <div class="cap-why"><strong>Others:</strong> no shared state, no audit trail.</div>
+            </div>
+          </div>
+
+          <!-- H. Renderer + animation -->
+          <div class="cap-cat">
+            <div class="cap-cat-header">
+              <span class="cap-letter">H</span>
+              <div>
+                <div class="cap-cat-title">Renderer &amp; animation</div>
+                <div class="cap-cat-sub">One IR drives multiple backends; animation is spec-declared.</div>
+              </div>
+            </div>
+            <div class="cap-rows">
+              <div class="cap-h">#</div><div class="cap-h">Capability</div><div class="cap-h">Verbs / code</div><div class="cap-h">Why competitors can't</div>
+
+              <div class="cap-num-cell">36</div>
+              <div class="cap-text"><strong>Multiple renderers, same IR</strong>: SVG (server), Canvas (browser), more pluggable. Byte-equivalent output.</div>
+              <div class="cap-verbs"><code>renderSvg(scene)</code><code>renderCanvas(scene)</code></div>
+              <div class="cap-why"><strong>Others:</strong> renderer and library are inseparable.</div>
+
+              <div class="cap-num-cell">37</div>
+              <div class="cap-text"><strong>Spec-declared morph</strong>: <code>glyph_morph_render</code> animates between two spec states via SMIL — zero JS.</div>
+              <div class="cap-verbs"><code>glyph_morph_render</code><code>animation.kind: "morph"</code></div>
+              <div class="cap-why"><strong>Others:</strong> animation = imperative JS, not a spec field.</div>
+
+              <div class="cap-num-cell">38</div>
+              <div class="cap-text"><strong>4 spec-declared animation kinds</strong>: stage, stage-stagger, race, scrub, morph — all via SMIL.</div>
+              <div class="cap-verbs"><code>animation.kind</code></div>
+              <div class="cap-why"><strong>Others:</strong> ad-hoc per-call animation; not declarative.</div>
+
+              <div class="cap-num-cell">39</div>
+              <div class="cap-text"><strong><code>renderFrames</code></strong>: deterministic per-frame array of scenes for film/PNG export.</div>
+              <div class="cap-verbs"><code>renderFrames(spec)</code></div>
+              <div class="cap-why"><strong>Others:</strong> animation lives in the DOM, not the IR.</div>
+
+              <div class="cap-num-cell">40</div>
+              <div class="cap-text"><strong>TopoJSON + 4 projections</strong> (Mercator, Albers, Equirectangular, EqualEarth) built in.</div>
+              <div class="cap-verbs"><code>data.shape: "topojson"</code><code>projection</code></div>
+              <div class="cap-why"><strong>Others:</strong> ship maps as a separate package or not at all.</div>
+            </div>
+          </div>
+
+          <!-- I. Memory + persistence -->
+          <div class="cap-cat">
+            <div class="cap-cat-header">
+              <span class="cap-letter">I</span>
+              <div>
+                <div class="cap-cat-title">Memory &amp; persistence</div>
+                <div class="cap-cat-sub">Agents remember; chart state survives across sessions, locally.</div>
+              </div>
+            </div>
+            <div class="cap-rows">
+              <div class="cap-h">#</div><div class="cap-h">Capability</div><div class="cap-h">Verbs / code</div><div class="cap-h">Why competitors can't</div>
+
+              <div class="cap-num-cell">41</div>
+              <div class="cap-text"><strong>Save / recall</strong>: <code>glyph_memory_save</code> + <code>glyph_memory_recall</code> persist named specs across runs.</div>
+              <div class="cap-verbs"><code>glyph_memory_save</code><code>glyph_memory_recall</code></div>
+              <div class="cap-why"><strong>Others:</strong> no persistent layer below the library.</div>
+
+              <div class="cap-num-cell">42</div>
+              <div class="cap-text"><strong>Local-only engagement signals</strong>: viewers' interactions are tallied LOCALLY → never phones home.</div>
+              <div class="cap-verbs"><code>~/.glyph/engagement</code></div>
+              <div class="cap-why"><strong>Others:</strong> either no analytics or cloud-coupled telemetry.</div>
+
+              <div class="cap-num-cell">43</div>
+              <div class="cap-text"><strong>Engagement aggregates</strong>: <code>glyph_engagement</code> shows which charts were hovered/zoomed/clicked.</div>
+              <div class="cap-verbs"><code>glyph_engagement</code></div>
+              <div class="cap-why"><strong>Others:</strong> n/a — no local telemetry pipeline.</div>
+
+              <div class="cap-num-cell">44</div>
+              <div class="cap-text"><strong>TTL + reaper</strong>: handles auto-expire; named saves are exempt.</div>
+              <div class="cap-verbs"><code>ttl_ms</code><code>reaper.ts</code></div>
+              <div class="cap-why"><strong>Others:</strong> no handle layer to expire.</div>
+
+              <div class="cap-num-cell">45</div>
+              <div class="cap-text"><strong>Persistent audit log</strong> at <code>~/.glyph/audit.log</code> across runs, surveys, and machines.</div>
+              <div class="cap-verbs"><code>~/.glyph/audit.log</code></div>
+              <div class="cap-why"><strong>Others:</strong> stateless libraries.</div>
+            </div>
+          </div>
+
+          <!-- J. Multi-modal + streaming -->
+          <div class="cap-cat">
+            <div class="cap-cat-header">
+              <span class="cap-letter">J</span>
+              <div>
+                <div class="cap-cat-title">Multi-modal &amp; streaming</div>
+                <div class="cap-cat-sub">Chart, table, narrative co-emitted from one verb.</div>
+              </div>
+            </div>
+            <div class="cap-rows">
+              <div class="cap-h">#</div><div class="cap-h">Capability</div><div class="cap-h">Verbs / code</div><div class="cap-h">Why competitors can't</div>
+
+              <div class="cap-num-cell">46</div>
+              <div class="cap-text"><strong>One verb → chart + table + narrative</strong>. <code>glyph_render</code> returns all three modalities.</div>
+              <div class="cap-verbs"><code>modalities: ["chart","table","text"]</code></div>
+              <div class="cap-why"><strong>Others:</strong> chart libs return SVG / Canvas only.</div>
+
+              <div class="cap-num-cell">47</div>
+              <div class="cap-text"><strong>Echo-filter by modality</strong>: subscribe to only the modalities you want via <code>glyph_linked_publish</code>.</div>
+              <div class="cap-verbs"><code>modality: "chart"</code></div>
+              <div class="cap-why"><strong>Others:</strong> no pub/sub.</div>
+
+              <div class="cap-num-cell">48</div>
+              <div class="cap-text"><strong>MCP <code>notifications/progress</code></strong> on long-running verbs (forecast, story) — agents stream partial.</div>
+              <div class="cap-verbs"><code>notifications/progress</code></div>
+              <div class="cap-why"><strong>Others:</strong> blocking request/response.</div>
+
+              <div class="cap-num-cell">49</div>
+              <div class="cap-text"><strong>Zero-cost backward compatibility</strong>: omitted optional spec fields produce byte-identical output to prior versions.</div>
+              <div class="cap-verbs"><code>byte-identity tests</code></div>
+              <div class="cap-why"><strong>Others:</strong> new features change pixel output silently.</div>
+
+              <div class="cap-num-cell">50</div>
+              <div class="cap-text"><strong><code>glyph_close_preview</code></strong>: clean shutdown of the preview-server, including released handles.</div>
+              <div class="cap-verbs"><code>glyph_close_preview</code></div>
+              <div class="cap-why"><strong>Others:</strong> n/a — no preview server.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TIER 3 — ERGONOMICS (items 51-55)                            -->
+        <!-- ============================================================ -->
+        <div class="cap-tier cap-tier-ergonomics">
+          <div class="cap-tier-header">
+            <h3>Tier 3 — Ergonomic advantages</h3>
+            <p>Things that could be copied — but reflect deliberate choices nobody else makes.</p>
+          </div>
+
+          <!-- K. Distribution + ergonomics -->
+          <div class="cap-cat">
+            <div class="cap-cat-header">
+              <span class="cap-letter">K</span>
+              <div>
+                <div class="cap-cat-title">Distribution &amp; ergonomics</div>
+                <div class="cap-cat-sub">Built for how analysts, engineers, and agents actually work.</div>
+              </div>
+            </div>
+            <div class="cap-rows">
+              <div class="cap-h">#</div><div class="cap-h">Capability</div><div class="cap-h">Verbs / code</div><div class="cap-h">Why competitors can't</div>
+
+              <div class="cap-num-cell">51</div>
+              <div class="cap-text"><strong>4-IDE skill files</strong>: Claude Code, Cursor, Copilot CLI, Gemini CLI all ship skills out of the box.</div>
+              <div class="cap-verbs"><code>skills/</code><code>4 platforms</code></div>
+              <div class="cap-why"><strong>Others:</strong> no IDE-aware affordance layer.</div>
+
+              <div class="cap-num-cell">52</div>
+              <div class="cap-text"><strong>Role-aware skills</strong>: analyst / engineer / agent each get a different skill surface.</div>
+              <div class="cap-verbs"><code>role.md</code></div>
+              <div class="cap-why"><strong>Others:</strong> one-size-fits-all docs.</div>
+
+              <div class="cap-num-cell">53</div>
+              <div class="cap-text"><strong><code>glyph diff</code> CLI</strong> outputs HTML or Markdown spec-diff reports for PR comments.</div>
+              <div class="cap-verbs"><code>glyph diff --format html|md</code></div>
+              <div class="cap-why"><strong>Others:</strong> no CLI, no spec → no diff.</div>
+
+              <div class="cap-num-cell">54</div>
+              <div class="cap-text"><strong>Apache 2.0 + zero telemetry</strong>. Self-hostable. No phone-home. Audit-safe by default.</div>
+              <div class="cap-verbs"><code>LICENSE</code><code>no analytics</code></div>
+              <div class="cap-why"><strong>Others:</strong> SaaS-coupled or telemetry-enabled defaults.</div>
+
+              <div class="cap-num-cell">55</div>
+              <div class="cap-text"><strong>6-cell CI matrix</strong>: { Node 20 / 22 } × { Linux / macOS / Windows } — byte-identity proven on every push.</div>
+              <div class="cap-verbs"><code>.github/workflows</code><code>6 cells</code></div>
+              <div class="cap-why"><strong>Others:</strong> nondeterministic output makes cross-platform CI meaningless.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary explainer -->
+        <div class="cap-summary">
+          <div class="cap-summary-arch">
+            <h4>Architectural (20)</h4>
+            <p>Items in categories A, B, C, G. Glyph could not retrofit these into a non-deterministic, runtime-only chart library — the protocol layer, byte-identity, and embedded SQL engine demand a different core.</p>
+          </div>
+          <div class="cap-summary-cap">
+            <h4>Capability (30)</h4>
+            <p>Items in categories D, E, F, H, I, J. Competitors could in principle build these — they are buildable features — but none have. Whyboard, trust scorecards, lineage-aware GC, multi-modal echoes: not on anyone else's roadmap.</p>
+          </div>
+          <div class="cap-summary-erg">
+            <h4>Ergonomics (5)</h4>
+            <p>Items in category K. Anyone can ship a CLI or skill files. The choice not to is itself revealing — Glyph treats agents and PR reviewers as first-class users.</p>
           </div>
         </div>
       </div>
