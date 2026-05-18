@@ -175,7 +175,7 @@ function circumcircleContains(points: ReadonlyArray<Point>, t: Triangle, p: Poin
   const orient = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
   if (orient === 0) return false; // degenerate (collinear)
   // Inside ⟺ sign(det) === sign(orient).
-  return (det > 0) === (orient > 0);
+  return det > 0 === orient > 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -194,21 +194,63 @@ export function voronoiPolygons(
   bounds: { readonly x0: number; readonly y0: number; readonly x1: number; readonly y1: number },
 ): ReadonlyArray<VoronoiCell> {
   if (points.length === 0) return [];
+  const rectPolygon = (): Point[] => [
+    { x: bounds.x0, y: bounds.y0 },
+    { x: bounds.x1, y: bounds.y0 },
+    { x: bounds.x1, y: bounds.y1 },
+    { x: bounds.x0, y: bounds.y1 },
+  ];
   // Special case: a single point owns the entire bounds.
   if (points.length === 1) {
     const p = points[0];
     if (!p) return [];
+    return [{ site: p, siteIndex: 0, polygon: rectPolygon() }];
+  }
+  // Special case: 2 points split the bounds along their perpendicular
+  // bisector. Delaunay needs ≥3 points to produce triangles, so without
+  // this branch a 2-site call would return [] (PR77 review).
+  if (points.length === 2) {
+    const a = points[0];
+    const b = points[1];
+    if (!a || !b) return [];
+    // Each cell is the half-plane containing its site, clipped to bounds.
+    // The bisector passes through the midpoint, normal to (b - a).
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2;
+    const nx = b.x - a.x;
+    const ny = b.y - a.y;
+    // A point p is on a's side iff (p - midpoint) · (b - a) < 0.
+    const sideOfA = (p: Point): boolean => (p.x - mx) * nx + (p.y - my) * ny < 0;
+    // Clip the bounds rectangle against the bisector half-plane.
+    const clipHalfPlane = (poly: ReadonlyArray<Point>, keepSideOfA: boolean): Point[] => {
+      const out: Point[] = [];
+      for (let i = 0; i < poly.length; i++) {
+        const cur = poly[i];
+        const nxt = poly[(i + 1) % poly.length];
+        if (!cur || !nxt) continue;
+        const curIn = sideOfA(cur) === keepSideOfA;
+        const nxtIn = sideOfA(nxt) === keepSideOfA;
+        // Compute bisector intersection with edge cur→nxt.
+        const intersect = (): Point => {
+          // Edge parametric: P = cur + t*(nxt-cur). Solve (P-m)·n = 0.
+          const dx = nxt.x - cur.x;
+          const dy = nxt.y - cur.y;
+          const denom = dx * nx + dy * ny;
+          const t = denom === 0 ? 0 : -((cur.x - mx) * nx + (cur.y - my) * ny) / denom;
+          return { x: cur.x + t * dx, y: cur.y + t * dy };
+        };
+        if (curIn && nxtIn) out.push(nxt);
+        else if (curIn && !nxtIn) out.push(intersect());
+        else if (!curIn && nxtIn) {
+          out.push(intersect());
+          out.push(nxt);
+        }
+      }
+      return out;
+    };
     return [
-      {
-        site: p,
-        siteIndex: 0,
-        polygon: [
-          { x: bounds.x0, y: bounds.y0 },
-          { x: bounds.x1, y: bounds.y0 },
-          { x: bounds.x1, y: bounds.y1 },
-          { x: bounds.x0, y: bounds.y1 },
-        ],
-      },
+      { site: a, siteIndex: 0, polygon: clipHalfPlane(rectPolygon(), true) },
+      { site: b, siteIndex: 1, polygon: clipHalfPlane(rectPolygon(), false) },
     ];
   }
   const tris = delaunayTriangulate(points);
@@ -238,18 +280,77 @@ export function voronoiPolygons(
       const angB = Math.atan2(b.y - site.y, b.x - site.x);
       return angA - angB;
     });
-    // Clip each vertex to the bounds rectangle.
-    const clipped = sorted.map((c) => ({
-      x: clamp(c.x, bounds.x0, bounds.x1),
-      y: clamp(c.y, bounds.y0, bounds.y1),
-    }));
+    // Sutherland-Hodgman clip against the bounds rectangle. Per-vertex
+    // clamp would collapse distant circumcenters onto the same edge and
+    // produce degenerate polygons (PR77 review critical finding).
+    const clipped = clipPolygonToRect(sorted, bounds);
+    if (clipped.length === 0) continue;
     cells.push({ site, siteIndex: i, polygon: clipped });
   }
   return cells;
 }
 
-function clamp(v: number, lo: number, hi: number): number {
-  return v < lo ? lo : v > hi ? hi : v;
+/**
+ * Sutherland-Hodgman polygon clipping against a CCW rectangle. The
+ * polygon is clipped against each of the 4 axis-aligned edges in turn.
+ * Pure-fn, deterministic.
+ */
+function clipPolygonToRect(
+  polygon: ReadonlyArray<Point>,
+  bounds: { readonly x0: number; readonly y0: number; readonly x1: number; readonly y1: number },
+): Point[] {
+  // Each clip step takes the polygon-so-far and intersects it with one
+  // half-plane (left / right / bottom / top of the rectangle).
+  type Side = "left" | "right" | "bottom" | "top";
+  const sides: Side[] = ["left", "right", "bottom", "top"];
+  const inside = (p: Point, side: Side): boolean => {
+    switch (side) {
+      case "left":
+        return p.x >= bounds.x0;
+      case "right":
+        return p.x <= bounds.x1;
+      case "bottom":
+        return p.y >= bounds.y0;
+      case "top":
+        return p.y <= bounds.y1;
+    }
+  };
+  /** Edge-axis intersection of segment p1→p2 with the side's line. */
+  const intersect = (p1: Point, p2: Point, side: Side): Point => {
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    if (side === "left" || side === "right") {
+      const x = side === "left" ? bounds.x0 : bounds.x1;
+      const t = dx === 0 ? 0 : (x - p1.x) / dx;
+      return { x, y: p1.y + t * dy };
+    }
+    const y = side === "bottom" ? bounds.y0 : bounds.y1;
+    const t = dy === 0 ? 0 : (y - p1.y) / dy;
+    return { x: p1.x + t * dx, y };
+  };
+  let current: Point[] = [...polygon];
+  for (const side of sides) {
+    if (current.length === 0) break;
+    const next: Point[] = [];
+    for (let i = 0; i < current.length; i++) {
+      const a = current[i];
+      const b = current[(i + 1) % current.length];
+      if (!a || !b) continue;
+      const aIn = inside(a, side);
+      const bIn = inside(b, side);
+      if (aIn && bIn) {
+        next.push(b);
+      } else if (aIn && !bIn) {
+        next.push(intersect(a, b, side));
+      } else if (!aIn && bIn) {
+        next.push(intersect(a, b, side));
+        next.push(b);
+      }
+      // both outside → emit nothing
+    }
+    current = next;
+  }
+  return current;
 }
 
 /** Compute the circumcenter of triangle t (or undefined for degenerate). */
