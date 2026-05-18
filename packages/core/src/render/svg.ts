@@ -547,5 +547,39 @@ function decorateMarkForAnimation(
     }
     return svgFragment;
   }
+  if (a.kind === "morph") {
+    // PR74 (D3 Gap 3) — interpolate geometric attrs between fromMarks[i]
+    // and marks[i]. Single transition (no loop) so the chart settles in
+    // the "to" state after one duration_ms. fill="freeze" pins the end.
+    const to = scene.marks[index];
+    const from = a.fromMarks[index];
+    if (!to || !from) return svgFragment;
+    const dur = a.duration_ms;
+    const ms = `${dur}ms`;
+    const animate = (attr: string, fromVal: number, toVal: number): string =>
+      `<animate attributeName="${attr}" from="${fromVal}" to="${toVal}" dur="${ms}" fill="freeze"/>`;
+    if (to.type === "rect" && from.type === "rect") {
+      const anims =
+        animate("x", from.x, to.x) +
+        animate("y", from.y, to.y) +
+        animate("width", from.width, to.width) +
+        animate("height", from.height, to.height);
+      return svgFragment.replace(/<rect\b([^/]*)\/>/, `<rect$1>${anims}</rect>`);
+    }
+    if (to.type === "circle" && from.type === "circle") {
+      const anims =
+        animate("cx", from.cx, to.cx) + animate("cy", from.cy, to.cy) + animate("r", from.r, to.r);
+      return svgFragment.replace(/<circle\b([^/]*)\/>/, `<circle$1>${anims}</circle>`);
+    }
+    if (to.type === "line" && from.type === "line") {
+      const anims =
+        animate("x1", from.x1, to.x1) +
+        animate("y1", from.y1, to.y1) +
+        animate("x2", from.x2, to.x2) +
+        animate("y2", from.y2, to.y2);
+      return svgFragment.replace(/<line\b([^/]*)\/>/, `<line$1>${anims}</line>`);
+    }
+    return svgFragment;
+  }
   return svgFragment;
 }

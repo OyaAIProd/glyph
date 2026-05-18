@@ -67,6 +67,7 @@ import {
   getCapabilities,
   isTranslateError,
   linearRegression,
+  morphScenes,
   renderSvg,
   safeParseSpec,
   seasonalNaiveForecast,
@@ -178,6 +179,8 @@ const MCP_TOOLS = [
   // ---- PR71 (PLAN 1.5) — local-only engagement signals ----------------
   { name: "glyph_engagement_record", since: "0.0.19" },
   { name: "glyph_engagement_query", since: "0.0.19" },
+  // ---- PR74 (D3 Gap 3) — morph transitions ----------------------------
+  { name: "glyph_morph_render", since: "0.0.20" },
 ] as const;
 
 /** Best-effort browser launcher. Returns true on success. */
@@ -3148,6 +3151,113 @@ export function createServer(state: ServerState = new ServerState()): {
         ],
       };
     },
+  );
+
+  // ----- glyph_morph_render (PR74 / D3 Gap 3) -------------------------------
+  server.registerTool(
+    "glyph_morph_render",
+    {
+      title: "Render a smooth morph transition between two related Glyph specs",
+      description:
+        "Compile both specs to scenes and emit a single SVG that animates from spec_a's marks to spec_b's marks over duration_ms. v0 supports rect / circle / line marks; both ends must have the same mark count + types per index (typically the same source data with a different aggregation or stack offset). Returns SVG + new handle_id.",
+      inputSchema: {
+        spec_a: z.unknown().describe("The 'from' Glyph spec."),
+        spec_b: z.unknown().describe("The 'to' Glyph spec."),
+        duration_ms: z
+          .number()
+          .int()
+          .min(50)
+          .max(60_000)
+          .optional()
+          .describe("Transition duration in ms. Default 600."),
+      },
+    },
+    async ({ spec_a, spec_b, duration_ms }) =>
+      state.serial(async () => {
+        const parsedA = safeParseSpec(spec_a);
+        if (!parsedA.ok) {
+          return {
+            isError: true,
+            content: [{ type: "text" as const, text: `spec_a invalid: ${parsedA.error.message}` }],
+          };
+        }
+        const parsedB = safeParseSpec(spec_b);
+        if (!parsedB.ok) {
+          return {
+            isError: true,
+            content: [{ type: "text" as const, text: `spec_b invalid: ${parsedB.error.message}` }],
+          };
+        }
+        try {
+          const engine = await state.getEngine();
+          // Both specs must materialize independently. Hierarchy/graph
+          // specs use the synthesizer (same code path as glyph_render).
+          const mA =
+            parsedA.spec.data?.hierarchy || parsedA.spec.data?.graph
+              ? synthesizeInlineDataHandle(
+                  state.sessionId,
+                  state.nextInlineDataCounter(),
+                  parsedA.spec,
+                )
+              : await materializeSpec(engine, parsedA.spec, {
+                  sessionId: state.sessionId,
+                  resolveHandleByUri: (uri) => state.getHandleByUri(uri),
+                  metricResolver: (name) => state.getMetric(name),
+                });
+          const mB =
+            parsedB.spec.data?.hierarchy || parsedB.spec.data?.graph
+              ? synthesizeInlineDataHandle(
+                  state.sessionId,
+                  state.nextInlineDataCounter(),
+                  parsedB.spec,
+                )
+              : await materializeSpec(engine, parsedB.spec, {
+                  sessionId: state.sessionId,
+                  resolveHandleByUri: (uri) => state.getHandleByUri(uri),
+                  metricResolver: (name) => state.getMetric(name),
+                });
+          const sceneA = compileSpec({
+            spec: mA.effectiveSpec,
+            rows: mA.result.rows,
+            schema: mA.handle.schema,
+          });
+          const sceneB = compileSpec({
+            spec: mB.effectiveSpec,
+            rows: mB.result.rows,
+            schema: mB.handle.schema,
+          });
+          const morphed = morphScenes(sceneA, sceneB, {
+            ...(duration_ms !== undefined ? { duration_ms } : {}),
+          });
+          const svg = renderSvg(morphed);
+          // Store the destination handle as the canonical one. The morph
+          // is animation-only; the resting state is sceneB.
+          state.storeHandle(mB.handle);
+          state.storeSvg(mB.handle.id, svg);
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  jsonSafe({
+                    svg,
+                    handle_id: mB.handle.id,
+                    morphed_marks: morphed.marks.length,
+                    duration_ms: (morphed.animation as { duration_ms?: number })?.duration_ms,
+                  }),
+                  null,
+                  2,
+                ),
+              },
+            ],
+          };
+        } catch (err) {
+          return {
+            isError: true,
+            content: [{ type: "text" as const, text: (err as Error).message ?? String(err) }],
+          };
+        }
+      }),
   );
 
   // ----- glyph_engagement_record + _query (PR71 / PLAN 1.5) -----------------

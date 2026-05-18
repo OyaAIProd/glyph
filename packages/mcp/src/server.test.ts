@@ -76,7 +76,7 @@ describe("Glyph MCP server", () => {
     rmSync(tempMemoryDir, { recursive: true, force: true });
   });
 
-  it("lists the forty-nine tools", async () => {
+  it("lists the fifty tools", async () => {
     const r = await client.listTools();
     const names = r.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -110,6 +110,7 @@ describe("Glyph MCP server", () => {
       "glyph_memory_save",
       "glyph_metrics",
       "glyph_metrics_register",
+      "glyph_morph_render",
       "glyph_preview",
       "glyph_publish",
       "glyph_query",
@@ -171,6 +172,7 @@ describe("Glyph MCP server", () => {
       "glyph_memory_save",
       "glyph_metrics",
       "glyph_metrics_register",
+      "glyph_morph_render",
       "glyph_preview",
       "glyph_publish",
       "glyph_query",
@@ -2007,6 +2009,64 @@ describe("Glyph MCP server", () => {
       const g = JSON.parse(r.text);
       expect(g.nodes.length).toBeGreaterThanOrEqual(2);
       expect(g.edges).toContainEqual({ from: "new_customers", to: "mrr" });
+    });
+  });
+
+  describe("glyph_morph_render (PR74 / D3 Gap 3)", () => {
+    it("returns an SVG with SMIL <animate> tags morphing between two specs", async () => {
+      const r = await callText(client, "glyph_morph_render", {
+        spec_a: {
+          data: { source: fixture, format: "csv" },
+          layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+        },
+        spec_b: {
+          data: { source: fixture, format: "csv" },
+          layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "fare" } }],
+        },
+        duration_ms: 1200,
+      });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.text);
+      expect(out.svg).toContain("<animate ");
+      expect(out.svg).toContain('fill="freeze"');
+      expect(out.duration_ms).toBe(1200);
+      expect(out.morphed_marks).toBeGreaterThan(0);
+    });
+
+    it("rejects mark-count mismatch with a clear error", async () => {
+      // spec_a renders 12 bars (full taxi fixture); spec_b filters via
+      // SQL transform down to 5 — different mark count.
+      const r = await callText(client, "glyph_morph_render", {
+        spec_a: {
+          data: { source: fixture, format: "csv" },
+          layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+        },
+        spec_b: {
+          data: {
+            source: fixture,
+            format: "csv",
+            transform: `SELECT * FROM "${
+              // biome-ignore lint/style/noNonNullAssertion: hardcoded path
+              fixture
+            }" WHERE rides > 200`,
+          },
+          layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+        },
+      });
+      expect(r.isError).toBe(true);
+      expect(r.text).toContain("mark count differs");
+    });
+
+    it("rejects an invalid spec_a with the spec error message", async () => {
+      const r = await callText(client, "glyph_morph_render", {
+        spec_a: { not_a_spec: true },
+        spec_b: {
+          data: { source: fixture, format: "csv" },
+          layers: [{ mark: "bar", encoding: { x: "pickup_hour", y: "rides" } }],
+        },
+      });
+      expect(r.isError).toBe(true);
+      expect(r.text).toContain("spec_a invalid");
     });
   });
 

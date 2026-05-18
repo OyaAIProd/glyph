@@ -252,5 +252,21 @@ export interface Scene {
           /** Per-row values keyed by row index in the scene's marks. */
           readonly values: ReadonlyArray<number>;
         }>;
+      }
+    | {
+        /**
+         * PR74 (D3 Gap 3) — morph between two scene states. The renderer
+         * emits SMIL `<animate>` elements on each mark interpolating
+         * from `fromMarks[i]` → current `marks[i]`. Mark types must align
+         * by index (a rect must morph to a rect, etc.).
+         */
+        readonly kind: "morph";
+        readonly duration_ms: number;
+        /**
+         * The "from" marks. Positionally aligned to the scene's `marks`
+         * — same length, same type per index. Built by `morphScenes()`
+         * in the compiler module.
+         */
+        readonly fromMarks: ReadonlyArray<SceneMark>;
       };
 }
