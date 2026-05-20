@@ -91,3 +91,54 @@ def test_render_validation_error_is_typed() -> None:
     """
     with pytest.raises(SpecValidationError):
         glyph.render({"layers": "not-a-list"}, source="nonexistent.csv")
+
+
+def test_render_respawns_after_subprocess_dies(rides_csv_path: Path) -> None:
+    """If the MCP subprocess dies between calls, the runtime respawns silently.
+
+    Without dead-subprocess detection the second call would hang on
+    ``readline()`` against a closed pipe, then raise a confusing
+    ``MCP server closed stdout`` error. The runtime now checks
+    ``proc.returncode`` and respawns transparently.
+    """
+    import glyph._runtime as runtime
+
+    # First render — warm the singleton.
+    spec = {"layers": [{"mark": "bar", "encoding": {"x": "pickup_hour", "y": "rides"}}]}
+    r1 = glyph.render(spec, source=str(rides_csv_path), audit=False)
+    assert r1.svg.startswith("<svg")
+
+    # Forcibly kill the cached subprocess to simulate a crash.
+    assert runtime._client is not None
+    proc = runtime._client._proc  # type: ignore[attr-defined]
+    proc.kill()
+    # Drive the loop briefly so the SIGKILL propagates and returncode is set.
+    runtime._get_loop().run_until_complete(proc.wait())
+
+    # Next render must respawn rather than hang on the dead pipe.
+    r2 = glyph.render(spec, source=str(rides_csv_path), audit=False)
+    assert r2.svg.startswith("<svg")
+    # Byte identity must hold across the respawn — that's the whole point.
+    assert r1.svg == r2.svg
+
+
+def test_render_rejects_call_from_running_event_loop(rides_csv_path: Path) -> None:
+    """Calling glyph.render from inside an async coroutine raises a typed error.
+
+    The current sync→async bridge can't safely re-enter from a running loop
+    (Jupyter is the typical place). PR6 will add a worker-thread path; for
+    now the call should fail loudly with a clear, actionable message instead
+    of an internal RuntimeError.
+    """
+    import asyncio
+
+    from glyph.exceptions import GlyphError
+
+    async def _attempt_render() -> None:
+        glyph.render(
+            {"layers": [{"mark": "bar", "encoding": {"x": "pickup_hour", "y": "rides"}}]},
+            source=str(rides_csv_path),
+        )
+
+    with pytest.raises(GlyphError, match="running asyncio event loop"):
+        asyncio.run(_attempt_render())

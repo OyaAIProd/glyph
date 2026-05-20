@@ -30,6 +30,7 @@ import threading
 from typing import Any
 
 from glyph._mcp_client import McpClient
+from glyph.exceptions import GlyphError
 
 _client: McpClient | None = None
 _client_ctx: Any = None  # AsyncContextManager from McpClient.spawn
@@ -45,9 +46,34 @@ def _get_loop() -> asyncio.AbstractEventLoop:
     return _loop
 
 
-async def _ensure_client() -> McpClient:
-    """Spawn the MCP server on first use and complete the handshake."""
+def _is_client_alive(client: McpClient) -> bool:
+    """Return False if the cached MCP subprocess has exited."""
+    # Reach into the McpClient's owned process. Could be elevated to a public
+    # property later; keeping it here for now since the singleton lifecycle
+    # logic is the only legitimate consumer.
+    proc = getattr(client, "_proc", None)
+    return proc is not None and proc.returncode is None
+
+
+async def _drop_dead_client() -> None:
+    """Drop the cached client + its async-context handle. Idempotent."""
     global _client, _client_ctx
+    if _client_ctx is not None:
+        # Try to close cleanly. If the proc is already dead, __aexit__ on the
+        # spawn ctx is still safe to invoke — it short-circuits on returncode.
+        with contextlib.suppress(Exception):
+            await _client_ctx.__aexit__(None, None, None)
+    _client = None
+    _client_ctx = None
+
+
+async def _ensure_client() -> McpClient:
+    """Spawn the MCP server on first use; respawn if the previous proc died."""
+    global _client, _client_ctx
+    if _client is not None and not _is_client_alive(_client):
+        # The subprocess exited (crash, OOM, user killed it). Drop the stale
+        # singleton so we don't deadlock on the next readline().
+        await _drop_dead_client()
     if _client is None:
         # Enter the async context manager manually so we can keep the proc
         # alive across multiple call_verb invocations. shutdown_runtime() is
@@ -65,10 +91,29 @@ def call_verb(name: str, args: dict[str, Any]) -> Any:
     a JSON dict). Errors raised by the server come back as
     :class:`glyph.exceptions.McpProtocolError`.
 
-    Note: do not call from inside a running asyncio loop (e.g. inside an
-    ``async def`` coroutine) — that's a PR6 follow-up. For now the call
-    blocks the calling thread until the verb returns.
+    Raises :class:`glyph.exceptions.GlyphError` if called from inside an
+    already-running asyncio event loop (e.g. inside an ``async def``
+    coroutine or a Jupyter cell). PR6 will route those callers to a worker
+    thread automatically; for now they get a typed, actionable error
+    instead of a confusing ``RuntimeError: This event loop is already
+    running`` stack trace.
     """
+    # Detect a running loop on the calling thread BEFORE we acquire the
+    # module lock — otherwise a Jupyter user gets a long blocking trace
+    # before the error surfaces.
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        pass  # No running loop — good, that's the supported sync case.
+    else:
+        raise GlyphError(
+            "glyph.render / glyph.describe cannot be called from inside a "
+            "running asyncio event loop (Jupyter, anyio, etc.). Run the "
+            "call from a sync context, or wait for the Jupyter integration "
+            "in a later release. To bypass for testing, run the call inside "
+            "asyncio.to_thread(...)."
+        )
+
     with _lock:
         loop = _get_loop()
 

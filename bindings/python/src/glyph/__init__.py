@@ -70,13 +70,21 @@ def render(
     try:
         raw = call_verb("glyph_render", {"spec": full_spec})
     except McpProtocolError as e:
-        # The TS server reports spec-validation failure with a message
-        # containing 'Spec validation failed' / 'invalid' / 'expected'. Map
-        # those to the typed SpecValidationError; everything else stays as
-        # the generic protocol error.
-        msg = str(e).lower()
-        if "spec" in msg or "validation" in msg or "invalid" in msg or "expected" in msg:
-            raise SpecValidationError(str(e)) from e
+        # Spec-validation failures from the TS server come from
+        # `formatError()` in packages/core/src/spec/parse.ts, which produces
+        # messages with one of two stable prefixes:
+        #   "Invalid Glyph spec at <path>: <zod issue>"
+        #   "Invalid Glyph spec"  (no issues)
+        #   "Invalid JSON: <parse error>"  (when spec was a malformed JSON string)
+        # Anchoring on those prefixes avoids false positives that the
+        # earlier substring-OR check (e.g. matching "expected") would have
+        # incorrectly routed. Anything else stays as McpProtocolError.
+        msg = str(e)
+        # Strip the `glyph_render: ` prefix that _mcp_client.call_tool adds
+        # so the prefix match works against the underlying server message.
+        body = msg.split(": ", 1)[1] if ": " in msg else msg
+        if body.startswith("Invalid Glyph spec") or body.startswith("Invalid JSON"):
+            raise SpecValidationError(msg) from e
         raise
 
     if not isinstance(raw, dict) or "svg" not in raw:
