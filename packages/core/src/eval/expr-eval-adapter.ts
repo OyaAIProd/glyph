@@ -60,7 +60,15 @@ for (const name of [...NON_DETERMINISTIC_FNS, ...NON_NUMERIC_FNS]) {
   delete fns[name];
 }
 
-/** AST cache. Bounded only by the number of distinct expressions seen. */
+/**
+ * AST cache. Bounded so a long-running playground/MCP-server process can't
+ * be made to OOM by a caller that streams unique expressions. The hot path
+ * (same expression repeatedly — the common case for animated parameter
+ * sweeps) stays a single-entry hit. When the bound is hit we drop the whole
+ * cache rather than implementing an LRU — simpler, and any expression that
+ * gets evicted is recomputed once on next use.
+ */
+const AST_CACHE_MAX = 1024;
 const cache = new Map<string, ReturnType<typeof parser.parse>>();
 
 /**
@@ -76,6 +84,12 @@ export const defaultEvaluator: Evaluator = (expr, scope) => {
       ast = parser.parse(expr);
     } catch (e) {
       throw new EvaluationError(`Cannot parse expression: ${(e as Error).message}`, expr);
+    }
+    if (cache.size >= AST_CACHE_MAX) {
+      // Drop everything when we hit the bound. Trades a one-time recompute
+      // hit for a constant memory ceiling; preferable to LRU's per-call
+      // bookkeeping when the typical workload has high locality.
+      cache.clear();
     }
     cache.set(expr, ast);
   }

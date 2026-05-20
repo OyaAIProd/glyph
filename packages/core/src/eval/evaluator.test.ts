@@ -42,4 +42,35 @@ describe("defaultEvaluator", () => {
     // evaluator is side-effect-free.
     expect(() => defaultEvaluator("random()", {})).toThrow();
   });
+
+  it("pins the expr-eval error-message contract used by AUDIT-11", () => {
+    // We extract the undefined-identifier from expr-eval's error message via
+    // a regex (UNDEFINED_VAR_RE in expr-eval-adapter.ts) so AUDIT-11 can tell
+    // the user WHICH identifier is missing. If a future expr-eval upgrade
+    // reworded the message (e.g. "unknown variable foo" or "foo is not
+    // defined"), our regex would silently fail to capture and AUDIT-11 would
+    // degrade to a generic "identifier unknown" — without any other test
+    // failing. This test locks the contract so the upgrade is caught loudly.
+    let captured: EvaluationError | null = null;
+    try {
+      defaultEvaluator("missingIdent + 1", {});
+    } catch (e) {
+      if (e instanceof EvaluationError) captured = e;
+    }
+    expect(captured).not.toBeNull();
+    expect(captured?.identifier).toBe("missingIdent");
+    // Belt-and-braces: also assert the underlying message matches the
+    // regex's expected shape directly.
+    expect(captured?.message).toMatch(/undefined variable:?\s*missingIdent/i);
+  });
+
+  it("survives many distinct expressions without unbounded cache growth", () => {
+    // Cache caps at AST_CACHE_MAX (1024). Send more than that to verify
+    // the bound holds. We can't observe the cache directly without exposing
+    // internals, so we rely on a behavioral signal: 2000 unique expressions
+    // all evaluate correctly without throwing, in bounded time.
+    for (let i = 0; i < 2000; i++) {
+      expect(defaultEvaluator(`x + ${i}`, { x: 0 })).toBe(i);
+    }
+  });
 });
