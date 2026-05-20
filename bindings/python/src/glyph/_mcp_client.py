@@ -56,11 +56,17 @@ class McpClient:
             from glyph._node import resolve_mcp_args
 
             args = resolve_mcp_args()
+        # The default StreamReader limit is 64 KB; glyph_render's response
+        # carries a base64 PNG inline and easily exceeds that on a single
+        # line, raising ValueError("Separator is not found, and chunk exceed
+        # the limit"). Bump to 16 MB — enough headroom for embedded images
+        # without making a hung server unrecoverable.
         proc = await asyncio.create_subprocess_exec(
             *args,
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            limit=16 * 1024 * 1024,
         )
         client = cls(proc)
         client._stderr_task = asyncio.create_task(client._drain_stderr())
