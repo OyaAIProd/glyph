@@ -104,7 +104,13 @@ let dataset = null;
 // a column that doesn't exist in the user's CSV — that's a runtime
 // concern, surfaced as a readable message in the chart pane.
 function rerender() {
-  if (!dataset) return; // nothing to render against yet
+  // Defensive guard: a malformed dataset (e.g. an upstream PR's onLoaded
+  // callback firing before rows/columns are set) would otherwise throw
+  // an uncaught TypeError inside the compile block below and leave the
+  // previous chart visible. Fail soft: just no-op until the next call.
+  if (!dataset || !Array.isArray(dataset.columns) || !Array.isArray(dataset.rows)) {
+    return;
+  }
   let spec;
   try {
     spec = JSON.parse(currentSpec);
@@ -123,7 +129,16 @@ function rerender() {
     const svg = compileAndRender(spec, dataset.rows, schema);
     chartHost.innerHTML = svg;
   } catch (e) {
-    chartHost.innerHTML = `<pre class="error">Compile error: ${escapeHtml(e.message ?? String(e))}</pre>`;
+    // Compile errors from @glyph/core (Zod paths in particular) can be
+    // hundreds of lines of JSON-ish issues. Clamp at 1 KB so the chart
+    // pane doesn't get overwhelmed; full error is still in DevTools console.
+    const raw = String(e?.message ?? e);
+    const msg =
+      raw.length > 1000
+        ? `${raw.slice(0, 1000)}\n\n… (truncated, see DevTools console for full message)`
+        : raw;
+    if (raw.length > 1000) console.error("Glyph compile error (full):", e);
+    chartHost.innerHTML = `<pre class="error">Compile error: ${escapeHtml(msg)}</pre>`;
   }
 }
 
