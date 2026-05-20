@@ -475,9 +475,7 @@ export async function cmdDiff(args: string[]): Promise<number> {
       if (v === "html" || v === "md" || v === "diff") {
         format = v;
       } else {
-        process.stderr.write(
-          `glyph diff: ${tok} expects "html" | "md" | "diff", got "${v}"\n`,
-        );
+        process.stderr.write(`glyph diff: ${tok} expects "html" | "md" | "diff", got "${v}"\n`);
         return 2;
       }
     } else if (tok === "--image-dir") {

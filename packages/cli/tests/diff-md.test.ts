@@ -30,13 +30,13 @@ describe("glyph diff --format md", () => {
       format: "md",
       imageDir,
     });
+    expect(result.markdown).toMatch(/^## Glyph chart change$/m);
+    expect(result.markdown).toMatch(/^### Diff$/m);
     expect(result.markdown).toContain("```diff");
-    // Substring "## Audit" is satisfied by the section header "### Audit".
-    expect(result.markdown).toContain("## Audit");
-    expect(result.markdown).toMatch(/trust:\s+\d+\s*\/\s*100/);
-    expect(result.imagesGenerated).toEqual(
-      expect.arrayContaining(["before.svg", "after.svg"]),
-    );
+    expect(result.markdown).toMatch(/^### Audit$/m);
+    expect(result.markdown).toMatch(/^trust:\s+\d+\s*\/\s*100$/m);
+    expect(result.markdown).toMatch(/^### Render$/m);
+    expect(result.imagesGenerated).toEqual(expect.arrayContaining(["before.svg", "after.svg"]));
   });
 
   it("writes both SVGs to disk under imageDir", async () => {
