@@ -32,17 +32,21 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @glyph/core run build
       - run: node scripts/build-playground-bundle.mjs
-      - name: Verify bundle is fresh (matches what build:playground produces)
+      - name: Verify bundle + schema are fresh (match what build:playground produces)
         run: |
-          # The committed site/play/glyph-bundle.js should be the byte-identical
-          # output of `pnpm run build:playground`. If it isn't, someone changed
-          # @glyph/core and forgot to regenerate it.
-          if [ -n "$(git status --porcelain site/play/glyph-bundle.js)" ]; then
-            echo "::error::site/play/glyph-bundle.js is stale. Run 'pnpm run build:playground' and commit the result."
-            git diff --stat site/play/glyph-bundle.js
+          # The committed site/play/glyph-bundle.js + site/play/spec.schema.json
+          # should both be byte-identical to what `pnpm run build:playground`
+          # produces. If either drifts, someone changed @glyph/core (compiler
+          # output or Zod schemas) and forgot to regenerate the deploy artifacts.
+          STALE=$(git status --porcelain site/play/glyph-bundle.js site/play/spec.schema.json)
+          if [ -n "$STALE" ]; then
+            echo "::error::Generated playground artifacts are stale. Run 'pnpm run build:playground' and commit the result."
+            echo "$STALE"
+            git diff --stat site/play/glyph-bundle.js site/play/spec.schema.json
             exit 1
           fi
           test -s site/play/glyph-bundle.js
+          test -s site/play/spec.schema.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
