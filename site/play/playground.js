@@ -1,8 +1,10 @@
 // site/play/playground.js
 // Main controller. PR2 wires CSV upload + DuckDB-wasm; PR3 mounts the
-// Monaco spec editor. Later PRs add live chart, audit panel, and share.
+// Monaco spec editor; PR4 turns the (spec, dataset) pair into a live
+// SVG chart. Later PRs add audit panel + share.
 import { describeTable, getDuckDb, loadCsv, queryRows } from "./duckdb.js";
 import * as glyph from "./glyph-bundle.js";
+import { compileAndRender } from "./glyph-runtime.js";
 import { mountSpecEditor } from "./monaco-bootstrap.js";
 
 console.log("playground booting…");
@@ -92,18 +94,65 @@ function mountCsvUpload(host, onLoaded) {
 }
 
 const csvHost = document.getElementById("csv-upload");
+const chartHost = document.getElementById("chart-preview");
 let dataset = null;
+
+// Compile + render the current spec against the current dataset and
+// paint the result into the chart pane. Called whenever either input
+// changes. We swallow errors here (not via the editor's validation)
+// because the spec is still legal JSON Schema-wise but might point at
+// a column that doesn't exist in the user's CSV — that's a runtime
+// concern, surfaced as a readable message in the chart pane.
+function rerender() {
+  if (!dataset) return; // nothing to render against yet
+  let spec;
+  try {
+    spec = JSON.parse(currentSpec);
+  } catch (e) {
+    chartHost.innerHTML = `<pre class="error">JSON parse error: ${escapeHtml(e.message)}</pre>`;
+    return;
+  }
+  try {
+    // DuckDB DESCRIBE returns `column_name` / `column_type`; the @glyph/core
+    // compiler expects `name` / `type`. Translate here so PR2's dataset
+    // shape stays opaque to glyph-runtime.js.
+    const schema = dataset.columns.map((c) => ({
+      name: c.column_name ?? c.name,
+      type: c.column_type ?? c.type ?? "VARCHAR",
+    }));
+    const svg = compileAndRender(spec, dataset.rows, schema);
+    chartHost.innerHTML = svg;
+  } catch (e) {
+    chartHost.innerHTML = `<pre class="error">Compile error: ${escapeHtml(e.message ?? String(e))}</pre>`;
+  }
+}
+
+// Minimal HTML escape for error messages. Errors from the compiler can
+// echo back user-supplied identifiers; we don't want a craftily-named
+// column to inject markup into the chart pane.
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 mountCsvUpload(csvHost, (loaded) => {
   dataset = loaded;
   console.log("data loaded:", dataset);
+  rerender();
 });
 
-// Mount the Monaco spec editor. The onChange handler just updates the
-// in-memory copy of the spec; PR4 will turn that into a live chart.
+// Mount the Monaco spec editor. The onChange handler updates the
+// in-memory copy of the spec and triggers a re-render against the
+// most recent dataset.
 const specHost = document.getElementById("spec-editor");
 mountSpecEditor(specHost, DEFAULT_SPEC, (next) => {
   currentSpec = next;
   console.log("spec changed:", currentSpec.length, "chars");
+  rerender();
 }).catch((e) => {
   console.error("monaco mount failed:", e);
   specHost.innerHTML = `<p class="placeholder">Editor failed to load: ${e.message ?? e}</p>`;

@@ -115,6 +115,30 @@ button:hover {
   padding: 6px 0;
   margin: 0;
 }
+/* Live chart pane (PR4). The compiler emits an SVG with an explicit
+   width/height; clamp it to the pane width and let the height scale
+   proportionally so it never overflows the grid cell. */
+#chart-preview {
+  flex: 1 1 auto;
+  overflow: auto;
+  min-height: 200px;
+}
+#chart-preview svg {
+  max-width: 100%;
+  height: auto;
+}
+#chart-preview .error {
+  color: var(--red);
+  background: #fdecea;
+  border-left: 3px solid var(--red);
+  padding: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  border-radius: 3px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
 /* Monaco needs a sized host or it renders 0×0. The pane is already a
    flex column; let the editor fill whatever vertical space is left. */
 #spec-editor {

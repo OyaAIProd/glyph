@@ -118,3 +118,60 @@ Pass criteria:
 - The schema is fetched once on mount. If `@glyph/core`'s spec
   contract changes between page-load and edit, the user has to
   refresh to see the new validation rules.
+
+## PR4 — Live chart preview + glyph-runtime
+
+Prereqs:
+- Run `pnpm run build:playground` once.
+- Serve the `site/` directory as in PR2/PR3.
+
+Steps:
+
+1. Open `http://localhost:8000/play/` in a Chromium-based browser.
+2. Chart pane is empty (no placeholder text) until a dataset loads.
+3. From the example dropdown, pick `rides.csv (12 rows)`. The chart
+   pane fills with an SVG bar chart. Default spec uses
+   `x: "hour"` / `y: "rides"`, but rides.csv has `pickup_hour` — so on
+   first paint expect a readable `Compile error:` red box. That's the
+   error path working; proceed to step 4.
+4. In the Spec editor, change `"x": "hour"` → `"x": "pickup_hour"`.
+   The chart pane updates within ~50 ms with a bar chart of rides
+   over pickup hour.
+5. Change `"mark": "bar"` → `"mark": "point"`. The chart redraws as
+   a scatter/point chart. Confirms onChange → rerender wiring.
+6. Type a stray `{` at the start of the spec to break JSON. Chart
+   pane shows a red `<pre>` block:
+   `JSON parse error: ...`. The previous chart is replaced — no
+   partial state lingers.
+7. Restore valid JSON, then change `"mark": "bar"` → `"mark": "bogus"`.
+   Monaco shows a red squiggle (schema validation, PR3) and the chart
+   pane shows `Compile error: ...` describing the unknown mark.
+8. **Byte-identity check.** Open the page in two tabs. In both: load
+   `rides.csv`, set the same spec (e.g. `pickup_hour` / `rides` bar).
+   In DevTools Console in each tab run:
+   ```js
+   document.getElementById('chart-preview').innerHTML.length
+   ```
+   The two lengths must be identical. Then run
+   ```js
+   document.getElementById('chart-preview').innerHTML
+   ```
+   in each — strings should be character-for-character identical.
+   (The compiler is pure; if these diverge, file a bug.)
+
+Pass criteria:
+- First spec edit after data loads paints an SVG within ~50 ms.
+- JSON syntax errors and compile errors both surface as red `<pre>`
+  blocks in the chart pane (no console-only failures, no white pane).
+- Byte-identity check passes for repeated renders of the same inputs.
+- Chart never overflows the pane (CSS `max-width: 100%; height: auto;`).
+
+## Known limitations (PR4)
+
+- Re-render runs synchronously on every keystroke. For specs that
+  produce large SVGs (>1000 marks) typing may stutter. PR6 may add a
+  debounce or a Web Worker if benchmarks justify it.
+- Compile errors are surfaced as `e.message`. If the compiler throws
+  a `ZodError`, the message is the raw JSON-ish issue list — readable
+  but not pretty. Better formatting can land alongside the audit
+  panel (PR5).
