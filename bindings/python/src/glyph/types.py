@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 # Audit severities mirror the TypeScript ``AuditSeverity`` exactly — keep them
 # in lockstep with ``packages/core/src/audit/index.ts`` when adding tiers.
@@ -81,3 +81,166 @@ class RenderResult:
         accidental typos don't sprinkle directories around the filesystem.
         """
         Path(path).write_text(self.svg, encoding="utf-8")
+
+
+@dataclass(frozen=True)
+class QueryResult:
+    """Result of :func:`glyph.query` / :func:`glyph.drill`.
+
+    Maps the wire ``{columns, rows, rowCount, truncated}`` envelope onto a
+    Pythonic shape. ``rows`` is the row-of-arrays form straight from the
+    server (cheap; no allocation). Iterate via :meth:`dicts` for a per-row
+    dict view when callers want named field access.
+    """
+
+    columns: list[str]
+    rows: list[list[Any]]
+    row_count: int
+    truncated: bool = False
+
+    def dicts(self) -> list[dict[str, Any]]:
+        """Zip ``rows`` against ``columns`` into a list of dicts.
+
+        Lazily allocated so callers that only want column-major access don't
+        pay for the dict construction.
+        """
+        cols = self.columns
+        return [dict(zip(cols, r, strict=False)) for r in self.rows]
+
+
+@dataclass(frozen=True)
+class SpecDiffChange:
+    """One ``changed`` entry inside :class:`SpecDiff`. Path is RFC 6901."""
+
+    path: str
+    before: Any
+    after: Any
+
+
+@dataclass(frozen=True)
+class SpecDiffEntry:
+    """One ``added`` / ``removed`` entry inside :class:`SpecDiff`."""
+
+    path: str
+    value: Any
+
+
+@dataclass(frozen=True)
+class SpecDiff:
+    """Structural diff between two Glyph specs.
+
+    Mirrors ``packages/core/src/spec-diff`` SpecDiff one-for-one. NOT RFC 6902
+    JSON Patch — the server returns ``{added, removed, changed, summary}``
+    where paths are RFC 6901 pointers.
+    """
+
+    added: list[SpecDiffEntry] = field(default_factory=list)
+    removed: list[SpecDiffEntry] = field(default_factory=list)
+    changed: list[SpecDiffChange] = field(default_factory=list)
+    summary: str = ""
+
+
+@dataclass(frozen=True)
+class AnomalyResult:
+    """Result of :func:`glyph.anomaly` — z-score outliers + a derived handle.
+
+    ``rows`` is the row-of-arrays form aligned to ``columns`` (the original
+    schema plus a trailing ``_z`` column carrying the z-score). The derived
+    ``handle`` is queryable like any other gdf:// handle.
+    """
+
+    handle: str
+    threshold: float
+    columns: list[str]
+    rows: list[list[Any]]
+    explanation: str = ""
+
+    def dicts(self) -> list[dict[str, Any]]:
+        cols = self.columns
+        return [dict(zip(cols, r, strict=False)) for r in self.rows]
+
+
+@dataclass(frozen=True)
+class DecomposeResult:
+    """Result of :func:`glyph.decompose` — ANOVA-style variance attribution."""
+
+    handle: str
+    grand_mean: float
+    total_sse: float
+    columns: list[str]
+    rows: list[list[Any]]
+    explanation: str = ""
+
+
+@dataclass(frozen=True)
+class ForecastResult:
+    """Result of :func:`glyph.forecast` — seasonal-naive forecast + bands."""
+
+    handle: str
+    season: int
+    residual_std: float
+    columns: list[str]
+    rows: list[list[Any]]
+    explanation: str = ""
+
+
+@dataclass(frozen=True)
+class ExplainResult:
+    """Result of :func:`glyph.explain` — deterministic chart explanation."""
+
+    headline: str
+    highlights: list[str] = field(default_factory=list)
+    questions: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class SpecPatchResult:
+    """Result of :func:`glyph.spec_patch` — patched + re-rendered spec."""
+
+    handle: str
+    svg: str
+    row_count: int | None = None
+    view_name: str | None = None
+
+
+@dataclass(frozen=True)
+class StoryPlanNode:
+    """One node in a :class:`StoryPlan`'s DAG."""
+
+    id: str
+    kind: str
+    label: str
+    depends_on: list[str] = field(default_factory=list)
+    status: str = "pending"
+
+
+@dataclass(frozen=True)
+class StoryPlan:
+    """Result of :func:`glyph.story_plan` — a planned analytic storyboard."""
+
+    plan_id: str
+    intent: str
+    status: str
+    nodes: list[StoryPlanNode] = field(default_factory=list)
+    domain: str | None = None
+    clarification_questions: list[Any] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class Capabilities:
+    """Result of :func:`glyph.capabilities` — feature detection.
+
+    The library returns more than ``libraryVersion`` and ``mcpTools`` —
+    ``specVersions``, ``marks``, ``stats``, ``renderers``, ``engines`` are
+    also present. The full payload is preserved in ``raw`` so callers can
+    introspect anything we haven't surfaced yet.
+    """
+
+    library_version: str
+    mcp_tools: list[dict[str, str]] = field(default_factory=list)
+    spec_versions: list[str] = field(default_factory=list)
+    marks: list[str] = field(default_factory=list)
+    stats: list[str] = field(default_factory=list)
+    renderers: list[str] = field(default_factory=list)
+    engines: list[str] = field(default_factory=list)
+    raw: dict[str, Any] = field(default_factory=dict)
