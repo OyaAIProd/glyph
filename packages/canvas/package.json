@@ -1,6 +1,7 @@
 {
   "name": "@glyph/canvas",
   "version": "0.0.0",
+  "private": true,
   "description": "HTMLCanvasElement renderer for Glyph scenegraphs — same Scene IR as @glyph/core's SVG renderer; ~10× the render budget per mark.",
   "license": "Apache-2.0",
   "type": "module",
