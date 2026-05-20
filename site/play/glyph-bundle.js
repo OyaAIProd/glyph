@@ -4079,7 +4079,7 @@ var GraphDataSchema = external_exports.object({
     distance: external_exports.number().positive().optional()
   }).strict()).optional()
 }).strict();
-var FunctionDataSchema = external_exports.object({
+var ScalarFunctionDataSchema = external_exports.object({
   shape: external_exports.literal("function"),
   x: external_exports.object({
     min: external_exports.number().refine(Number.isFinite, "x.min must be finite"),
@@ -4095,6 +4095,27 @@ var FunctionDataSchema = external_exports.object({
    */
   zExpr: external_exports.string().min(1).optional()
 }).strict();
+var ParametricDataSchema = external_exports.object({
+  shape: external_exports.literal("function"),
+  parameter: external_exports.object({
+    name: external_exports.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, "parameter.name must be a valid identifier").refine((n) => n !== "x" && n !== "y" && n !== "z", {
+      message: "parameter.name must not collide with output columns 'x', 'y', 'z'"
+    }),
+    min: external_exports.number().refine(Number.isFinite, "parameter.min must be finite"),
+    max: external_exports.number().refine(Number.isFinite, "parameter.max must be finite"),
+    samples: external_exports.number().int().min(2).max(1e5)
+  }).strict().refine((r) => r.min < r.max, {
+    message: "function data: parameter.min must be < parameter.max"
+  }),
+  xExpr: external_exports.string().min(1),
+  yExpr: external_exports.string().min(1),
+  /**
+   * Optional z-coordinate expression. Today's 2D renderer ignores it; a
+   * future 3D renderer reads it without a spec rev.
+   */
+  zExpr: external_exports.string().min(1).optional()
+}).strict();
+var FunctionDataSchema = external_exports.union([ScalarFunctionDataSchema, ParametricDataSchema]);
 var DataSourceSchema = external_exports.object({
   /**
    * Path, URL, or named registered table for tabular data. Optional when
@@ -6513,18 +6534,13 @@ var defaultEvaluator = (expr, scope) => {
 // packages/core/dist/data/shapes/function.js
 var MAX_SAMPLES = 1e5;
 function sampleFunction(spec, evaluator = defaultEvaluator) {
-  if (!Number.isFinite(spec.x.min) || !Number.isFinite(spec.x.max)) {
-    throw new Error(`function data: x.min and x.max must be finite (got ${spec.x.min}, ${spec.x.max})`);
+  if ("parameter" in spec) {
+    return sampleParametric(spec, evaluator);
   }
-  if (spec.x.min >= spec.x.max) {
-    throw new Error(`function data: x.min (${spec.x.min}) must be < x.max (${spec.x.max})`);
-  }
-  if (!Number.isInteger(spec.x.samples) || spec.x.samples < 2) {
-    throw new Error(`function data: x.samples must be an integer >= 2 (got ${spec.x.samples})`);
-  }
-  if (spec.x.samples > MAX_SAMPLES) {
-    throw new Error(`function data: x.samples (${spec.x.samples}) exceeds MAX_SAMPLES (${MAX_SAMPLES})`);
-  }
+  return sampleScalar(spec, evaluator);
+}
+function sampleScalar(spec, evaluator) {
+  validateRange("x", spec.x);
   const rows = [];
   const step = (spec.x.max - spec.x.min) / (spec.x.samples - 1);
   const hasZ = spec.zExpr !== void 0;
@@ -6539,6 +6555,43 @@ function sampleFunction(spec, evaluator = defaultEvaluator) {
     }
   }
   return rows;
+}
+function sampleParametric(spec, evaluator) {
+  validateRange("parameter", spec.parameter);
+  const paramName = spec.parameter.name;
+  if (paramName === "x" || paramName === "y" || paramName === "z") {
+    throw new Error(`function data: parameter.name "${paramName}" collides with the output column of the same name`);
+  }
+  const rows = [];
+  const step = (spec.parameter.max - spec.parameter.min) / (spec.parameter.samples - 1);
+  const hasZ = spec.zExpr !== void 0;
+  for (let i = 0; i < spec.parameter.samples; i++) {
+    const t = i === spec.parameter.samples - 1 ? spec.parameter.max : spec.parameter.min + step * i;
+    const scope = { [paramName]: t };
+    const x = safeEval(evaluator, spec.xExpr, scope);
+    const y = safeEval(evaluator, spec.yExpr, scope);
+    if (hasZ) {
+      const z = safeEval(evaluator, spec.zExpr, scope);
+      rows.push({ x, y, z, [paramName]: t });
+    } else {
+      rows.push({ x, y, [paramName]: t });
+    }
+  }
+  return rows;
+}
+function validateRange(label, range) {
+  if (!Number.isFinite(range.min) || !Number.isFinite(range.max)) {
+    throw new Error(`function data: ${label}.min and ${label}.max must be finite (got ${range.min}, ${range.max})`);
+  }
+  if (range.min >= range.max) {
+    throw new Error(`function data: ${label}.min (${range.min}) must be < ${label}.max (${range.max})`);
+  }
+  if (!Number.isInteger(range.samples) || range.samples < 2) {
+    throw new Error(`function data: ${label}.samples must be an integer >= 2 (got ${range.samples})`);
+  }
+  if (range.samples > MAX_SAMPLES) {
+    throw new Error(`function data: ${label}.samples (${range.samples}) exceeds MAX_SAMPLES (${MAX_SAMPLES})`);
+  }
 }
 function safeEval(evaluator, expr, scope) {
   try {
@@ -7326,12 +7379,21 @@ function materializeFunctionInput(input) {
   }
   const sampledRows = sampleFunction(fn);
   const hasZ = sampledRows.length > 0 && sampledRows[0]?.z !== void 0;
+  const isParametric = "parameter" in fn;
+  const paramName = isParametric ? fn.parameter.name : void 0;
   const schema = [
     { name: "x", type: "DOUBLE" },
     { name: "y", type: "DOUBLE" },
-    ...hasZ ? [{ name: "z", type: "DOUBLE" }] : []
+    ...hasZ ? [{ name: "z", type: "DOUBLE" }] : [],
+    ...paramName !== void 0 ? [{ name: paramName, type: "DOUBLE" }] : []
   ];
-  const rows = sampledRows.map((r) => hasZ ? [r.x, r.y, r.z ?? null] : [r.x, r.y]);
+  const rows = sampledRows.map((r) => {
+    const base = hasZ ? [r.x, r.y, r.z ?? null] : [r.x, r.y];
+    if (paramName !== void 0) {
+      base.push(r[paramName] ?? null);
+    }
+    return base;
+  });
   return {
     ...input,
     spec: {
@@ -11527,6 +11589,7 @@ export {
   LIBRARY_VERSION,
   LayerSchema,
   MarkSchema,
+  ParametricDataSchema,
   PositionSchema,
   ProjectionSchema,
   SUPPORTED_ENGINES,
@@ -11535,6 +11598,7 @@ export {
   SUPPORTED_SPEC_VERSIONS,
   SUPPORTED_STATS,
   SUPPORTED_STAT_TYPES,
+  ScalarFunctionDataSchema,
   ScaleSchema,
   ScaleTypeSchema,
   StatSchema,

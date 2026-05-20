@@ -15,6 +15,7 @@ import { type ContourGrid, marchingSquares, segmentsToPathD } from "../contour/i
 import {
   type FunctionDataSpec,
   type FunctionRow,
+  type ParametricDataSpec,
   sampleFunction,
 } from "../data/shapes/function.js";
 import {
@@ -453,24 +454,39 @@ function ySideOfLayer(enc: Encoding): YSide {
  */
 function materializeFunctionInput(input: CompileInput): CompileInput {
   const { spec } = input;
-  const fn = spec.data?.function as FunctionDataSpec | undefined;
+  const fn = spec.data?.function as FunctionDataSpec | ParametricDataSpec | undefined;
   if (!fn) {
     throw new Error("materializeFunctionInput called without spec.data.function");
   }
   const sampledRows = sampleFunction(fn);
   const hasZ = sampledRows.length > 0 && sampledRows[0]?.z !== undefined;
+  // Math PR2 — parametric form adds the free parameter as an extra
+  // schema column under its declared name (e.g. `t`). This is what
+  // makes `animation.kind: "scrub" | "race"` with
+  // `frame_field: "<param>"` Just Work — the existing animation
+  // compiler does a `schema.findIndex(c => c.name === frame_field)`,
+  // so as long as the column is in the schema, no compiler changes
+  // are needed.
+  const isParametric = "parameter" in fn;
+  const paramName = isParametric ? fn.parameter.name : undefined;
   const schema: CompileFieldInfo[] = [
     { name: "x", type: "DOUBLE" },
     { name: "y", type: "DOUBLE" },
     ...(hasZ ? [{ name: "z", type: "DOUBLE" }] : []),
+    ...(paramName !== undefined ? [{ name: paramName, type: "DOUBLE" }] : []),
   ];
   // Row layout is positional and aligned with `schema`. Null y values
   // are preserved verbatim — the renderer's line interpolator treats
   // null y as a path break, matching the convention for missing
-  // tabular data.
-  const rows: ReadonlyArray<unknown>[] = sampledRows.map((r: FunctionRow) =>
-    hasZ ? [r.x, r.y, r.z ?? null] : [r.x, r.y],
-  );
+  // tabular data. Parametric rows append the parameter value last so
+  // its index lines up with the schema entry above.
+  const rows: ReadonlyArray<unknown>[] = sampledRows.map((r: FunctionRow) => {
+    const base: unknown[] = hasZ ? [r.x, r.y, r.z ?? null] : [r.x, r.y];
+    if (paramName !== undefined) {
+      base.push(r[paramName] ?? null);
+    }
+    return base;
+  });
   return {
     ...input,
     spec: {

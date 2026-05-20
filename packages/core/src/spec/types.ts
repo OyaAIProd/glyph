@@ -101,11 +101,12 @@ export interface GraphData {
 }
 
 /**
- * Math PR1 — `data.shape: "function"` config. The materializer samples
- * `expr` at `x.samples` evenly-spaced points across `[x.min, x.max]` and
- * routes the resulting rows through the normal compile pipeline.
+ * Math PR1 — `data.shape: "function"` scalar form. The materializer
+ * samples `expr` at `x.samples` evenly-spaced points across
+ * `[x.min, x.max]` and routes the resulting rows through the normal
+ * compile pipeline.
  */
-export interface FunctionData {
+export interface ScalarFunctionData {
   readonly shape: "function";
   readonly x: {
     readonly min: number;
@@ -116,6 +117,36 @@ export interface FunctionData {
   /** Optional 3D z-coordinate; today's 2D renderer ignores it. */
   readonly zExpr?: string;
 }
+
+/**
+ * Math PR2 — `data.shape: "function"` parametric form. Traces a curve
+ * `(xExpr(t), yExpr(t))` for `t` stepping evenly across
+ * `[parameter.min, parameter.max]`. The materialized rows carry the
+ * parameter value under its declared name so `animation.frame_field`
+ * can reference it (`animation.kind: "scrub" | "race"` then animates
+ * the curve without compiler changes).
+ */
+export interface ParametricFunctionData {
+  readonly shape: "function";
+  readonly parameter: {
+    /** Identifier for the free parameter; also the column name in the rows. */
+    readonly name: string;
+    readonly min: number;
+    readonly max: number;
+    readonly samples: number;
+  };
+  readonly xExpr: string;
+  readonly yExpr: string;
+  /** Optional z-coordinate expression; today's 2D renderer ignores it. */
+  readonly zExpr?: string;
+}
+
+/**
+ * `data.shape: "function"` — scalar (PR1) or parametric (PR2). Both
+ * variants share the same `shape: "function"` literal; presence of
+ * `parameter` vs `x` discriminates between them.
+ */
+export type FunctionData = ScalarFunctionData | ParametricFunctionData;
 
 /** Full theme tokens. Spec.theme accepts this or the built-in 'light'/'dark'. */
 export type ThemeConfig = z.infer<typeof ThemeConfigSchema>;

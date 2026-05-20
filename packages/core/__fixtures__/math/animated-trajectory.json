@@ -1,0 +1,29 @@
+{
+  "version": "glyph/0.1",
+  "data": {
+    "function": {
+      "shape": "function",
+      "parameter": { "name": "t", "min": 0, "max": 6.283185307179586, "samples": 60 },
+      "xExpr": "cos(t)",
+      "yExpr": "sin(t)"
+    }
+  },
+  "layers": [
+    {
+      "mark": "point",
+      "encoding": {
+        "x": {
+          "field": "x",
+          "type": "quantitative",
+          "scale": { "domain": [-1.2, 1.2] }
+        },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "scale": { "domain": [-1.2, 1.2] }
+        }
+      }
+    }
+  ],
+  "animation": { "kind": "scrub", "duration_ms": 6000, "frame_field": "t" }
+}

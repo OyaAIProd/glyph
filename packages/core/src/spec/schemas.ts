@@ -99,14 +99,15 @@ export const GraphDataSchema = z
   .strict();
 
 /**
- * Math PR1 — `data.shape: "function"`. Samples a math expression over an
- * evenly-spaced range to produce y = f(x) rows that flow into the
- * existing line / area / point machinery. The hard upper bound on
- * `samples` matches `MAX_SAMPLES` in `data/shapes/function.ts` and
- * protects against DoS via a malformed spec. AUDIT-10 (math PR5) will
- * additionally warn at sample counts above 10k.
+ * Math PR1 — `data.shape: "function"` (scalar form). Samples a single
+ * math expression over an evenly-spaced range to produce y = f(x) rows
+ * that flow into the existing line / area / point machinery. The hard
+ * upper bound on `samples` matches `MAX_SAMPLES` in
+ * `data/shapes/function.ts` and protects against DoS via a malformed
+ * spec. AUDIT-10 (math PR5) will additionally warn at sample counts
+ * above 10k.
  */
-export const FunctionDataSchema = z
+export const ScalarFunctionDataSchema = z
   .object({
     shape: z.literal("function"),
     x: z
@@ -127,6 +128,61 @@ export const FunctionDataSchema = z
     zExpr: z.string().min(1).optional(),
   })
   .strict();
+
+/**
+ * Math PR2 — `data.shape: "function"` (parametric form). Traces a curve
+ * `(xExpr(t), yExpr(t))` for `t` stepping evenly across
+ * `[parameter.min, parameter.max]`. The materialized rows carry the
+ * parameter value under its declared name so
+ * `animation.kind: "scrub" | "race"` with `frame_field: "<param>"`
+ * composes without compiler changes.
+ *
+ * Identifier rules: the parameter name must be a valid JS-style
+ * identifier and must not collide with the output column names
+ * (`x`, `y`, `z`). Conventional choice: `t`.
+ */
+export const ParametricDataSchema = z
+  .object({
+    shape: z.literal("function"),
+    parameter: z
+      .object({
+        name: z
+          .string()
+          .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, "parameter.name must be a valid identifier")
+          .refine((n) => n !== "x" && n !== "y" && n !== "z", {
+            message: "parameter.name must not collide with output columns 'x', 'y', 'z'",
+          }),
+        min: z.number().refine(Number.isFinite, "parameter.min must be finite"),
+        max: z.number().refine(Number.isFinite, "parameter.max must be finite"),
+        samples: z.number().int().min(2).max(100_000),
+      })
+      .strict()
+      .refine((r) => r.min < r.max, {
+        message: "function data: parameter.min must be < parameter.max",
+      }),
+    xExpr: z.string().min(1),
+    yExpr: z.string().min(1),
+    /**
+     * Optional z-coordinate expression. Today's 2D renderer ignores it; a
+     * future 3D renderer reads it without a spec rev.
+     */
+    zExpr: z.string().min(1).optional(),
+  })
+  .strict();
+
+/**
+ * `data.shape: "function"` — scalar (PR1) OR parametric (PR2). Both
+ * variants gate on the same `shape: "function"` literal; the discriminator
+ * between them is the presence of `parameter` (parametric) vs `x` (scalar).
+ *
+ * Zod's plain `z.union` is used here rather than a discriminated union
+ * because both variants share the same `shape` literal — the meaningful
+ * discriminator is the field shape itself, which `.strict()` on each
+ * branch already enforces (an extra `parameter` on a scalar spec fails
+ * the strict check on the scalar variant; an extra `x` on a parametric
+ * spec fails the strict check on the parametric variant).
+ */
+export const FunctionDataSchema = z.union([ScalarFunctionDataSchema, ParametricDataSchema]);
 
 export const DataSourceSchema = z
   .object({
