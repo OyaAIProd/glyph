@@ -1,0 +1,11 @@
+{
+  "data": {
+    "source": "./sales.csv",
+    "format": "csv",
+    "transform": "SELECT quarter, revenue FROM glyph_src_main ORDER BY quarter"
+  },
+  "layers": [
+    { "mark": "bar", "encoding": { "x": "quarter", "y": "revenue" } }
+  ],
+  "title": "Quarterly revenue"
+}
