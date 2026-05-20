@@ -64,3 +64,40 @@ def test_resolve_mcp_args_respects_env_override(
     # The override path is always ``[node, <bin>]`` — no npx wrapping.
     assert len(args) == 2
     assert Path(args[0]).name in {"node", "node.exe"}
+
+
+def test_find_node_rejects_old_major(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """find_node raises when `node --version` reports a major below the minimum."""
+    # Build a fake `node` shim that pretends to be Node 18 — exactly the kind
+    # of environment that would otherwise crash later with a cryptic ESM
+    # SyntaxError inside @glyph/mcp's bundle.
+    fake_node = tmp_path / "node"
+    fake_node.write_text("#!/bin/sh\necho 'v18.19.1'\n")
+    fake_node.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    monkeypatch.setattr("os.defpath", "")
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(NodeNotFoundError) as exc_info:
+        find_node()
+    # Message must tell the user (a) what's wrong (version too low) and
+    # (b) what to install.
+    msg = str(exc_info.value)
+    assert "20" in msg
+    assert "18" in msg
+
+
+def test_find_node_rejects_unparseable_version(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A garbled `node --version` output is rejected explicitly."""
+    fake_node = tmp_path / "node"
+    fake_node.write_text("#!/bin/sh\necho 'not a version string'\n")
+    fake_node.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    monkeypatch.setattr("os.defpath", "")
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(NodeNotFoundError) as exc_info:
+        find_node()
+    assert "parse" in str(exc_info.value).lower()

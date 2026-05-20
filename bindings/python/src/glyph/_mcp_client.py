@@ -49,8 +49,10 @@ class McpClient:
         that want to pin a specific bundle.
         """
         if args is None:
-            # Lazy import: keeps the module-import cost flat and avoids a
-            # cycle if _node ever needs to reference the client.
+            # Lazy import: keeps the `import glyph` cost flat — `glyph._node`
+            # pulls in `subprocess` and runs `node --version` via find_node()
+            # to enforce the minimum Node major. We only want to pay that on
+            # spawn(), not on every import of glyph.
             from glyph._node import resolve_mcp_args
 
             args = resolve_mcp_args()

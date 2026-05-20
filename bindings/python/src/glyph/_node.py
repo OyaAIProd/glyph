@@ -18,7 +18,9 @@ what to install.
 from __future__ import annotations
 
 import os
+import re
 import shutil
+import subprocess
 from pathlib import Path
 
 from glyph.exceptions import NodeNotFoundError
@@ -27,14 +29,21 @@ __all__ = ["REQUIRED_NODE_MAJOR", "find_node", "find_npx", "resolve_mcp_args"]
 
 REQUIRED_NODE_MAJOR = 20
 
+# Matches the leading "v<major>" of `node --version` output, e.g. "v20.10.0\n"
+_NODE_VERSION_RE = re.compile(r"^v(\d+)\.")
+
 
 def find_node() -> Path:
     """Return the absolute path to ``node`` on PATH, or raise.
 
+    Also enforces the minimum major version. Without the version check, a
+    user on Node 18 would get a cryptic ESM `SyntaxError` from the MCP
+    server's bundle — exactly the failure mode this module exists to prevent.
+
     Raises:
-        NodeNotFoundError: When ``shutil.which("node")`` returns ``None``. The
-            message instructs the user to install Node 20+ or set
-            ``GLYPH_MCP_BIN``.
+        NodeNotFoundError: When ``node`` is missing OR when its major version
+            is below :data:`REQUIRED_NODE_MAJOR`. The message instructs the
+            user how to fix it.
     """
     candidate = shutil.which("node")
     if candidate is None:
@@ -43,7 +52,44 @@ def find_node() -> Path:
             "Install from https://nodejs.org or set the GLYPH_MCP_BIN environment variable "
             "to point at a pre-built bin.js."
         )
-    return Path(candidate).resolve()
+    path = Path(candidate).resolve()
+    _check_node_major(path)
+    return path
+
+
+def _check_node_major(node_path: Path) -> None:
+    """Raise NodeNotFoundError if `node_path` reports a major < REQUIRED_NODE_MAJOR."""
+    try:
+        result = subprocess.run(
+            [str(node_path), "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        raise NodeNotFoundError(
+            f"Found `node` at {node_path} but `--version` failed: {e}. "
+            f"Glyph requires Node.js >= {REQUIRED_NODE_MAJOR}."
+        ) from e
+    if result.returncode != 0:
+        stderr = result.stderr.strip()
+        raise NodeNotFoundError(
+            f"`{node_path} --version` exited {result.returncode}; "
+            f"stderr: {stderr!r}. Glyph requires Node.js >= {REQUIRED_NODE_MAJOR}."
+        )
+    match = _NODE_VERSION_RE.match(result.stdout.strip())
+    if match is None:
+        raise NodeNotFoundError(
+            f"Could not parse Node version from {result.stdout.strip()!r}. "
+            f"Glyph requires Node.js >= {REQUIRED_NODE_MAJOR}."
+        )
+    major = int(match.group(1))
+    if major < REQUIRED_NODE_MAJOR:
+        raise NodeNotFoundError(
+            f"Found Node.js {result.stdout.strip()} at {node_path}, but Glyph requires "
+            f">= {REQUIRED_NODE_MAJOR}. Upgrade from https://nodejs.org."
+        )
 
 
 def find_npx() -> Path | None:
