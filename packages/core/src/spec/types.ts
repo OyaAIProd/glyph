@@ -100,6 +100,23 @@ export interface GraphData {
   }>;
 }
 
+/**
+ * Math PR1 — `data.shape: "function"` config. The materializer samples
+ * `expr` at `x.samples` evenly-spaced points across `[x.min, x.max]` and
+ * routes the resulting rows through the normal compile pipeline.
+ */
+export interface FunctionData {
+  readonly shape: "function";
+  readonly x: {
+    readonly min: number;
+    readonly max: number;
+    readonly samples: number;
+  };
+  readonly expr: string;
+  /** Optional 3D z-coordinate; today's 2D renderer ignores it. */
+  readonly zExpr?: string;
+}
+
 /** Full theme tokens. Spec.theme accepts this or the built-in 'light'/'dark'. */
 export type ThemeConfig = z.infer<typeof ThemeConfigSchema>;
 

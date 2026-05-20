@@ -13,6 +13,11 @@
 
 import { type ContourGrid, marchingSquares, segmentsToPathD } from "../contour/index.js";
 import {
+  type FunctionDataSpec,
+  type FunctionRow,
+  sampleFunction,
+} from "../data/shapes/function.js";
+import {
   type GeoFeature,
   type Topology,
   buildGraticule,
@@ -433,6 +438,54 @@ function ySideOfLayer(enc: Encoding): YSide {
   return "left";
 }
 
+/**
+ * Math PR1 — Materialize a `data.shape: "function"` spec into row +
+ * schema form so the normal compile pipeline can render it. The
+ * function shape is the math sibling of the inline hierarchy / graph
+ * / grid shapes (PR67 / PR68 / PR75); we follow the same "skip DuckDB,
+ * synthesize rows in-process" pattern those PRs established. The
+ * returned CompileInput strips `spec.data.function` (otherwise the
+ * dispatch would recurse) and substitutes a `source: "<inline>"`
+ * marker that satisfies the DataSourceSchema refinement.
+ *
+ * Determinism: pure function of the spec. Same input → same rows in
+ * the same order, byte-stable.
+ */
+function materializeFunctionInput(input: CompileInput): CompileInput {
+  const { spec } = input;
+  const fn = spec.data?.function as FunctionDataSpec | undefined;
+  if (!fn) {
+    throw new Error("materializeFunctionInput called without spec.data.function");
+  }
+  const sampledRows = sampleFunction(fn);
+  const hasZ = sampledRows.length > 0 && sampledRows[0]?.z !== undefined;
+  const schema: CompileFieldInfo[] = [
+    { name: "x", type: "DOUBLE" },
+    { name: "y", type: "DOUBLE" },
+    ...(hasZ ? [{ name: "z", type: "DOUBLE" }] : []),
+  ];
+  // Row layout is positional and aligned with `schema`. Null y values
+  // are preserved verbatim — the renderer's line interpolator treats
+  // null y as a path break, matching the convention for missing
+  // tabular data.
+  const rows: ReadonlyArray<unknown>[] = sampledRows.map((r: FunctionRow) =>
+    hasZ ? [r.x, r.y, r.z ?? null] : [r.x, r.y],
+  );
+  return {
+    ...input,
+    spec: {
+      ...spec,
+      // Drop spec.data.function so the recursive compileSpec call falls
+      // through to the normal tabular path. Substitute a stub `source`
+      // so the spec still satisfies DataSourceSchema's refinement when
+      // re-validated downstream.
+      data: { source: "<inline:function>" },
+    },
+    rows,
+    schema,
+  };
+}
+
 export function compileSpec(input: CompileInput): Scene {
   const { spec, rows, schema } = input;
   // Faceted specs split into multiple panels; handle that upfront before
@@ -459,6 +512,14 @@ export function compileSpec(input: CompileInput): Scene {
   // runs marching-squares and emits one path mark per threshold.
   if (spec.data?.grid) {
     return compileContour(input);
+  }
+  // Math PR1 — `data.shape: "function"`. Samples the math expression at
+  // evenly-spaced points and routes the synthesized rows through the
+  // normal compile pipeline. Re-entering with materialized rows means
+  // all downstream features (line / area / point marks, facet, polar,
+  // animation, audit) work unchanged.
+  if (spec.data?.function) {
+    return compileSpec(materializeFunctionInput(input));
   }
   const width = spec.width ?? DEFAULT_WIDTH;
   const height = spec.height ?? DEFAULT_HEIGHT;

@@ -98,6 +98,36 @@ export const GraphDataSchema = z
   })
   .strict();
 
+/**
+ * Math PR1 — `data.shape: "function"`. Samples a math expression over an
+ * evenly-spaced range to produce y = f(x) rows that flow into the
+ * existing line / area / point machinery. The hard upper bound on
+ * `samples` matches `MAX_SAMPLES` in `data/shapes/function.ts` and
+ * protects against DoS via a malformed spec. AUDIT-10 (math PR5) will
+ * additionally warn at sample counts above 10k.
+ */
+export const FunctionDataSchema = z
+  .object({
+    shape: z.literal("function"),
+    x: z
+      .object({
+        min: z.number().refine(Number.isFinite, "x.min must be finite"),
+        max: z.number().refine(Number.isFinite, "x.max must be finite"),
+        samples: z.number().int().min(2).max(100_000),
+      })
+      .strict()
+      .refine((r) => r.min < r.max, {
+        message: "function data: x.min must be < x.max",
+      }),
+    expr: z.string().min(1),
+    /**
+     * Optional 3D z-coordinate. Today's 2D renderer ignores it; a future
+     * 3D renderer (Option B) reads it without a spec rev.
+     */
+    zExpr: z.string().min(1).optional(),
+  })
+  .strict();
+
 export const DataSourceSchema = z
   .object({
     /**
@@ -133,6 +163,14 @@ export const DataSourceSchema = z
      * `compileContour`. Pair with `mark: "contour"` and `thresholds`.
      */
     grid: GridDataSchema.optional(),
+    /**
+     * Math PR1 — inline math expression sampled into rows. When set, the
+     * compiler skips DuckDB, samples the expression at evenly-spaced
+     * points, and routes the resulting rows through the normal line /
+     * area / point pipeline so all downstream features (facet, polar,
+     * animation, audit) work unchanged.
+     */
+    function: FunctionDataSchema.optional(),
   })
   .strict()
   .refine(
@@ -140,8 +178,9 @@ export const DataSourceSchema = z
       d.source !== undefined ||
       d.hierarchy !== undefined ||
       d.graph !== undefined ||
-      d.grid !== undefined,
-    "data needs a 'source', 'hierarchy', 'graph', or 'grid'",
+      d.grid !== undefined ||
+      d.function !== undefined,
+    "data needs a 'source', 'hierarchy', 'graph', 'grid', or 'function'",
   );
 
 // ---------------------------------------------------------------------------
