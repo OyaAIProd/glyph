@@ -1,0 +1,16 @@
+country,continent,stringency_mean,deaths_per_M,vax_fully_pct,gdp_per_capita,aged_65_older
+United Kingdom,Europe,43.2,3358.7,75.19,39753.24,18.52
+United States,North America,48.6,3322.8,69.46,54225.45,15.41
+Brazil,South America,48.7,3258.0,81.82,14103.45,8.55
+Italy,Europe,52.5,3214.7,81.21,35220.08,23.02
+Mexico,North America,44.0,2619.8,64.19,17336.47,6.86
+France,Europe,42.4,2462.0,78.43,38605.67,19.72
+Sweden,Europe,36.8,2284.7,71.98,46949.28,19.98
+Germany,Europe,44.2,2092.0,76.24,45229.24,21.45
+South Africa,Africa,44.0,1712.9,35.13,12294.88,5.34
+Israel,Asia,43.4,1322.8,65.19,33132.32,11.73
+Australia,Oceania,47.4,815.2,82.7,44648.71,15.5
+South Korea,Asia,40.9,665.6,85.63,35938.37,13.91
+Japan,Asia,40.5,601.4,83.4,39002.22,27.05
+India,Asia,58.1,375.1,67.17,6426.67,5.99
+China,Asia,73.6,84.8,89.54,15308.71,10.64

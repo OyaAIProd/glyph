@@ -1,0 +1,106 @@
+country,weekday,dow_num,mean_raw_to_smoothed_ratio,n_days
+Australia,Mon,0,0.0,166
+Australia,Tue,1,0.0,166
+Australia,Wed,2,0.0,166
+Australia,Thu,3,0.0,166
+Australia,Fri,4,0.0,166
+Australia,Sat,5,0.0,165
+Australia,Sun,6,7.0,166
+Brazil,Mon,0,0.0,165
+Brazil,Tue,1,0.0,165
+Brazil,Wed,2,0.0,165
+Brazil,Thu,3,0.0,165
+Brazil,Fri,4,0.0,165
+Brazil,Sat,5,0.0,164
+Brazil,Sun,6,7.0,165
+China,Mon,0,0.0,173
+China,Tue,1,0.0,173
+China,Wed,2,0.0,173
+China,Thu,3,0.0,173
+China,Fri,4,0.0,173
+China,Sat,5,0.0,172
+China,Sun,6,7.0,173
+France,Mon,0,0.0,155
+France,Tue,1,0.0,155
+France,Wed,2,0.0,155
+France,Thu,3,0.0,155
+France,Fri,4,0.0,155
+France,Sat,5,0.0,154
+France,Sun,6,7.0,155
+Germany,Mon,0,0.0,168
+Germany,Tue,1,0.0,168
+Germany,Wed,2,0.0,168
+Germany,Thu,3,0.0,168
+Germany,Fri,4,0.0,168
+Germany,Sat,5,0.0,167
+Germany,Sun,6,7.0,168
+India,Mon,0,0.0,165
+India,Tue,1,0.0,165
+India,Wed,2,0.0,165
+India,Thu,3,0.0,165
+India,Fri,4,0.0,165
+India,Sat,5,0.0,164
+India,Sun,6,7.0,165
+Israel,Mon,0,0.0,166
+Israel,Tue,1,0.0,166
+Israel,Wed,2,0.0,166
+Israel,Thu,3,0.0,166
+Israel,Fri,4,0.0,166
+Israel,Sat,5,0.0,165
+Israel,Sun,6,7.0,166
+Italy,Mon,0,0.0,167
+Italy,Tue,1,0.0,167
+Italy,Wed,2,0.0,167
+Italy,Thu,3,0.0,167
+Italy,Fri,4,0.0,167
+Italy,Sat,5,0.0,166
+Italy,Sun,6,7.0,167
+Japan,Mon,0,0.0,170
+Japan,Tue,1,0.0,170
+Japan,Wed,2,0.0,170
+Japan,Thu,3,0.0,170
+Japan,Fri,4,0.0,170
+Japan,Sat,5,0.0,169
+Japan,Sun,6,7.0,170
+Mexico,Mon,0,0.0,165
+Mexico,Tue,1,0.0,165
+Mexico,Wed,2,0.0,165
+Mexico,Thu,3,0.0,165
+Mexico,Fri,4,0.0,165
+Mexico,Sat,5,0.0,164
+Mexico,Sun,6,7.0,165
+South Africa,Mon,0,0.0,158
+South Africa,Tue,1,0.0,158
+South Africa,Wed,2,0.0,158
+South Africa,Thu,3,0.0,158
+South Africa,Fri,4,0.0,158
+South Africa,Sat,5,0.0,158
+South Africa,Sun,6,7.0,158
+South Korea,Mon,0,0.0,169
+South Korea,Tue,1,0.0,169
+South Korea,Wed,2,0.0,169
+South Korea,Thu,3,0.0,169
+South Korea,Fri,4,0.0,169
+South Korea,Sat,5,0.0,168
+South Korea,Sun,6,7.0,169
+Sweden,Mon,0,0.0,166
+Sweden,Tue,1,0.0,166
+Sweden,Wed,2,0.0,166
+Sweden,Thu,3,0.0,166
+Sweden,Fri,4,0.0,166
+Sweden,Sat,5,0.0,165
+Sweden,Sun,6,7.0,166
+United Kingdom,Mon,0,0.0,168
+United Kingdom,Tue,1,0.0,168
+United Kingdom,Wed,2,0.0,168
+United Kingdom,Thu,3,0.0,168
+United Kingdom,Fri,4,0.0,168
+United Kingdom,Sat,5,0.0,167
+United Kingdom,Sun,6,7.0,168
+United States,Mon,0,0.0,169
+United States,Tue,1,0.0,169
+United States,Wed,2,0.0,169
+United States,Thu,3,0.0,169
+United States,Fri,4,0.0,169
+United States,Sat,5,0.0,168
+United States,Sun,6,7.0,169

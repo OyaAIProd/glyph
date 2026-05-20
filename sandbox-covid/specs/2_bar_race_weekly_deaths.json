@@ -1,0 +1,34 @@
+{
+  "data": {
+    "source": "/Users/qiang.han/Documents/glyph/.claude/worktrees/modest-swanson-ad3795/sandbox-covid/derived/weekly.csv",
+    "transform": "SELECT country, continent, week_start, new_deaths_per_M FROM '/Users/qiang.han/Documents/glyph/.claude/worktrees/modest-swanson-ad3795/sandbox-covid/derived/weekly.csv' WHERE week_start >= '2020-03-01' AND week_start <= '2023-05-01' ORDER BY week_start, country"
+  },
+  "layers": [
+    {
+      "mark": "bar",
+      "encoding": {
+        "x": {
+          "field": "country",
+          "type": "nominal"
+        },
+        "y": {
+          "field": "new_deaths_per_M",
+          "type": "quantitative",
+          "title": "Weekly new deaths per million"
+        },
+        "color": {
+          "field": "continent",
+          "type": "nominal"
+        }
+      }
+    }
+  ],
+  "animation": {
+    "kind": "race",
+    "frame_field": "week_start",
+    "duration_ms": 30000
+  },
+  "width": 1200,
+  "height": 540,
+  "title": "Weekly new deaths per million \u2014 bar race (Mar 2020 \u2192 May 2023)"
+}

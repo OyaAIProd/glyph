@@ -1,0 +1,30 @@
+{
+  "data": {
+    "source": "/Users/qiang.han/Documents/glyph/.claude/worktrees/modest-swanson-ad3795/sandbox-covid/derived/daily.csv",
+    "transform": "SELECT location AS country, STRFTIME(date::DATE, '%Y-%m-%d') AS date, people_fully_vaccinated_per_hundred AS pct_fully_vax FROM '/Users/qiang.han/Documents/glyph/.claude/worktrees/modest-swanson-ad3795/sandbox-covid/derived/daily.csv' WHERE location IN ('Israel', 'United Kingdom', 'United States', 'Germany', 'India', 'South Africa')   AND people_fully_vaccinated_per_hundred IS NOT NULL   AND date >= '2020-12-01' AND date <= '2022-12-31' ORDER BY country, date"
+  },
+  "layers": [
+    {
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "date",
+          "type": "nominal",
+          "title": "Date"
+        },
+        "y": {
+          "field": "pct_fully_vax",
+          "type": "quantitative",
+          "title": "% population fully vaccinated"
+        },
+        "color": {
+          "field": "country",
+          "type": "nominal"
+        }
+      }
+    }
+  ],
+  "width": 1100,
+  "height": 480,
+  "title": "Vaccine rollout race \u2014 % fully vaccinated, Dec 2020 \u2192 Dec 2022 (six representative countries)"
+}

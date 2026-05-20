@@ -1,0 +1,109 @@
+{
+  "question": "Does higher Oxford-stringency-index correlate with lower deaths per million, and is the correlation causal?",
+  "method": "Pearson correlation between mean stringency_index and cumulative deaths_per_M across 15 countries; visual confirmation via scatter (chart 4).",
+  "root_handle": "synthetic://stringency_vs_outcome",
+  "claims": [
+    {
+      "claim": "Pearson r(stringency_mean, deaths_per_M) = -0.340  (n=15). The sign is NEGATIVE \u2014 high-stringency countries had lower deaths/M \u2014 but the magnitude is modest.",
+      "evidence": [
+        {
+          "country": "China",
+          "stringency_mean": 73.6,
+          "deaths_per_M": 84.8,
+          "vax_fully_pct": 89.54
+        },
+        {
+          "country": "India",
+          "stringency_mean": 58.1,
+          "deaths_per_M": 375.1,
+          "vax_fully_pct": 67.17
+        },
+        {
+          "country": "Italy",
+          "stringency_mean": 52.5,
+          "deaths_per_M": 3214.7,
+          "vax_fully_pct": 81.21
+        },
+        {
+          "country": "Brazil",
+          "stringency_mean": 48.7,
+          "deaths_per_M": 3258.0,
+          "vax_fully_pct": 81.82
+        },
+        {
+          "country": "United States",
+          "stringency_mean": 48.6,
+          "deaths_per_M": 3322.8,
+          "vax_fully_pct": 69.46
+        },
+        {
+          "country": "Australia",
+          "stringency_mean": 47.4,
+          "deaths_per_M": 815.2,
+          "vax_fully_pct": 82.7
+        },
+        {
+          "country": "Germany",
+          "stringency_mean": 44.2,
+          "deaths_per_M": 2092.0,
+          "vax_fully_pct": 76.24
+        },
+        {
+          "country": "Mexico",
+          "stringency_mean": 44.0,
+          "deaths_per_M": 2619.8,
+          "vax_fully_pct": 64.19
+        },
+        {
+          "country": "South Africa",
+          "stringency_mean": 44.0,
+          "deaths_per_M": 1712.9,
+          "vax_fully_pct": 35.13
+        },
+        {
+          "country": "Israel",
+          "stringency_mean": 43.4,
+          "deaths_per_M": 1322.8,
+          "vax_fully_pct": 65.19
+        },
+        {
+          "country": "United Kingdom",
+          "stringency_mean": 43.2,
+          "deaths_per_M": 3358.7,
+          "vax_fully_pct": 75.19
+        },
+        {
+          "country": "France",
+          "stringency_mean": 42.4,
+          "deaths_per_M": 2462.0,
+          "vax_fully_pct": 78.43
+        },
+        {
+          "country": "South Korea",
+          "stringency_mean": 40.9,
+          "deaths_per_M": 665.6,
+          "vax_fully_pct": 85.63
+        },
+        {
+          "country": "Japan",
+          "stringency_mean": 40.5,
+          "deaths_per_M": 601.4,
+          "vax_fully_pct": 83.4
+        },
+        {
+          "country": "Sweden",
+          "stringency_mean": 36.8,
+          "deaths_per_M": 2284.7,
+          "vax_fully_pct": 71.98
+        }
+      ],
+      "counter_evidence": [
+        "China's extreme stringency (73.6) with the lowest reported deaths/M (84.8) single-handedly drives the correlation; remove China and r changes sign.",
+        "Reverse causation \u2014 countries with worsening epidemics RAISED stringency; stringency was a response, not a cause.",
+        "Selection bias \u2014 wealthy democracies (US, UK, Italy) reported deaths more completely than autocracies; stringency-vs-deaths confounds with reporting quality.",
+        "Aged-65+ % is a stronger univariate predictor of deaths/M than stringency.",
+        "Stringency_mean over 3 years masks timing \u2014 early stringency in March 2020 (Italy lockdown) was very different from late-2021 stringency (Australia border)."
+      ]
+    }
+  ]
+}

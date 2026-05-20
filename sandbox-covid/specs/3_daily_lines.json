@@ -1,0 +1,30 @@
+{
+  "data": {
+    "source": "/Users/qiang.han/Documents/glyph/.claude/worktrees/modest-swanson-ad3795/sandbox-covid/derived/daily.csv",
+    "transform": "SELECT location AS country, STRFTIME(date::DATE, '%Y-%m-%d') AS date, new_cases_smoothed_per_million AS cases_per_M FROM '/Users/qiang.han/Documents/glyph/.claude/worktrees/modest-swanson-ad3795/sandbox-covid/derived/daily.csv' WHERE location IN ('United States', 'United Kingdom', 'India', 'South Korea', 'Sweden', 'China') AND new_cases_smoothed_per_million IS NOT NULL ORDER BY country, date"
+  },
+  "layers": [
+    {
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "date",
+          "type": "nominal",
+          "title": "Date"
+        },
+        "y": {
+          "field": "cases_per_M",
+          "type": "quantitative",
+          "title": "New cases / million (7-day smoothed)"
+        },
+        "color": {
+          "field": "country",
+          "type": "nominal"
+        }
+      }
+    }
+  ],
+  "width": 1100,
+  "height": 480,
+  "title": "Daily new cases per million \u2014 six countries, the four waves visible"
+}

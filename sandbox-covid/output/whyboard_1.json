@@ -1,0 +1,95 @@
+{
+  "question": "Did Israel's first-mover vaccine rollout actually reduce mortality vs comparable peers?",
+  "method": "Compare Israel's per-capita deaths + pre-vax CFR + counterfactual lives-saved against peer high-income / low-aging countries that reached the 25% fully-vaccinated mark later.",
+  "root_handle": "synthetic://country_totals+counterfactual+vax_milestones",
+  "claims": [
+    {
+      "claim": "Israel hit 25% fully-vaccinated on 2021-02-11 \u2014 6 months ahead of South Korea, Australia, Japan, Brazil, China.",
+      "evidence": [
+        {
+          "country": "Israel",
+          "date_25pct": "2021-02-11",
+          "pre_vax_cfr_pct": 0.745
+        },
+        {
+          "country": "South Korea",
+          "date_25pct": "2021-08-25"
+        },
+        {
+          "country": "Japan",
+          "date_25pct": "2021-07-19"
+        },
+        {
+          "country": "Australia",
+          "date_25pct": "2021-08-25"
+        }
+      ],
+      "counter_evidence": [
+        "First-mover \u2260 best-mover; rollout speed says nothing about long-term coverage (Sweden never reached 75%).",
+        "Vaccine cohort selection \u2014 Israel's homogeneous population + universal healthcare are confounders."
+      ]
+    },
+    {
+      "claim": "Israel's cumulative deaths-per-million (1322.8) is meaningfully lower than the UK / US / Italy band (~2500-3360), broadly in line with other Asia-Pacific peers.",
+      "evidence": [
+        {
+          "country": "Israel",
+          "deaths_per_M": 1322.8,
+          "vax_fully_pct": 65.19
+        },
+        {
+          "country": "Australia",
+          "deaths_per_M": 815.2,
+          "vax_fully_pct": 82.7
+        },
+        {
+          "country": "South Korea",
+          "deaths_per_M": 665.6,
+          "vax_fully_pct": 85.63
+        },
+        {
+          "country": "Japan",
+          "deaths_per_M": 601.4,
+          "vax_fully_pct": 83.4
+        },
+        {
+          "country": "United Kingdom",
+          "deaths_per_M": 3358.7,
+          "vax_fully_pct": 75.19
+        },
+        {
+          "country": "United States",
+          "deaths_per_M": 3322.8,
+          "vax_fully_pct": 69.46
+        }
+      ],
+      "counter_evidence": [
+        "Israel's deaths/M (1323) is higher than South Korea (665) and Japan (601) \u2014 both vaccinated 6 months later. Stringency + masking + behavior dominate vaccine timing.",
+        "Per-capita deaths reflect reporting completeness \u2014 Korea / Japan / Australia tested + counted differently."
+      ]
+    },
+    {
+      "claim": "Counterfactual estimate: ~23k lives saved in Israel by holding CFR at pre-vax 0.74% baseline \u2014 small in absolute terms because Israel had low pre-vax CFR already.",
+      "evidence": [
+        {
+          "country": "Israel",
+          "continent": "Asia",
+          "date_25pct_fully_vax": "2021-02-11",
+          "pre_vax_cfr_pct": 0.745,
+          "pre_vax_cases": 686613.0,
+          "pre_vax_deaths": 5113.0,
+          "post_vax_cases": 4135196.0,
+          "post_vax_deaths_actual": 7386.0,
+          "post_vax_deaths_counterfactual": 30793.0,
+          "estimated_lives_saved": 23407.0,
+          "lives_saved_per_M": 2477.0
+        }
+      ],
+      "counter_evidence": [
+        "Counterfactual assumes pre-vax CFR is the right baseline \u2014 but variants (Delta, Omicron) had different intrinsic CFRs.",
+        "Behavior + healthcare-capacity confounders not separated from vaccine effect.",
+        "Per-capita lives-saved (~2,477/M) is smaller than Italy / France / UK / Germany (~9000+/M) \u2014 most of vaccine value flowed to harder-hit Western countries."
+      ]
+    }
+  ]
+}

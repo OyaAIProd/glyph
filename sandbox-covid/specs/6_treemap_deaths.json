@@ -1,0 +1,117 @@
+{
+  "data": {
+    "hierarchy": {
+      "name": "World",
+      "children": [
+        {
+          "name": "Africa",
+          "children": [
+            {
+              "name": "South Africa",
+              "value": 102595
+            }
+          ]
+        },
+        {
+          "name": "Asia",
+          "children": [
+            {
+              "name": "India",
+              "value": 531533
+            },
+            {
+              "name": "China",
+              "value": 120961
+            },
+            {
+              "name": "Japan",
+              "value": 74542
+            },
+            {
+              "name": "South Korea",
+              "value": 34487
+            },
+            {
+              "name": "Israel",
+              "value": 12499
+            }
+          ]
+        },
+        {
+          "name": "Europe",
+          "children": [
+            {
+              "name": "United Kingdom",
+              "value": 226745
+            },
+            {
+              "name": "Italy",
+              "value": 189786
+            },
+            {
+              "name": "Germany",
+              "value": 174406
+            },
+            {
+              "name": "France",
+              "value": 166958
+            },
+            {
+              "name": "Sweden",
+              "value": 24102
+            }
+          ]
+        },
+        {
+          "name": "North America",
+          "children": [
+            {
+              "name": "United States",
+              "value": 1124063
+            },
+            {
+              "name": "Mexico",
+              "value": 334034
+            }
+          ]
+        },
+        {
+          "name": "Oceania",
+          "children": [
+            {
+              "name": "Australia",
+              "value": 21341
+            }
+          ]
+        },
+        {
+          "name": "South America",
+          "children": [
+            {
+              "name": "Brazil",
+              "value": 701494
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "layers": [
+    {
+      "mark": "treemap",
+      "encoding": {
+        "color": {
+          "field": "depth",
+          "type": "quantitative"
+        },
+        "tooltip": [
+          "name",
+          "value"
+        ]
+      }
+    }
+  ],
+  "width": 1100,
+  "height": 540,
+  "title": "Total reported COVID-19 deaths \u2014 continent \u2192 country (area = death count)"
+}

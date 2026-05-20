@@ -1,0 +1,97 @@
+{
+  "question": "Why do the country rankings for cases-per-million and deaths-per-million disagree so sharply?",
+  "method": "Rank countries by cases/M and deaths/M; compute rank delta. Cross-reference with population age structure (aged_65_older) and naive overall CFR.",
+  "root_handle": "synthetic://country_totals",
+  "claims": [
+    {
+      "claim": "Cases-rank and deaths-rank diverge dramatically \u2014 testing intensity drives cases, demographics + healthcare drive deaths.",
+      "evidence": [
+        {
+          "country": "South Korea",
+          "cases_per_M": 601571.0,
+          "deaths_per_M": 665.6,
+          "cases_rank": 0,
+          "deaths_rank": 11,
+          "rank_delta": -11,
+          "aged_65_pct": 13.91,
+          "naive_overall_cfr_pct": 0.111
+        },
+        {
+          "country": "Mexico",
+          "cases_per_M": 59550.1,
+          "deaths_per_M": 2619.8,
+          "cases_rank": 13,
+          "deaths_rank": 4,
+          "rank_delta": 9,
+          "aged_65_pct": 6.86,
+          "naive_overall_cfr_pct": 4.399
+        },
+        {
+          "country": "Brazil",
+          "cases_per_M": 173929.7,
+          "deaths_per_M": 3258.0,
+          "cases_rank": 10,
+          "deaths_rank": 2,
+          "rank_delta": 8,
+          "aged_65_pct": 8.55,
+          "naive_overall_cfr_pct": 1.873
+        },
+        {
+          "country": "Israel",
+          "cases_per_M": 510298.3,
+          "deaths_per_M": 1322.8,
+          "cases_rank": 2,
+          "deaths_rank": 9,
+          "rank_delta": -7,
+          "aged_65_pct": 11.73,
+          "naive_overall_cfr_pct": 0.259
+        },
+        {
+          "country": "United Kingdom",
+          "cases_per_M": 364209.5,
+          "deaths_per_M": 3358.7,
+          "cases_rank": 6,
+          "deaths_rank": 0,
+          "rank_delta": 6,
+          "aged_65_pct": 18.52,
+          "naive_overall_cfr_pct": 0.922
+        },
+        {
+          "country": "United States",
+          "cases_per_M": 305260.1,
+          "deaths_per_M": 3322.8,
+          "cases_rank": 7,
+          "deaths_rank": 1,
+          "rank_delta": 6,
+          "aged_65_pct": 15.41,
+          "naive_overall_cfr_pct": 1.089
+        },
+        {
+          "country": "Australia",
+          "cases_per_M": 430355.4,
+          "deaths_per_M": 815.2,
+          "cases_rank": 5,
+          "deaths_rank": 10,
+          "rank_delta": -5,
+          "aged_65_pct": 15.5,
+          "naive_overall_cfr_pct": 0.189
+        },
+        {
+          "country": "France",
+          "cases_per_M": 572789.6,
+          "deaths_per_M": 2462.0,
+          "cases_rank": 1,
+          "deaths_rank": 5,
+          "rank_delta": -4,
+          "aged_65_pct": 19.72,
+          "naive_overall_cfr_pct": 0.43
+        }
+      ],
+      "counter_evidence": [
+        "Reported case counts depend on test availability \u2014 South Korea / France tested aggressively \u2192 high cases but moderate deaths.",
+        "Underreporting of deaths in some countries (India, Mexico) means deaths/M is an underestimate; excess-mortality data tells a different story.",
+        "Variant timing matters \u2014 countries hit hard by Alpha/Delta had higher CFR than those mostly exposed to Omicron."
+      ]
+    }
+  ]
+}

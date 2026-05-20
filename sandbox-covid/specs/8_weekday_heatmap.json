@@ -1,0 +1,30 @@
+{
+  "data": {
+    "source": "/Users/qiang.han/Documents/glyph/.claude/worktrees/modest-swanson-ad3795/sandbox-covid/derived/weekday_pattern.csv",
+    "transform": "SELECT country, weekday, (mean_raw_to_smoothed_ratio - 1.0) AS deviation FROM '/Users/qiang.han/Documents/glyph/.claude/worktrees/modest-swanson-ad3795/sandbox-covid/derived/weekday_pattern.csv' ORDER BY country, dow_num"
+  },
+  "layers": [
+    {
+      "mark": "heatmap",
+      "encoding": {
+        "x": {
+          "field": "weekday",
+          "type": "nominal",
+          "title": "Day of week"
+        },
+        "y": {
+          "field": "country",
+          "type": "nominal"
+        },
+        "color": {
+          "field": "deviation",
+          "type": "quantitative",
+          "title": "Raw/Smoothed \u2212 1.0  (>0 = over-report, <0 = under-report)"
+        }
+      }
+    }
+  ],
+  "width": 760,
+  "height": 520,
+  "title": "Reporting cadence by weekday \u2014 Mondays bulge with weekend backlog; Sundays often near-zero"
+}

@@ -1,0 +1,144 @@
+{
+  "question": "How much of post-vaccine mortality reduction can be attributed to vaccines, given the simplistic counterfactual model?",
+  "method": "Assume each country's CFR would have remained at its pre-25%-fully-vax level; multiply by post-vax cases to get counterfactual deaths; subtract actual to get 'lives saved'.",
+  "root_handle": "synthetic://forecast_counterfactual",
+  "claims": [
+    {
+      "claim": "Top-5 by per-million lives saved: Italy (9859/M), Germany (9453/M), France (9433/M), United Kingdom (9070/M), Australia (8349/M)",
+      "evidence": [
+        {
+          "country": "Italy",
+          "continent": "Europe",
+          "date_25pct_fully_vax": "2021-06-16",
+          "pre_vax_cfr_pct": 2.992,
+          "pre_vax_cases": 4243482.0,
+          "pre_vax_deaths": 126976.0,
+          "post_vax_cases": 21552027.0,
+          "post_vax_deaths_actual": 62810.0,
+          "post_vax_deaths_counterfactual": 644892.0,
+          "estimated_lives_saved": 582082.0,
+          "lives_saved_per_M": 9859.1
+        },
+        {
+          "country": "Germany",
+          "continent": "Europe",
+          "date_25pct_fully_vax": "2021-06-10",
+          "pre_vax_cfr_pct": 2.506,
+          "pre_vax_cases": 3698521.0,
+          "pre_vax_deaths": 92690.0,
+          "post_vax_cases": 34706736.0,
+          "post_vax_deaths_actual": 81716.0,
+          "post_vax_deaths_counterfactual": 869798.0,
+          "estimated_lives_saved": 788082.0,
+          "lives_saved_per_M": 9452.8
+        },
+        {
+          "country": "France",
+          "continent": "Europe",
+          "date_25pct_fully_vax": "2021-06-21",
+          "pre_vax_cfr_pct": 2.077,
+          "pre_vax_cases": 5480043.0,
+          "pre_vax_deaths": 113796.0,
+          "post_vax_cases": 33362541.0,
+          "post_vax_deaths_actual": 53162.0,
+          "post_vax_deaths_counterfactual": 692790.0,
+          "estimated_lives_saved": 639628.0,
+          "lives_saved_per_M": 9432.7
+        },
+        {
+          "country": "United Kingdom",
+          "continent": "Europe",
+          "date_25pct_fully_vax": "2021-05-07",
+          "pre_vax_cfr_pct": 3.413,
+          "pre_vax_cases": 4501815.0,
+          "pre_vax_deaths": 153627.0,
+          "post_vax_cases": 20085584.0,
+          "post_vax_deaths_actual": 73118.0,
+          "post_vax_deaths_counterfactual": 685431.0,
+          "estimated_lives_saved": 612313.0,
+          "lives_saved_per_M": 9070.0
+        },
+        {
+          "country": "Australia",
+          "continent": "Oceania",
+          "date_25pct_fully_vax": "2021-08-25",
+          "pre_vax_cfr_pct": 2.13,
+          "pre_vax_cases": 47521.0,
+          "pre_vax_deaths": 1012.0,
+          "post_vax_cases": 11218070.0,
+          "post_vax_deaths_actual": 20329.0,
+          "post_vax_deaths_counterfactual": 238898.0,
+          "estimated_lives_saved": 218569.0,
+          "lives_saved_per_M": 8348.7
+        },
+        {
+          "country": "South Korea",
+          "continent": "Asia",
+          "date_25pct_fully_vax": "2021-08-25",
+          "pre_vax_cfr_pct": 0.934,
+          "pre_vax_cases": 237778.0,
+          "pre_vax_deaths": 2222.0,
+          "post_vax_cases": 30933108.0,
+          "post_vax_deaths_actual": 32265.0,
+          "post_vax_deaths_counterfactual": 289065.0,
+          "estimated_lives_saved": 256800.0,
+          "lives_saved_per_M": 4955.6
+        },
+        {
+          "country": "Japan",
+          "continent": "Asia",
+          "date_25pct_fully_vax": "2021-07-19",
+          "pre_vax_cfr_pct": 1.788,
+          "pre_vax_cases": 841537.0,
+          "pre_vax_deaths": 15048.0,
+          "post_vax_cases": 32872480.0,
+          "post_vax_deaths_actual": 59494.0,
+          "post_vax_deaths_counterfactual": 587811.0,
+          "estimated_lives_saved": 528317.0,
+          "lives_saved_per_M": 4262.3
+        },
+        {
+          "country": "China",
+          "continent": "Asia",
+          "date_25pct_fully_vax": "2021-08-12",
+          "pre_vax_cfr_pct": 4.649,
+          "pre_vax_cases": 121684.0,
+          "pre_vax_deaths": 5657.0,
+          "post_vax_cases": 99125697.0,
+          "post_vax_deaths_actual": 115304.0,
+          "post_vax_deaths_counterfactual": 4608281.0,
+          "estimated_lives_saved": 4492977.0,
+          "lives_saved_per_M": 3151.0
+        }
+      ],
+      "counter_evidence": [
+        "Pre-vax CFR is dominated by the wave structure at the time \u2014 Italy / UK pre-vax CFR (3.0%, 3.4%) was elevated by hospital saturation in early waves; Omicron CFR would be lower regardless of vaccines.",
+        "Post-vax case counts ALSO reflect Omicron's higher transmissibility \u2014 multiplying high case counts by an elevated pre-vax CFR over-estimates lives saved.",
+        "China's pre-vax CFR (4.65%) reflects very-early-wave Wuhan data on a tiny base of cases; using it as the country-wide counterfactual is heroic.",
+        "Method ignores treatment improvements (dexamethasone, antivirals) that landed independent of vaccines."
+      ]
+    },
+    {
+      "claim": "India's lives-saved-per-M (50) is anomalously low \u2014 pre-vax CFR was already low (1.34%) and 25% fully-vax milestone came late (Nov 2021), so most omicron-era infections counted toward the actual.",
+      "evidence": [
+        {
+          "country": "India",
+          "continent": "Asia",
+          "date_25pct_fully_vax": "2021-11-11",
+          "pre_vax_cfr_pct": 1.341,
+          "pre_vax_cases": 34355536.0,
+          "pre_vax_deaths": 460791.0,
+          "post_vax_cases": 10589853.0,
+          "post_vax_deaths_actual": 70742.0,
+          "post_vax_deaths_counterfactual": 142035.0,
+          "estimated_lives_saved": 71293.0,
+          "lives_saved_per_M": 50.3
+        }
+      ],
+      "counter_evidence": [
+        "India's death-counting was famously incomplete \u2014 official deaths are widely believed to be 4-10x lower than excess-mortality estimates.",
+        "Therefore both the pre-vax CFR baseline AND the post-vax actual are likely understated \u2192 counterfactual is artifact-driven."
+      ]
+    }
+  ]
+}

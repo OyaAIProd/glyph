@@ -1,0 +1,30 @@
+{
+  "data": {
+    "source": "/Users/qiang.han/Documents/glyph/.claude/worktrees/modest-swanson-ad3795/sandbox-covid/derived/cfr_over_time.csv",
+    "transform": "SELECT country, continent, STRFTIME(month::DATE, '%Y-%m') AS month, cfr_pct FROM '/Users/qiang.han/Documents/glyph/.claude/worktrees/modest-swanson-ad3795/sandbox-covid/derived/cfr_over_time.csv' WHERE cfr_pct IS NOT NULL AND cases_in_month > 1000 ORDER BY country, month"
+  },
+  "layers": [
+    {
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "month",
+          "type": "nominal",
+          "title": "Month"
+        },
+        "y": {
+          "field": "cfr_pct",
+          "type": "quantitative",
+          "title": "Case-fatality ratio % (14d-lagged)"
+        },
+        "color": {
+          "field": "country",
+          "type": "nominal"
+        }
+      }
+    }
+  ],
+  "width": 1100,
+  "height": 480,
+  "title": "Case-fatality ratio decline (deaths shifted back 14d, monthly buckets, \u22651000 cases/mo)"
+}

@@ -1,0 +1,33 @@
+{
+  "data": {
+    "source": "/Users/qiang.han/Documents/glyph/.claude/worktrees/modest-swanson-ad3795/sandbox-covid/derived/decompose_USA_long.csv",
+    "transform": "SELECT STRFTIME(date::DATE, '%Y-%m-%d') AS date, component, value FROM '/Users/qiang.han/Documents/glyph/.claude/worktrees/modest-swanson-ad3795/sandbox-covid/derived/decompose_USA_long.csv' ORDER BY component, date"
+  },
+  "layers": [
+    {
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "date",
+          "type": "nominal",
+          "title": "Date"
+        },
+        "y": {
+          "field": "value",
+          "type": "quantitative",
+          "title": "Cases/day (smoothed)"
+        },
+        "color": {
+          "field": "component",
+          "type": "nominal"
+        }
+      }
+    }
+  ],
+  "facet": {
+    "col": "component"
+  },
+  "width": 1200,
+  "height": 380,
+  "title": "USA new-cases-smoothed decomposed: actual = trend + weekly seasonal + residual"
+}

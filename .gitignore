@@ -15,3 +15,6 @@ coverage/
 pnpm-debug.log*
 *.tsbuildinfo
 .claude/
+
+# Showcase: raw OWID CSV (~94 MB) — re-fetched by sandbox-covid/build_data.py
+sandbox-covid/data/owid-covid-data.csv

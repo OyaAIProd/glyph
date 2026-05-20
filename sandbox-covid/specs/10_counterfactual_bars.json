@@ -1,0 +1,29 @@
+{
+  "data": {
+    "source": "/Users/qiang.han/Documents/glyph/.claude/worktrees/modest-swanson-ad3795/sandbox-covid/derived/forecast_counterfactual.csv",
+    "transform": "SELECT country, continent, lives_saved_per_M, estimated_lives_saved, pre_vax_cfr_pct FROM '/Users/qiang.han/Documents/glyph/.claude/worktrees/modest-swanson-ad3795/sandbox-covid/derived/forecast_counterfactual.csv' ORDER BY lives_saved_per_M DESC"
+  },
+  "layers": [
+    {
+      "mark": "bar",
+      "encoding": {
+        "x": {
+          "field": "country",
+          "type": "nominal"
+        },
+        "y": {
+          "field": "lives_saved_per_M",
+          "type": "quantitative",
+          "title": "Estimated lives saved per million pop. (vax era, vs pre-vax CFR counterfactual)"
+        },
+        "color": {
+          "field": "continent",
+          "type": "nominal"
+        }
+      }
+    }
+  ],
+  "width": 1100,
+  "height": 480,
+  "title": "Counterfactual lives saved per million \u2014 if national CFR had remained at pre-25%-vax baseline"
+}

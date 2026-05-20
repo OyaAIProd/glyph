@@ -1,0 +1,16 @@
+country,continent,date_fullyvax_25pct,date_fullyvax_50pct,date_fullyvax_75pct
+Australia,Oceania,2021-08-25,2021-10-11,2021-12-22
+Brazil,South America,2021-08-20,2021-10-21,2022-04-06
+China,Asia,2021-08-12,2021-08-12,2021-10-29
+France,Europe,2021-06-21,2021-08-07,2022-01-15
+Germany,Europe,2021-06-10,2021-07-26,2022-02-22
+India,Asia,2021-11-11,2022-01-31,
+Israel,Asia,2021-02-11,2021-03-26,
+Italy,Europe,2021-06-16,2021-07-26,2021-12-12
+Japan,Asia,2021-07-19,2021-09-02,2021-10-30
+Mexico,North America,2021-08-26,2021-11-20,
+South Africa,Africa,2021-12-06,,
+South Korea,Asia,2021-08-25,2021-10-01,2021-11-04
+Sweden,Europe,2021-06-20,2021-08-29,
+United Kingdom,Europe,2021-05-07,2021-07-05,2022-08-15
+United States,North America,2021-04-10,2021-07-09,

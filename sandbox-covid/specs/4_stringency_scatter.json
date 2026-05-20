@@ -1,0 +1,50 @@
+{
+  "data": {
+    "source": "/Users/qiang.han/Documents/glyph/.claude/worktrees/modest-swanson-ad3795/sandbox-covid/derived/stringency_vs_outcome.csv"
+  },
+  "layers": [
+    {
+      "mark": "point",
+      "encoding": {
+        "x": {
+          "field": "stringency_mean",
+          "type": "quantitative",
+          "title": "Mean Oxford stringency index"
+        },
+        "y": {
+          "field": "deaths_per_M",
+          "type": "quantitative",
+          "title": "Cumulative deaths per million"
+        },
+        "color": {
+          "field": "continent",
+          "type": "nominal"
+        },
+        "size": {
+          "field": "vax_fully_pct",
+          "type": "quantitative"
+        }
+      }
+    },
+    {
+      "mark": "text",
+      "encoding": {
+        "x": {
+          "field": "stringency_mean",
+          "type": "quantitative"
+        },
+        "y": {
+          "field": "deaths_per_M",
+          "type": "quantitative"
+        },
+        "text": {
+          "field": "country",
+          "type": "nominal"
+        }
+      }
+    }
+  ],
+  "width": 980,
+  "height": 600,
+  "title": "Stringency (mean) \u00d7 deaths/million \u00d7 vaccination % (size) \u2014 correlation? Causation? See whyboard."
+}
