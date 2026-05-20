@@ -15,6 +15,7 @@
   },
   "scripts": {
     "build": "pnpm -r --filter './packages/*' run build",
+    "build:playground": "pnpm --filter @glyph/core run build && node scripts/build-playground-bundle.js",
     "test": "pnpm -r --filter './packages/*' run test",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
     "@types/node": "^22.7.5",
+    "esbuild": "^0.24.0",
     "typescript": "^5.6.3",
     "vitest": "^2.1.3"
   }
