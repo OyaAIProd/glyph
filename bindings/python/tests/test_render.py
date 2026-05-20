@@ -112,33 +112,17 @@ def test_render_respawns_after_subprocess_dies(rides_csv_path: Path) -> None:
     assert runtime._client is not None
     proc = runtime._client._proc  # type: ignore[attr-defined]
     proc.kill()
-    # Drive the loop briefly so the SIGKILL propagates and returncode is set.
-    runtime._get_loop().run_until_complete(proc.wait())
+    # Drive the worker loop briefly so the SIGKILL propagates and returncode
+    # is set. We schedule proc.wait() onto the worker loop instead of
+    # creating an ad-hoc loop on the test thread — the latter would race
+    # with the worker for ownership of the subprocess transport.
+    import asyncio as _asyncio
+
+    fut = _asyncio.run_coroutine_threadsafe(proc.wait(), runtime._ensure_worker())
+    fut.result(timeout=5.0)
 
     # Next render must respawn rather than hang on the dead pipe.
     r2 = glyph.render(spec, source=str(rides_csv_path), audit=False)
     assert r2.svg.startswith("<svg")
     # Byte identity must hold across the respawn — that's the whole point.
     assert r1.svg == r2.svg
-
-
-def test_render_rejects_call_from_running_event_loop(rides_csv_path: Path) -> None:
-    """Calling glyph.render from inside an async coroutine raises a typed error.
-
-    The current sync→async bridge can't safely re-enter from a running loop
-    (Jupyter is the typical place). PR6 will add a worker-thread path; for
-    now the call should fail loudly with a clear, actionable message instead
-    of an internal RuntimeError.
-    """
-    import asyncio
-
-    from glyph.exceptions import GlyphError
-
-    async def _attempt_render() -> None:
-        glyph.render(
-            {"layers": [{"mark": "bar", "encoding": {"x": "pickup_hour", "y": "rides"}}]},
-            source=str(rides_csv_path),
-        )
-
-    with pytest.raises(GlyphError, match="running asyncio event loop"):
-        asyncio.run(_attempt_render())

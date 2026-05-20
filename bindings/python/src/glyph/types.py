@@ -50,11 +50,30 @@ class RenderResult:
     def _repr_svg_(self) -> str:
         """IPython display hook — renders the SVG inline in Jupyter.
 
-        PR6 will add ``_repr_mimebundle_`` for richer fallback; this method
-        is enough for the legacy single-mime SVG path that nbformat readers
-        and JupyterLab honour by default.
+        Kept alongside :meth:`_repr_mimebundle_` so older readers (vscode
+        nbconvert, GitHub's notebook preview) that only honour the
+        single-mime ``_repr_svg_`` hook still render correctly.
         """
         return self.svg
+
+    def _repr_mimebundle_(
+        self, include: object = None, exclude: object = None
+    ) -> tuple[dict[str, str], dict[str, str]]:
+        """IPython rich-display hook.
+
+        Returns ``(bundle, metadata)`` where ``bundle`` maps MIME types to
+        their payload. We always return both ``image/svg+xml`` and
+        ``text/plain`` so consumers that don't understand SVG (terminal
+        REPLs, ``jupyter nbconvert --to script``) still see something
+        meaningful. The ``include`` / ``exclude`` args are accepted for
+        IPython protocol conformance — we ignore them because the bundle
+        is small and producing it is free.
+        """
+        bundle = {
+            "image/svg+xml": self.svg,
+            "text/plain": (f"<RenderResult handle={self.handle!r} audit_n={len(self.audit)}>"),
+        }
+        return bundle, {}
 
     def save_svg(self, path: str | Path) -> None:
         """Write the SVG to ``path``. Creates parents only if they exist —

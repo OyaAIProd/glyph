@@ -7,18 +7,33 @@ call :func:`shutdown_runtime` between cases.
 Sync / async bridge
 -------------------
 The public entrypoint :func:`call_verb` is synchronous so users don't need to
-know about asyncio. Internally we drive the async client on a private event
-loop owned by this module — this is correct for plain scripts and (mostly)
-for ``pytest``, but it does **not** work when an event loop is already
-running in the calling thread (Jupyter, Trio, anyio task contexts). PR6 will
-add proper detection via ``asyncio.get_running_loop()`` and route to a
-worker thread when needed; for now the limitation is intentional.
+know about asyncio. Internally we drive the async client on a **dedicated
+worker thread** that owns a long-running asyncio event loop. Sync calls are
+dispatched via :func:`asyncio.run_coroutine_threadsafe`, then awaited with
+``Future.result()``.
+
+Why a worker thread (vs. ``loop.run_until_complete`` on the calling thread)?
+The calling thread may already have a running event loop — Jupyter cells,
+anyio task contexts, ``asyncio.run(...)`` wrappers — and re-entering an active
+loop is illegal and raises ``RuntimeError: This event loop is already
+running``. The worker-thread design sidesteps this entirely: the calling
+thread blocks on a ``concurrent.futures.Future`` (which is sync), the worker
+loop drives the I/O, and the two communicate via thread-safe primitives.
+
+Lifecycle
+---------
+- The worker is started **lazily** on the first :func:`call_verb`, so
+  ``import glyph`` stays cheap (no thread spin-up cost).
+- :func:`shutdown_runtime` (also registered via ``atexit``) stops the loop,
+  joins the worker, and drops the cached client. The next call respawns.
 
 Threading
 ---------
-A module-level ``threading.Lock`` serializes ``call_verb`` so two threads
-can't race to advance the same private loop. Performance is fine for the
-single-user CLI / notebook workflows S1 targets.
+A module-level ``threading.Lock`` serializes worker startup + shutdown so
+two threads can't race to spin up two workers. ``call_verb`` itself does
+NOT hold the lock while the coroutine runs — the worker loop handles
+fan-in internally via the asyncio scheduler, and holding the lock would
+serialize all sync calls (negating the point of a worker loop).
 """
 
 from __future__ import annotations
@@ -34,16 +49,77 @@ from glyph.exceptions import GlyphError
 
 _client: McpClient | None = None
 _client_ctx: Any = None  # AsyncContextManager from McpClient.spawn
-_loop: asyncio.AbstractEventLoop | None = None
+_worker_loop: asyncio.AbstractEventLoop | None = None
+_worker_thread: threading.Thread | None = None
+_worker_ready = threading.Event()
 _lock = threading.Lock()
 
+# Default per-call timeout for the worker future. The MCP verbs are I/O-bound
+# (a Node subprocess round-trip + DuckDB query) and on warm caches finish in
+# well under a second; a render against a fresh fixture is typically <1s.
+# 60s is generous enough for cold-start renders on slow CI runners without
+# letting a true hang (e.g. wedged subprocess) block the user forever.
+_CALL_TIMEOUT_SECONDS = 60.0
 
-def _get_loop() -> asyncio.AbstractEventLoop:
-    """Lazily create — or recreate after a shutdown — the runtime event loop."""
-    global _loop
-    if _loop is None or _loop.is_closed():
-        _loop = asyncio.new_event_loop()
-    return _loop
+
+def _worker_main() -> None:
+    """Body of the worker thread: own an event loop until shutdown.
+
+    The loop is created HERE (not in the calling thread) so that
+    ``asyncio.get_event_loop()`` resolves correctly for any coroutines
+    scheduled onto it via ``run_coroutine_threadsafe``. We signal readiness
+    via ``_worker_ready`` so :func:`call_verb` knows it's safe to start
+    submitting work.
+    """
+    global _worker_loop
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    _worker_loop = loop
+    _worker_ready.set()
+    try:
+        loop.run_forever()
+    finally:
+        # Drain any pending tasks before closing — otherwise asyncio logs
+        # "Task was destroyed but it is pending!" warnings on shutdown.
+        try:
+            pending = asyncio.all_tasks(loop)
+            for task in pending:
+                task.cancel()
+            if pending:
+                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+        finally:
+            loop.close()
+
+
+def _ensure_worker() -> asyncio.AbstractEventLoop:
+    """Start the worker thread on first use; return its event loop.
+
+    Acquires ``_lock`` only during the spin-up so concurrent first calls
+    don't race. Subsequent calls take the fast path (no lock).
+    """
+    global _worker_thread
+    if _worker_loop is not None and _worker_thread is not None and _worker_thread.is_alive():
+        return _worker_loop
+    with _lock:
+        # Double-checked: another thread may have started the worker while
+        # we were blocked on the lock.
+        if _worker_loop is not None and _worker_thread is not None and _worker_thread.is_alive():
+            return _worker_loop
+        _worker_ready.clear()
+        thread = threading.Thread(
+            target=_worker_main,
+            name="glyph-mcp-worker",
+            daemon=True,
+        )
+        thread.start()
+        _worker_thread = thread
+    # Wait for the worker to publish its loop before returning. The
+    # threading.Event handles the memory barrier so the loop reference is
+    # visible across threads.
+    _worker_ready.wait(timeout=5.0)
+    if _worker_loop is None:
+        raise GlyphError("glyph worker thread failed to start within 5 s")
+    return _worker_loop
 
 
 def _is_client_alive(client: McpClient) -> bool:
@@ -87,49 +163,43 @@ async def _ensure_client() -> McpClient:
 def call_verb(name: str, args: dict[str, Any]) -> Any:
     """Synchronous entrypoint into the async MCP client.
 
+    Dispatches the call onto the worker thread's event loop via
+    :func:`asyncio.run_coroutine_threadsafe`, then blocks on the resulting
+    ``concurrent.futures.Future``. Safe to call from:
+
+    - plain sync scripts (no event loop)
+    - pytest test functions (sync or async)
+    - Jupyter cells (which run inside a tornado/anyio loop)
+    - any thread that holds its own asyncio loop
+
     The returned value is whatever the verb's text content parses to (usually
     a JSON dict). Errors raised by the server come back as
     :class:`glyph.exceptions.McpProtocolError`.
-
-    Raises :class:`glyph.exceptions.GlyphError` if called from inside an
-    already-running asyncio event loop (e.g. inside an ``async def``
-    coroutine or a Jupyter cell). PR6 will route those callers to a worker
-    thread automatically; for now they get a typed, actionable error
-    instead of a confusing ``RuntimeError: This event loop is already
-    running`` stack trace.
     """
-    # Detect a running loop on the calling thread BEFORE we acquire the
-    # module lock — otherwise a Jupyter user gets a long blocking trace
-    # before the error surfaces.
+    loop = _ensure_worker()
+
+    async def _go() -> Any:
+        client = await _ensure_client()
+        result = await client.call_tool(name, args)
+        # glyph_render returns content = [image, text] when PNG
+        # rasterization is enabled, so the existing _mcp_client.call_tool
+        # — which only inspects content[0] — surfaces the raw envelope
+        # for those calls. Unwrap it here so the public render() API
+        # gets a parsed dict either way.
+        if isinstance(result, dict) and "content" in result and "svg" not in result:
+            result = _extract_text_payload(result) or result
+        return result
+
+    future = asyncio.run_coroutine_threadsafe(_go(), loop)
     try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        pass  # No running loop — good, that's the supported sync case.
-    else:
-        raise GlyphError(
-            "glyph.render / glyph.describe cannot be called from inside a "
-            "running asyncio event loop (Jupyter, anyio, etc.). Run the "
-            "call from a sync context, or wait for the Jupyter integration "
-            "in a later release. To bypass for testing, run the call inside "
-            "asyncio.to_thread(...)."
-        )
-
-    with _lock:
-        loop = _get_loop()
-
-        async def _go() -> Any:
-            client = await _ensure_client()
-            result = await client.call_tool(name, args)
-            # glyph_render returns content = [image, text] when PNG
-            # rasterization is enabled, so the existing _mcp_client.call_tool
-            # — which only inspects content[0] — surfaces the raw envelope
-            # for those calls. Unwrap it here so the public render() API
-            # gets a parsed dict either way.
-            if isinstance(result, dict) and "content" in result and "svg" not in result:
-                result = _extract_text_payload(result) or result
-            return result
-
-        return loop.run_until_complete(_go())
+        return future.result(timeout=_CALL_TIMEOUT_SECONDS)
+    except TimeoutError as e:
+        # Cancel the in-flight coroutine so the worker loop doesn't keep
+        # spinning on a wedged subprocess. The cancellation is best-effort:
+        # if the coroutine is blocked in a sync C extension it may still
+        # need to finish on its own.
+        future.cancel()
+        raise GlyphError(f"glyph.{name} timed out after {_CALL_TIMEOUT_SECONDS:.0f}s") from e
 
 
 def _extract_text_payload(envelope: dict[str, Any]) -> Any:
@@ -155,26 +225,45 @@ def _extract_text_payload(envelope: dict[str, Any]) -> Any:
 
 
 def shutdown_runtime() -> None:
-    """Tear down the singleton client and close the runtime loop.
+    """Tear down the singleton client and stop the worker thread.
 
     Registered via :mod:`atexit` so well-behaved processes don't leak the
     Node subprocess. Tests that want a clean slate between cases can call
     this directly; the next :func:`call_verb` will respawn on demand.
     """
-    global _client, _client_ctx, _loop
+    global _client, _client_ctx, _worker_loop, _worker_thread
     with _lock:
-        if _client is not None and _client_ctx is not None and _loop is not None:
+        loop = _worker_loop
+        thread = _worker_thread
+        if loop is not None and _client is not None and _client_ctx is not None:
             # __aexit__ on McpClient.spawn handles SIGTERM + stderr-task
-            # cancellation. Suppress any teardown exception — atexit handlers
-            # should never raise.
-            with contextlib.suppress(Exception):
-                _loop.run_until_complete(_client_ctx.__aexit__(None, None, None))
+            # cancellation. Schedule it on the worker loop and wait via the
+            # cross-thread future, so we never re-enter the loop from here.
+            try:
+                fut = asyncio.run_coroutine_threadsafe(
+                    _client_ctx.__aexit__(None, None, None), loop
+                )
+                # 10s is enough for a clean SIGTERM + stderr drain on every
+                # platform we've seen; longer than that and we just give up
+                # and let the daemon thread tear down on process exit.
+                with contextlib.suppress(Exception):
+                    fut.result(timeout=10.0)
+            except RuntimeError:
+                # Loop already closed — nothing to drain.
+                pass
         _client = None
         _client_ctx = None
-        if _loop is not None and not _loop.is_closed():
-            with contextlib.suppress(Exception):
-                _loop.close()
-        _loop = None
+
+        if loop is not None and not loop.is_closed():
+            # call_soon_threadsafe is the documented way to stop a loop
+            # owned by another thread.
+            with contextlib.suppress(RuntimeError):
+                loop.call_soon_threadsafe(loop.stop)
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=5.0)
+        _worker_loop = None
+        _worker_thread = None
+        _worker_ready.clear()
 
 
 atexit.register(shutdown_runtime)
