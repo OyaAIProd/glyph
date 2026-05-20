@@ -43,3 +43,25 @@ Pass criteria:
   populate the status text and fire the `onLoaded` callback.
 - Errors (e.g. malformed CSV) surface in the status text rather than
   crashing the page.
+- Status shows `Initializing DuckDB…` on first paint, then `Ready —
+  paste, upload, or pick an example.` once the wasm engine is warm.
+- Pasting a CSV larger than 10 MB shows `CSV too large (X.X MB, max
+  10 MB).` without freezing the tab.
+
+Also verify on the **deployed GitHub Pages URL**, not just localhost:
+
+9. Open `https://seanhanca.github.io/glyph/play/` after the `pages.yml`
+   workflow has run. Repeat steps 2 + 4 above.
+10. In DevTools → Network, confirm the DuckDB bundle that loads is the
+    `mvp` variant (single-threaded) — GitHub Pages does not serve the
+    cross-origin-isolation headers (COOP/COEP) needed for the
+    SharedArrayBuffer-based threaded bundle. `selectBundle` falls back
+    automatically; this step just confirms it.
+
+## Known limitations (PR2)
+
+- DuckDB-wasm imports from jsdelivr at runtime. SRI hashes don't apply
+  to ESM imports; a jsdelivr compromise would execute attacker JS in
+  the user's browser. The playground holds no auth context and no user
+  data leaves the page, but we'll self-host the wasm + js under
+  `site/play/vendor/` in a future PR.

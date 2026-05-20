@@ -1,5 +1,12 @@
 // site/play/duckdb.js
 // Lazy-loads DuckDB-wasm from jsdelivr, exposes a tiny API.
+//
+// SUPPLY-CHAIN NOTE: this module imports JavaScript from jsdelivr at page-load
+// time. SRI/integrity hashes aren't applicable to ESM imports. A jsdelivr
+// compromise would execute attacker code in the user's browser. Mitigated by
+// (a) pinning the exact version below, (b) running entirely client-side with
+// no auth context or user data leaving the page. A future PR will self-host
+// the wasm + js artifacts under site/play/vendor/ to remove this dependency.
 
 import * as duckdb from "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/+esm";
 
@@ -12,6 +19,10 @@ export async function getDuckDb() {
     new Blob([`importScripts("${bundle.mainWorker}");`], { type: "text/javascript" }),
   );
   const worker = new Worker(workerUrl);
+  // Worker has already loaded the source by the time `new Worker(url)` returns,
+  // so we can release the blob URL immediately. Hygiene; not a leak in
+  // practice since this code runs once per page (singleton).
+  URL.revokeObjectURL(workerUrl);
   const logger = new duckdb.ConsoleLogger();
   const db = new duckdb.AsyncDuckDB(logger, worker);
   await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
@@ -21,6 +32,9 @@ export async function getDuckDb() {
 
 export async function loadCsv(tableName, csv) {
   const db = await getDuckDb();
+  // `safe` is whitelist-filtered to [a-zA-Z0-9_], so it's safe to interpolate
+  // as a SQL identifier below. Do NOT broaden this regex without revisiting
+  // the SQL composition.
   const safe = tableName.replace(/[^a-zA-Z0-9_]/g, "_");
   await db.registerFileText(`${safe}.csv`, csv);
   const conn = await db.connect();
