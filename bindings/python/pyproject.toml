@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 authors = [{ name = "Glyph contributors" }]
 keywords = ["charts", "visualization", "mcp", "agents", "duckdb", "svg"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",

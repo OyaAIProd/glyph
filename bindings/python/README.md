@@ -2,6 +2,8 @@
 
 Deterministic chart compiler. 49 agent-callable verbs. Embedded DuckDB. Byte-stable SVG.
 
+> **Status — `0.1.0a1` is a scaffold-only release.** The public API shown below (`glyph.render`, `result.audit`, etc.) lands in subsequent alpha versions on the path to `0.1.0` stable. `pip install glyph-charts` without `--pre` will not pick up alphas. Track progress in [`docs/superpowers/plans/2026-05-18-s1-python-bindings.md`](https://github.com/seanhanca/glyph/blob/main/docs/superpowers/plans/2026-05-18-s1-python-bindings.md).
+
 ## Install
 
 ```bash
