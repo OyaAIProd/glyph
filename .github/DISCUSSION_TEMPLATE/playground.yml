@@ -1,0 +1,45 @@
+title: "[playground] <name>"
+labels: ["playground", "gallery"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Submit a Glyph playground to the gallery. Share something cool — a
+        creative spec, a real-world dataset, a clever audit-rule trigger.
+        Open the [playground](https://seanhanca.github.io/glyph/play/),
+        build your chart, click **Share URL** or **Save to Gist**, and paste
+        the resulting link below.
+  - type: input
+    id: name
+    attributes:
+      label: Name
+      description: What does this playground show? (e.g. "NYC taxi rides by hour")
+      placeholder: A short, descriptive title.
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Playground URL
+      description: Paste your shared playground URL — either the `#h=…` hash form or the `?gist=…` gist form.
+      placeholder: https://seanhanca.github.io/glyph/play/#h=...
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes (optional)
+      description: Anything interesting about the chart, the data, or the spec. What should a viewer notice?
+      placeholder: |
+        - The trust score is 92 because the y-axis is zero-based and the sample is large.
+        - The data is from <source>.
+    validations:
+      required: false
+  - type: checkboxes
+    id: license
+    attributes:
+      label: License acknowledgement
+      description: Submissions are shared under the repo's Apache 2.0 license.
+      options:
+        - label: I'm OK with this playground being featured in the public gallery.
+          required: true

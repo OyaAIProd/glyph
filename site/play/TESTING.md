@@ -260,3 +260,72 @@ Pass criteria:
 - Findings re-render synchronously on every keystroke. For very large
   specs this can stutter; deferred to PR6's perf pass if benchmarks
   justify a debounce.
+
+## PR6 — Share via URL hash + GitHub Gist, launch
+
+Prereqs: same as PR5.
+
+Steps — URL hash share:
+
+1. Load `http://localhost:8000/play/` and pick the `rides.csv (12 rows)`
+   example. Audit panel should populate.
+2. Click **Share URL**. A toast at the bottom-right reads
+   `Copied N-char share URL`.
+3. Paste the URL into a new tab. The page boots, then a toast reads
+   `Loaded from shared URL`. The spec editor and CSV textarea are
+   populated; the chart + audit panel match the source tab byte-for-byte.
+4. Open DevTools → Network. No request hit `api.github.com` — URL hash
+   mode is fully offline.
+
+Steps — Gist share (anonymous):
+
+1. From the loaded playground, click **Save to Gist**. The toast reads
+   `Creating gist…` then `Saved gist · URL copied`.
+2. Paste the URL (`…/play/?gist=<id>`) into a new tab. Toast:
+   `Loaded gist <prefix>…`. Spec + CSV restored.
+3. Visit `https://gist.github.com/<id>` in another tab. Two files:
+   `playground.glyph.json` and `data.csv`. Both round-trip byte-clean.
+
+Steps — rate-limit fallback ("Save to my account"):
+
+1. To force the 403 path, temporarily edit `share.js` and `throw new
+   GistRateLimitError("test")` at the top of `createAnonymousGist`.
+2. Click **Save to Gist**. The error toast surfaces; a confirm dialog
+   asks `Open GitHub to save manually?`.
+3. Accept. A new tab opens at `https://gist.github.com/`. Clipboard
+   contains the spec + CSV block (paste into the new gist's body).
+4. Revert the test throw.
+
+Steps — URL-too-long path:
+
+1. Load a large dataset (~5K rows). Click **Share URL**.
+2. If the URL > 7500 chars, the prompt offers Gist fallback. Accept;
+   the Gist flow takes over.
+
+Steps — `Submit to gallery` link:
+
+1. Click the topbar "Submit to gallery" link.
+2. New tab opens at the repo's GitHub Discussions new-form with the
+   `playground` category preselected. Form fields: Name, Playground URL,
+   Notes, License acknowledgement.
+
+Pass criteria:
+
+- Roundtrip is identity: encode → decode produces byte-equal spec + CSV.
+- All three share paths copy to clipboard on success; the prompt fallback
+  works when clipboard is blocked (test in Safari).
+- 403 from GitHub triggers the typed `GistRateLimitError` and the
+  `openSaveToMyAccount` fallback path runs.
+- Loading a malformed `#h=` hash shows an error toast and leaves the
+  default spec intact (no crash, no white page).
+
+## Known limitations (PR6)
+
+- `og-playground.png` is checked in as an SVG source
+  (`site/og-playground.svg`) — the PNG rendering step needs `rsvg-convert`
+  or ImageMagick on a developer machine. Until that runs, social-card
+  previews fall back to no image (the `og:image` meta still points at
+  the future PNG path).
+- Anonymous gist creation is rate-limited at ~60/hour per IP by GitHub.
+  Once limits matter we add an "open my account" path that's already in
+  place as the fallback.

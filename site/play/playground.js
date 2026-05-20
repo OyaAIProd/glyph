@@ -6,6 +6,14 @@ import { describeTable, getDuckDb, loadCsv, queryRows } from "./duckdb.js";
 import * as glyph from "./glyph-bundle.js";
 import { compileAndRender, runAudit } from "./glyph-runtime.js";
 import { mountSpecEditor } from "./monaco-bootstrap.js";
+import {
+  GistRateLimitError,
+  createAnonymousGist,
+  decodeShareUrl,
+  encodeShareUrl,
+  fetchGist,
+  openSaveToMyAccount,
+} from "./share.js";
 
 console.log("playground booting…");
 console.log("@glyph/core exports:", Object.keys(glyph).slice(0, 10));
@@ -235,18 +243,200 @@ mountCsvUpload(csvHost, (loaded) => {
 // in-memory copy of the spec and triggers a re-render against the
 // most recent dataset.
 const specHost = document.getElementById("spec-editor");
+// Remembers the editor handle from mountSpecEditor so the share-load flow
+// (URL hash / ?gist=) can replace the editor contents after the page has
+// already booted with the default spec.
+let specEditor = null;
+
 mountSpecEditor(specHost, DEFAULT_SPEC, (next) => {
   currentSpec = next;
   console.log("spec changed:", currentSpec.length, "chars");
   rerender();
 })
-  .then(() => {
+  .then(async (handle) => {
+    specEditor = handle ?? null;
     // Monaco fires onChange only on user edits, so the default-spec audit
     // wouldn't render until the first keystroke. Paint once on successful
     // mount so the user sees the audit panel populated immediately.
     rerender();
+    // Now that the editor is live, try to hydrate from a shared URL.
+    await tryHydrateFromUrl();
   })
   .catch((e) => {
     console.error("monaco mount failed:", e);
     specHost.innerHTML = `<p class="placeholder">Editor failed to load: ${e.message ?? e}</p>`;
   });
+
+// ---------- Share buttons (PR6) ----------
+
+// Build the `{spec, csv}` payload that share.js round-trips. The CSV is
+// serialized from the in-memory dataset rather than the raw textarea so we
+// always share the exact rows DuckDB materialized — keeps gist + URL hash
+// reproducible even if the user pasted a CSV with stray blank lines.
+function currentPayload() {
+  let spec;
+  try {
+    spec = JSON.parse(currentSpec);
+  } catch {
+    spec = currentSpec; // fall back to the raw string; share is best-effort
+  }
+  const csv = dataset?.rows
+    ? toCsv(
+        dataset.rows,
+        dataset.columns.map((c) => c.column_name ?? c.name),
+      )
+    : null;
+  return { spec, csv };
+}
+
+// Minimal RFC-4180-ish CSV writer. Handles commas, quotes, newlines. Good
+// enough for the playground share path; the playground itself uses DuckDB
+// for parsing on the read side so any encoding it can't read isn't worth
+// us emitting here.
+function toCsv(rows, columns) {
+  const header = columns.join(",");
+  const body = rows
+    .map((r) =>
+      columns
+        .map((c) => {
+          const v = r[c];
+          if (v === null || v === undefined) return "";
+          const s = String(v);
+          return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        })
+        .join(","),
+    )
+    .join("\n");
+  return `${header}\n${body}\n`;
+}
+
+// Lightweight toast for share-button feedback. Lives at the bottom-right
+// for ~2.5s so the user sees confirmation without a modal dialog.
+function flashStatus(msg, kind = "ok") {
+  const el = document.createElement("div");
+  el.className = `flash flash-${kind}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("flash-out");
+    setTimeout(() => el.remove(), 250);
+  }, 2500);
+}
+
+const shareUrlBtn = document.getElementById("share-url");
+const shareGistBtn = document.getElementById("share-gist");
+
+if (shareUrlBtn) {
+  shareUrlBtn.addEventListener("click", async () => {
+    const payload = currentPayload();
+    let hash;
+    try {
+      hash = encodeShareUrl(payload);
+    } catch (e) {
+      flashStatus(`Encode error: ${e.message ?? e}`, "err");
+      return;
+    }
+    const url = `${location.origin}${location.pathname}#h=${hash}`;
+    // URL safe budget is ~8 KB; most browsers/servers handle 8192 but some
+    // chat tools mangle anything over ~7.5 KB. Past that, push the user to
+    // the Gist path which has effectively no length limit.
+    if (url.length > 7500) {
+      const useGist = confirm(
+        `URL is ${url.length} chars — that's bigger than is reliable for most chat clients.\n\nSave as a public Gist instead?`,
+      );
+      if (useGist) shareGistBtn?.click();
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      flashStatus(`Copied ${url.length}-char share URL`);
+    } catch (e) {
+      // Fall back to a prompt so the user can copy by hand if clipboard is
+      // blocked (Safari, certain iframe sandboxes).
+      console.warn("clipboard.writeText failed:", e);
+      window.prompt("Copy this URL:", url);
+    }
+  });
+}
+
+if (shareGistBtn) {
+  shareGistBtn.addEventListener("click", async () => {
+    const payload = currentPayload();
+    try {
+      flashStatus("Creating gist…");
+      const gist = await createAnonymousGist({
+        ...payload,
+        description: "Glyph playground",
+      });
+      const shareUrl = `${location.origin}${location.pathname}?gist=${gist.id}`;
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        flashStatus(`Saved gist · URL copied (${shareUrl.length} chars)`);
+      } catch {
+        window.prompt("Copy this URL:", shareUrl);
+      }
+    } catch (e) {
+      if (e instanceof GistRateLimitError) {
+        const ok = confirm(
+          `${e.message}\n\nOpen GitHub to save manually? (Your spec + CSV will be copied to the clipboard.)`,
+        );
+        if (ok) await openSaveToMyAccount(payload);
+        return;
+      }
+      flashStatus(`Gist error: ${e.message ?? e}`, "err");
+    }
+  });
+}
+
+// ---------- Restore from share URL on load ----------
+
+// Applies a `{spec, csv}` payload to the live editor + CSV textarea. Used by
+// both URL-hash and `?gist=<id>` entry points. Swallows missing fields so a
+// payload with only a spec (no data) still hydrates the editor.
+async function applyPayload({ spec, csv }) {
+  if (spec) {
+    const text = typeof spec === "string" ? spec : JSON.stringify(spec, null, 2);
+    currentSpec = text;
+    if (specEditor && typeof specEditor.setValue === "function") {
+      specEditor.setValue(text);
+    }
+  }
+  if (csv) {
+    const csvPaste = document.getElementById("csv-paste");
+    if (csvPaste) {
+      csvPaste.value = csv;
+      // The CSV upload widget listens for `blur` to ingest pasted text;
+      // synthesize one so DuckDB picks the rows up without a user gesture.
+      csvPaste.dispatchEvent(new Event("blur"));
+    }
+  }
+  // Force a rerender in case the editor doesn't fire onChange for setValue.
+  rerender();
+}
+
+async function tryHydrateFromUrl() {
+  const hashMatch = location.hash.match(/#h=(.+)/);
+  if (hashMatch) {
+    try {
+      const payload = decodeShareUrl(hashMatch[1]);
+      await applyPayload(payload);
+      flashStatus("Loaded from shared URL");
+    } catch (e) {
+      console.warn("Bad share hash:", e);
+      flashStatus(`Bad share URL: ${e.message ?? e}`, "err");
+    }
+    return;
+  }
+  const gistId = new URLSearchParams(location.search).get("gist");
+  if (gistId) {
+    try {
+      flashStatus("Loading gist…");
+      const payload = await fetchGist(gistId);
+      await applyPayload(payload);
+      flashStatus(`Loaded gist ${gistId.slice(0, 8)}…`);
+    } catch (e) {
+      console.warn("Failed to load gist:", e);
+      flashStatus(`Failed to load gist: ${e.message ?? e}`, "err");
+    }
+  }
+}

@@ -9,7 +9,9 @@
 
 A TypeScript chart-and-compute library where charts are JSON specs an LLM can author, diff, and patch. Compilation is a pure function. SVG output is identical across runs, OSes, and Node versions. The 50-verb MCP server is the primary API.
 
-**[Quickstart](#quickstart)** · **[Interactive docs](./site/index.html)** · **[Examples](#examples)** · **[Comparison](#comparison)** · **[Packages](#packages)**
+**[Try Glyph in your browser →](https://seanhanca.github.io/glyph/play/)** — paste a CSV, edit a spec, watch the chart + audit findings + trust score update live. Share via URL or GitHub Gist. No install.
+
+**[Quickstart](#quickstart)** · **[Playground](https://seanhanca.github.io/glyph/play/)** · **[Interactive docs](./site/index.html)** · **[Examples](#examples)** · **[Comparison](#comparison)** · **[Packages](#packages)**
 
 > 🌐 **Want the full tour?** Open [`site/index.html`](./site/index.html) in your browser — it's a single static page with a playground, 8 animated demos, 9 visualized innovations, a 16-row comparison matrix, and side-by-side Claude / Codex setup. No build step, no server. See [Interactive docs](#interactive-docs) below for one-line ways to open it.
 

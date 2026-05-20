@@ -241,6 +241,31 @@ button:hover {
   background: #f7f7f7;
   color: var(--fg-soft);
 }
+/* Toast for share-button feedback (PR6). Bottom-right, ~2.5s lifetime.
+   `.flash-out` is set ~250ms before removal for the fade-out transition. */
+.flash {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  padding: 10px 14px;
+  background: var(--fg);
+  color: white;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  opacity: 1;
+  transition: opacity 0.25s ease-out, transform 0.25s ease-out;
+}
+.flash-err {
+  background: var(--red);
+}
+.flash-out {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
 @media (max-width: 1100px) {
   .playground {
     grid-template-columns: 1fr 1fr;

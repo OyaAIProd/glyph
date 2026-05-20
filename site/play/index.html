@@ -8,14 +8,23 @@
   <meta property="og:title" content="Glyph Playground" />
   <meta property="og:description" content="Paste a CSV, edit a spec, see the chart + audit findings + trust score." />
   <meta property="og:url" content="https://seanhanca.github.io/glyph/play/" />
-  <!-- og:image + twitter:card are intentionally omitted in PR1; both will land
-       in the launch PR alongside a 1200x630 og-playground.png at site/. -->
+  <!-- og:image landed alongside the launch PR (PR6). 1200x630 PNG at
+       site/og-playground.png. If the image file isn't yet rendered, the
+       URL 404s gracefully and the rest of the OG card still works. -->
+  <meta property="og:image" content="../og-playground.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Glyph Playground" />
+  <meta name="twitter:description" content="Paste a CSV, edit a spec, see the chart + audit findings + trust score." />
+  <meta name="twitter:image" content="../og-playground.png" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <header class="topbar">
     <a href="../" class="brand">Glyph</a>
     <nav>
+      <a href="https://github.com/seanhanca/glyph/discussions/new?category=playground&amp;template=playground.yml" target="_blank" rel="noopener">Submit to gallery</a>
       <a href="https://github.com/seanhanca/glyph">GitHub</a>
       <a href="../">Docs</a>
     </nav>
