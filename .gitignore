@@ -18,3 +18,11 @@ pnpm-debug.log*
 
 # Showcase: raw OWID CSV (~94 MB) — re-fetched by sandbox-covid/build_data.py
 sandbox-covid/data/owid-covid-data.csv
+
+# Python bindings build artifacts and caches
+bindings/python/dist/
+bindings/python/__pycache__/
+bindings/python/*.egg-info/
+bindings/python/.pytest_cache/
+bindings/python/.ruff_cache/
+bindings/python/.mypy_cache/
