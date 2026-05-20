@@ -1,0 +1,16 @@
+{
+  "version": "glyph/0.1",
+  "title": "Rotation field (-y, x) on a 5×5 grid",
+  "data": {
+    "source": "inline:vector-field-rotation"
+  },
+  "layers": [
+    {
+      "mark": "vector-field",
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": { "field": "y", "type": "quantitative" }
+      }
+    }
+  ]
+}

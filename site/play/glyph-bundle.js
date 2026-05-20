@@ -4196,7 +4196,12 @@ var MarkSchema = external_exports.enum([
   // PR75 (D3 Gap 4) — contour isolines over a 2D scalar field. Reads
   // spec.data.grid + spec.thresholds, runs marching-squares, emits one
   // path mark per threshold.
-  "contour"
+  "contour",
+  // Math PR3 — oriented arrows from a 2D vector field. Rows are
+  // `{x, y, dx, dy}` (precomputed by the user or by a future
+  // function-data extension). Compiler emits one `arrow` SceneMark per
+  // row; SVG renderer emits a `<line>` with `marker-end="url(#glyph-arrow)"`.
+  "vector-field"
 ]);
 var CoordinatesSchema = external_exports.object({
   type: external_exports.literal("polar"),
@@ -7147,6 +7152,84 @@ function flattenArcs(node) {
   return out;
 }
 
+// packages/core/dist/compiler/mark-registry.js
+var registry = /* @__PURE__ */ new Map();
+function registerMark(c) {
+  if (registry.has(c.type)) {
+    throw new Error(`Mark "${c.type}" already registered`);
+  }
+  registry.set(c.type, c);
+}
+function getMarkCompiler(type) {
+  const c = registry.get(type);
+  if (!c)
+    throw new Error(`Unknown mark type: ${type}`);
+  return c;
+}
+
+// packages/core/dist/compiler/marks/vector-field.js
+var MIN_LEN = 4;
+var MAX_LEN = 24;
+var MAG_SCALE = 8;
+function clamp(v, lo, hi) {
+  return v < lo ? lo : v > hi ? hi : v;
+}
+function fieldIndex(schema, name) {
+  return schema.findIndex((c) => c.name === name);
+}
+function num(v) {
+  if (typeof v === "number")
+    return v;
+  if (typeof v === "bigint")
+    return Number(v);
+  return Number(v);
+}
+var vectorFieldMarkCompiler = {
+  type: "vector-field",
+  compile(args) {
+    const { xScale, yScale, rows, schema, theme, out } = args;
+    if (!yScale)
+      return;
+    if (xScale.type !== "linear")
+      return;
+    const xIdx = fieldIndex(schema, args.xField);
+    const yIdx = fieldIndex(schema, args.yField);
+    const dxIdx = fieldIndex(schema, "dx");
+    const dyIdx = fieldIndex(schema, "dy");
+    if (xIdx < 0 || yIdx < 0 || dxIdx < 0 || dyIdx < 0)
+      return;
+    const stroke = theme.fg;
+    for (const row of rows) {
+      const xv = num(row[xIdx]);
+      const yv = num(row[yIdx]);
+      const dx = num(row[dxIdx]);
+      const dy = num(row[dyIdx]);
+      if (!Number.isFinite(xv) || !Number.isFinite(yv))
+        continue;
+      if (!Number.isFinite(dx) || !Number.isFinite(dy))
+        continue;
+      const xpx = xScale.apply(xv);
+      const ypx = yScale.apply(yv);
+      if (!Number.isFinite(xpx) || !Number.isFinite(ypx))
+        continue;
+      const magnitude = Math.sqrt(dx * dx + dy * dy);
+      const length = clamp(magnitude * MAG_SCALE, MIN_LEN, MAX_LEN);
+      const angle = Math.atan2(-dy, dx);
+      const arrow = {
+        type: "arrow",
+        x: roundPx(xpx),
+        y: roundPx(ypx),
+        length: roundPx(length),
+        angle,
+        stroke,
+        strokeWidth: 1.5
+      };
+      out.push(arrow);
+    }
+  }
+};
+registerMark(vectorFieldMarkCompiler);
+
 // packages/core/dist/compiler/compile.js
 function attrValue(v) {
   if (v === null || v === void 0)
@@ -7462,7 +7545,9 @@ function compileSpec(input) {
       "geo-region",
       "heatmap",
       "boxplot",
-      "text"
+      "text",
+      // Math PR3 — vector-field rides the cartesian path with linear x/y.
+      "vector-field"
     ];
     if (!allowedMarks.includes(l.mark)) {
       throw new Error(`Phase 1 supports marks ${allowedMarks.join("|")}; layer ${i} has ${l.mark}`);
@@ -7511,6 +7596,17 @@ function compileSpec(input) {
       }
       if (fieldOf(l.encoding.text) === void 0) {
         throw new Error(`Layer ${i} (text) requires encoding.text`);
+      }
+      continue;
+    }
+    if (l.mark === "vector-field") {
+      if (fieldOf(l.encoding.x) === void 0 || fieldOf(l.encoding.y) === void 0) {
+        throw new Error(`Layer ${i} (vector-field) requires both x and y encodings`);
+      }
+      const haveDx = schema.some((c) => c.name === "dx");
+      const haveDy = schema.some((c) => c.name === "dy");
+      if (!haveDx || !haveDy) {
+        throw new Error(`Layer ${i} (vector-field) requires schema fields "dx" and "dy" (got ${schema.map((c) => c.name).join(", ")})`);
       }
       continue;
     }
@@ -7589,15 +7685,54 @@ function compileSpec(input) {
     const yScale = (ySide === "right" ? rightY : leftY)?.scale ?? leftY?.scale;
     if (layer.mark === "rule") {
       const ruleYScale = yField ? yScale : void 0;
-      buildRules(marks, rows, schema, enc, xScale, ruleYScale, theme);
+      getMarkCompiler("rule").compile({
+        layer,
+        spec,
+        rows,
+        schema,
+        theme,
+        xScale,
+        yScale: ruleYScale,
+        xField: xField ?? "",
+        yField: yField ?? "",
+        ctx: void 0,
+        plotArea,
+        out: marks
+      });
       continue;
     }
     if (layer.mark === "geo-region") {
-      buildGeoRegions(marks, spec, rows, schema, enc, theme, plotArea);
+      getMarkCompiler("geo-region").compile({
+        layer,
+        spec,
+        rows,
+        schema,
+        theme,
+        xScale,
+        yScale,
+        xField: xField ?? "",
+        yField: yField ?? "",
+        ctx: void 0,
+        plotArea,
+        out: marks
+      });
       continue;
     }
     if (layer.mark === "heatmap") {
-      buildHeatmap(marks, rows, schema, enc, plotArea, theme);
+      getMarkCompiler("heatmap").compile({
+        layer,
+        spec,
+        rows,
+        schema,
+        theme,
+        xScale,
+        yScale,
+        xField: xField ?? "",
+        yField: yField ?? "",
+        ctx: void 0,
+        plotArea,
+        out: marks
+      });
       continue;
     }
     if (!yScale || !xField || !yField)
@@ -7606,12 +7741,41 @@ function compileSpec(input) {
       if (xScale.type !== "band") {
         throw new Error("boxplot mark requires a band x scale");
       }
-      buildBoxplot(marks, rows, schema, enc, xField, yField, xScale, yScale, theme);
+      getMarkCompiler("boxplot").compile({
+        layer,
+        spec,
+        rows,
+        schema,
+        theme,
+        xScale,
+        yScale,
+        xField,
+        yField,
+        ctx: void 0,
+        plotArea,
+        out: marks
+      });
       continue;
     }
     if (layer.mark === "text") {
-      buildTextAnnotations(marks, rows, schema, enc, xField, yField, xScale, yScale, theme);
+      getMarkCompiler("text").compile({
+        layer,
+        spec,
+        rows,
+        schema,
+        theme,
+        xScale,
+        yScale,
+        xField,
+        yField,
+        ctx: void 0,
+        plotArea,
+        out: marks
+      });
       continue;
+    }
+    if (layer.mark === "bar" && xScale.type !== "band") {
+      throw new Error("bar mark requires a band x scale");
     }
     const ctx = {
       interactive: spec.interactive,
@@ -7620,18 +7784,20 @@ function compileSpec(input) {
       colorField: fieldOf(enc.color),
       tooltip: enc.tooltip
     };
-    if (layer.mark === "bar") {
-      if (xScale.type !== "band") {
-        throw new Error("bar mark requires a band x scale");
-      }
-      buildBars(marks, rows, schema, enc, xField, yField, xScale, yScale, theme, ctx);
-    } else if (layer.mark === "point") {
-      buildPoints(marks, rows, schema, enc, xField, yField, xScale, yScale, theme, ctx);
-    } else if (layer.mark === "line") {
-      buildLines(marks, rows, schema, enc, xField, yField, xScale, yScale, theme);
-    } else {
-      buildAreas(marks, rows, schema, enc, xField, yField, xScale, yScale, theme);
-    }
+    getMarkCompiler(layer.mark).compile({
+      layer,
+      spec,
+      rows,
+      schema,
+      theme,
+      xScale,
+      yScale,
+      xField,
+      yField,
+      ctx,
+      plotArea,
+      out: marks
+    });
   }
   const axes = [];
   const hasGeo = spec.layers.some((l) => l.mark === "geo-region" || l.mark === "geo-point");
@@ -8968,6 +9134,75 @@ function makeTickFormatter(locale) {
   });
   return (n) => fmt.format(n);
 }
+registerMark({
+  type: "bar",
+  compile(args) {
+    if (args.xScale.type !== "band") {
+      throw new Error("bar mark requires a band x scale");
+    }
+    if (!args.yScale || !args.ctx)
+      return;
+    buildBars(args.out, args.rows, args.schema, args.layer.encoding, args.xField, args.yField, args.xScale, args.yScale, args.theme, args.ctx);
+  }
+});
+registerMark({
+  type: "point",
+  compile(args) {
+    if (!args.yScale || !args.ctx)
+      return;
+    buildPoints(args.out, args.rows, args.schema, args.layer.encoding, args.xField, args.yField, args.xScale, args.yScale, args.theme, args.ctx);
+  }
+});
+registerMark({
+  type: "line",
+  compile(args) {
+    if (!args.yScale)
+      return;
+    buildLines(args.out, args.rows, args.schema, args.layer.encoding, args.xField, args.yField, args.xScale, args.yScale, args.theme);
+  }
+});
+registerMark({
+  type: "area",
+  compile(args) {
+    if (!args.yScale)
+      return;
+    buildAreas(args.out, args.rows, args.schema, args.layer.encoding, args.xField, args.yField, args.xScale, args.yScale, args.theme);
+  }
+});
+registerMark({
+  type: "rule",
+  compile(args) {
+    buildRules(args.out, args.rows, args.schema, args.layer.encoding, args.xScale, args.yScale, args.theme);
+  }
+});
+registerMark({
+  type: "geo-region",
+  compile(args) {
+    buildGeoRegions(args.out, args.spec, args.rows, args.schema, args.layer.encoding, args.theme, args.plotArea);
+  }
+});
+registerMark({
+  type: "heatmap",
+  compile(args) {
+    buildHeatmap(args.out, args.rows, args.schema, args.layer.encoding, args.plotArea, args.theme);
+  }
+});
+registerMark({
+  type: "boxplot",
+  compile(args) {
+    if (!args.yScale)
+      return;
+    buildBoxplot(args.out, args.rows, args.schema, args.layer.encoding, args.xField, args.yField, args.xScale, args.yScale, args.theme);
+  }
+});
+registerMark({
+  type: "text",
+  compile(args) {
+    if (!args.yScale)
+      return;
+    buildTextAnnotations(args.out, args.rows, args.schema, args.layer.encoding, args.xField, args.yField, args.xScale, args.yScale, args.theme);
+  }
+});
 
 // packages/core/dist/compiler/stats.js
 var SUPPORTED_STAT_TYPES = ["count", "sum", "mean"];
@@ -9162,7 +9397,22 @@ function renderMark(m, interactive) {
       }
       return `<path d="${d}" fill="${esc(m.fill)}"${stroke}${sw}${data}${aria}/>`;
     }
+    case "arrow": {
+      const x2 = m.x + Math.cos(m.angle) * m.length;
+      const y2 = m.y + Math.sin(m.angle) * m.length;
+      const sw = m.strokeWidth !== void 0 ? m.strokeWidth : 1.5;
+      const r = (n) => Math.round(n * 1e4) / 1e4;
+      return `<line x1="${m.x}" y1="${m.y}" x2="${r(x2)}" y2="${r(y2)}" stroke="${esc(m.stroke)}" stroke-width="${sw}" marker-end="url(#glyph-arrow)"/>`;
+    }
   }
+}
+function renderArrowDefs(scene) {
+  for (const m of scene.marks) {
+    if (m.type === "arrow") {
+      return '<defs><marker id="glyph-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse" markerUnits="strokeWidth"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker></defs>';
+    }
+  }
+  return "";
 }
 function arcSvgPath(cx, cy, innerR, outerR, startAngle, endAngle) {
   const a0 = startAngle - Math.PI / 2;
@@ -9307,7 +9557,8 @@ function renderSvg(scene) {
   const uncertainClass = scene.uncertainty?.dimPoints ? " glyph-uncertain" : "";
   const marks = interactive || animClass || uncertainClass ? `<g class="glyph-marks${animClass}${uncertainClass}">${markStrs}</g>` : markStrs;
   const axes = scene.axes.map(renderAxis).join("");
-  return `${head}${desc}${hoverStyle}${animationStyle}${uncertaintyStyle}${bg}${title}${grid}${marks}${axes}${uncertaintyOverlay}${legends}</svg>
+  const arrowDefs = renderArrowDefs(scene);
+  return `${head}${desc}${hoverStyle}${animationStyle}${uncertaintyStyle}${arrowDefs}${bg}${title}${grid}${marks}${axes}${uncertaintyOverlay}${legends}</svg>
 `;
 }
 function renderUncertaintyOverlay(scene) {
@@ -9870,9 +10121,9 @@ function temporal(ctx) {
       sxx += i * i;
       syy += p.y * p.y;
     });
-    const num = n * sxy - sx * sy;
+    const num2 = n * sxy - sx * sy;
     const den = Math.sqrt((n * sxx - sx * sx) * (n * syy - sy * sy));
-    const r = den === 0 ? 0 : num / den;
+    const r = den === 0 ? 0 : num2 / den;
     if (Math.abs(r) >= 0.6) {
       const dir = r > 0 ? "upward" : "downward";
       highlights.push(`Trend is ${dir} (r=${r.toFixed(2)}) over ${n} periods.`);
@@ -9966,7 +10217,7 @@ function fmtLabel2(v) {
     return String(v);
   return String(v);
 }
-function fieldIndex(schema, name) {
+function fieldIndex2(schema, name) {
   const i = schema.findIndex((c) => c.name === name);
   if (i < 0)
     throw new Error(`Diagnostic: field "${name}" not found in schema`);
@@ -9991,9 +10242,9 @@ function meanStd(values) {
 function detectAnomalies(input) {
   const threshold = input.threshold ?? 2;
   const limit = input.limit ?? 20;
-  const valueIdx = fieldIndex(input.schema, input.valueField);
-  const groupIdx = input.groupField ? fieldIndex(input.schema, input.groupField) : -1;
-  const labelIdx = input.labelField !== void 0 ? fieldIndex(input.schema, input.labelField) : -1;
+  const valueIdx = fieldIndex2(input.schema, input.valueField);
+  const groupIdx = input.groupField ? fieldIndex2(input.schema, input.groupField) : -1;
+  const labelIdx = input.labelField !== void 0 ? fieldIndex2(input.schema, input.labelField) : -1;
   const buckets = /* @__PURE__ */ new Map();
   for (const row of input.rows) {
     const v = toNumber2(row[valueIdx]);
@@ -10068,9 +10319,9 @@ function buildAnomalyExplanation(args) {
 }
 function attributeDrift(input) {
   const limit = input.limit ?? 20;
-  const valueIdx = fieldIndex(input.schema, input.valueField);
-  const groupIdx = fieldIndex(input.schema, input.groupField);
-  const periodIdx = fieldIndex(input.schema, input.periodField);
+  const valueIdx = fieldIndex2(input.schema, input.valueField);
+  const groupIdx = fieldIndex2(input.schema, input.groupField);
+  const periodIdx = fieldIndex2(input.schema, input.periodField);
   const sumA = /* @__PURE__ */ new Map();
   const sumB = /* @__PURE__ */ new Map();
   let totalA = 0;
@@ -10139,7 +10390,7 @@ function buildDriftExplanation(args) {
   };
 }
 function decomposeVariance(input) {
-  const valueIdx = fieldIndex(input.schema, input.metricField);
+  const valueIdx = fieldIndex2(input.schema, input.metricField);
   const allValues = [];
   for (const row of input.rows) {
     const v = toNumber2(row[valueIdx]);
@@ -10154,7 +10405,7 @@ function decomposeVariance(input) {
   }
   const rows = [];
   for (const factor of input.factors) {
-    const factorIdx = fieldIndex(input.schema, factor);
+    const factorIdx = fieldIndex2(input.schema, factor);
     const groups = /* @__PURE__ */ new Map();
     for (const row of input.rows) {
       const v = toNumber2(row[valueIdx]);
@@ -10227,8 +10478,8 @@ function buildDecomposeExplanation(args) {
 }
 function seasonalNaiveForecast(input) {
   const horizon = input.horizon ?? 7;
-  const xIdx = fieldIndex(input.schema, input.xField);
-  const yIdx = fieldIndex(input.schema, input.yField);
+  const xIdx = fieldIndex2(input.schema, input.xField);
+  const yIdx = fieldIndex2(input.schema, input.yField);
   const sorted = [...input.rows].map((row) => ({ row, x: row[xIdx], y: toNumber2(row[yIdx]) })).filter((p) => p.y !== void 0).sort((a, b) => {
     const av = a.x instanceof Date ? a.x.getTime() : Number(a.x);
     const bv = b.x instanceof Date ? b.x.getTime() : Number(b.x);
@@ -10310,8 +10561,8 @@ function forecast(input) {
 }
 function holtWintersForecast(input) {
   const horizon = input.horizon ?? 7;
-  const xIdx = fieldIndex(input.schema, input.xField);
-  const yIdx = fieldIndex(input.schema, input.yField);
+  const xIdx = fieldIndex2(input.schema, input.xField);
+  const yIdx = fieldIndex2(input.schema, input.yField);
   const sorted = [...input.rows].map((row) => ({ row, x: row[xIdx], y: toNumber2(row[yIdx]) })).filter((p) => p.y !== void 0).sort((a, b) => {
     const av = a.x instanceof Date ? a.x.getTime() : Number(a.x);
     const bv = b.x instanceof Date ? b.x.getTime() : Number(b.x);

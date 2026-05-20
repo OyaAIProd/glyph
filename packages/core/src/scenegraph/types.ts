@@ -106,7 +106,24 @@ export type SceneMark =
       readonly fill: string;
       readonly stroke?: string;
       readonly strokeWidth?: number;
-    } & MarkData);
+    } & MarkData)
+  | {
+      /**
+       * Math PR3 — oriented arrow. Drawn by the `vector-field` mark
+       * compiler. `x, y` is the tail anchor (the row's (x, y) in pixel
+       * space); the head extends `length` pixels along `angle` radians.
+       * The renderer emits a `<line>` with `marker-end="url(#glyph-arrow)"`;
+       * the marker definition is added once to the SVG `<defs>` when any
+       * arrow is present in the scene.
+       */
+      readonly type: "arrow";
+      readonly x: number;
+      readonly y: number;
+      readonly length: number;
+      readonly angle: number;
+      readonly stroke: string;
+      readonly strokeWidth?: number;
+    };
 
 /**
  * PR61 (PLAN item 2.3) — uncertainty signals attached to a Scene. Set by

@@ -54,6 +54,11 @@ import type {
   HierarchyNode,
   InteractiveConfig,
 } from "../spec/types.js";
+import { getMarkCompiler, registerMark } from "./mark-registry.js";
+// Side-effect imports: each mark module registers itself with the registry
+// at module-load. The vector-field mark is the first PR3 user; future
+// math marks (math-text, streamline, ...) plug in the same way.
+import "./marks/vector-field.js";
 import {
   angleScale,
   bandScale,
@@ -547,8 +552,7 @@ export function compileSpec(input: CompileInput): Scene {
   // categorical / continuous color encodings overflow the SVG and clip.
   const anyRight = spec.layers.some((l) => ySideOfLayer(l.encoding) === "right");
   const legendW = estimateLegendWidth(spec, rows, schema);
-  const padRight =
-    (anyRight ? PADDING.left : PADDING.right) + (legendW > 0 ? legendW + 12 : 0);
+  const padRight = (anyRight ? PADDING.left : PADDING.right) + (legendW > 0 ? legendW + 12 : 0);
   // Bump bottom padding when the x-axis has a non-trivial number of band
   // labels (date strings, country names) so the axis title + ticks fit.
   const padBottom = computeBottomPad(spec, rows, schema);
@@ -585,6 +589,8 @@ export function compileSpec(input: CompileInput): Scene {
       "heatmap",
       "boxplot",
       "text",
+      // Math PR3 — vector-field rides the cartesian path with linear x/y.
+      "vector-field",
     ];
     if (!allowedMarks.includes(l.mark)) {
       throw new Error(`Phase 1 supports marks ${allowedMarks.join("|")}; layer ${i} has ${l.mark}`);
@@ -641,6 +647,23 @@ export function compileSpec(input: CompileInput): Scene {
       }
       if (fieldOf(l.encoding.text) === undefined) {
         throw new Error(`Layer ${i} (text) requires encoding.text`);
+      }
+      continue;
+    }
+    // Math PR3 — vector-field needs x, y, dx, dy in the schema. dx + dy
+    // are read directly from row['dx'] / row['dy'] (no encoding override
+    // yet — kept simple for v0; a `vector` encoding channel can ship in
+    // a later PR).
+    if (l.mark === "vector-field") {
+      if (fieldOf(l.encoding.x) === undefined || fieldOf(l.encoding.y) === undefined) {
+        throw new Error(`Layer ${i} (vector-field) requires both x and y encodings`);
+      }
+      const haveDx = schema.some((c) => c.name === "dx");
+      const haveDy = schema.some((c) => c.name === "dy");
+      if (!haveDx || !haveDy) {
+        throw new Error(
+          `Layer ${i} (vector-field) requires schema fields "dx" and "dy" (got ${schema.map((c) => c.name).join(", ")})`,
+        );
       }
       continue;
     }
@@ -741,22 +764,64 @@ export function compileSpec(input: CompileInput): Scene {
     const yField = fieldOf(enc.y);
     const ySide = ySideOfLayer(enc);
     const yScale = (ySide === "right" ? rightY : leftY)?.scale ?? leftY?.scale;
+    // Math PR3 — leaf mark dispatch goes through the mark registry. The
+    // spec-shape gates BELOW (yScale/xField/yField presence; band-x for
+    // bar+boxplot) remain inline because they're preconditions, not mark
+    // work. Each registered compiler is a thin trampoline into the
+    // matching private build* function with identical argument order so
+    // byte output stays identical to the pre-registry path.
     if (layer.mark === "rule") {
       // Rule needs only one side; its y/x encoding may be missing.
       const ruleYScale = yField ? yScale : undefined;
-      buildRules(marks, rows, schema, enc, xScale, ruleYScale, theme);
+      getMarkCompiler("rule").compile({
+        layer,
+        spec,
+        rows,
+        schema,
+        theme,
+        xScale,
+        yScale: ruleYScale,
+        xField: xField ?? "",
+        yField: yField ?? "",
+        ctx: undefined,
+        plotArea,
+        out: marks,
+      });
       continue;
     }
     if (layer.mark === "geo-region") {
-      // PR44: project each GeoJSON feature, fill by color encoding.
-      buildGeoRegions(marks, spec, rows, schema, enc, theme, plotArea);
+      getMarkCompiler("geo-region").compile({
+        layer,
+        spec,
+        rows,
+        schema,
+        theme,
+        xScale,
+        yScale,
+        xField: xField ?? "",
+        yField: yField ?? "",
+        ctx: undefined,
+        plotArea,
+        out: marks,
+      });
       continue;
     }
     if (layer.mark === "heatmap") {
-      // PR49: 2D categorical x × categorical y; color from a quantitative
-      // field interpolated between two stops. Bypasses the y-quantitative
-      // requirement of the regular path.
-      buildHeatmap(marks, rows, schema, enc, plotArea, theme);
+      // Heatmap bypasses the y-quantitative requirement of the regular path.
+      getMarkCompiler("heatmap").compile({
+        layer,
+        spec,
+        rows,
+        schema,
+        theme,
+        xScale,
+        yScale,
+        xField: xField ?? "",
+        yField: yField ?? "",
+        ctx: undefined,
+        plotArea,
+        out: marks,
+      });
       continue;
     }
     if (!yScale || !xField || !yField) continue;
@@ -764,12 +829,41 @@ export function compileSpec(input: CompileInput): Scene {
       if (xScale.type !== "band") {
         throw new Error("boxplot mark requires a band x scale");
       }
-      buildBoxplot(marks, rows, schema, enc, xField, yField, xScale, yScale, theme);
+      getMarkCompiler("boxplot").compile({
+        layer,
+        spec,
+        rows,
+        schema,
+        theme,
+        xScale,
+        yScale,
+        xField,
+        yField,
+        ctx: undefined,
+        plotArea,
+        out: marks,
+      });
       continue;
     }
     if (layer.mark === "text") {
-      buildTextAnnotations(marks, rows, schema, enc, xField, yField, xScale, yScale, theme);
+      getMarkCompiler("text").compile({
+        layer,
+        spec,
+        rows,
+        schema,
+        theme,
+        xScale,
+        yScale,
+        xField,
+        yField,
+        ctx: undefined,
+        plotArea,
+        out: marks,
+      });
       continue;
+    }
+    if (layer.mark === "bar" && xScale.type !== "band") {
+      throw new Error("bar mark requires a band x scale");
     }
     const ctx: MarkCtx = {
       interactive: spec.interactive,
@@ -778,19 +872,21 @@ export function compileSpec(input: CompileInput): Scene {
       colorField: fieldOf(enc.color),
       tooltip: enc.tooltip,
     };
-    if (layer.mark === "bar") {
-      if (xScale.type !== "band") {
-        throw new Error("bar mark requires a band x scale");
-      }
-      buildBars(marks, rows, schema, enc, xField, yField, xScale, yScale, theme, ctx);
-    } else if (layer.mark === "point") {
-      buildPoints(marks, rows, schema, enc, xField, yField, xScale, yScale, theme, ctx);
-    } else if (layer.mark === "line") {
-      buildLines(marks, rows, schema, enc, xField, yField, xScale, yScale, theme);
-    } else {
-      // area
-      buildAreas(marks, rows, schema, enc, xField, yField, xScale, yScale, theme);
-    }
+    // bar / point / line / area / vector-field all route via the registry.
+    getMarkCompiler(layer.mark).compile({
+      layer,
+      spec,
+      rows,
+      schema,
+      theme,
+      xScale,
+      yScale,
+      xField,
+      yField,
+      ctx,
+      plotArea,
+      out: marks,
+    });
   }
 
   // ---- Axes ------------------------------------------------------------
@@ -798,9 +894,7 @@ export function compileSpec(input: CompileInput): Scene {
   // Geo-region marks render projected polygons in their own coordinate
   // system; cartesian x/y axes are meaningless. Skip axis emission entirely
   // when any layer is a geo mark.
-  const hasGeo = spec.layers.some(
-    (l) => l.mark === "geo-region" || l.mark === "geo-point",
-  );
+  const hasGeo = spec.layers.some((l) => l.mark === "geo-region" || l.mark === "geo-point");
   const xLabel = allXFields[0] ?? "x";
   if (!hasGeo) {
     if (xScale.type === "band") {
@@ -2495,10 +2589,7 @@ function makeBottomAxis(
   //   - Thin (every Nth): n is too large for either to be readable
   const n = scale.domain.length;
   const approxCharW = 6.5;
-  const maxLabelLen = scale.domain.reduce(
-    (m, s) => Math.max(m, (s ?? "").length),
-    1,
-  );
+  const maxLabelLen = scale.domain.reduce((m, s) => Math.max(m, (s ?? "").length), 1);
   const labelPx = maxLabelLen * approxCharW + 8;
   const slot = n > 0 ? plotArea.width / n : plotArea.width;
   let rotation = 0;
@@ -2627,3 +2718,166 @@ function makeTickFormatter(locale: string | undefined): (n: number) => string {
   });
   return (n: number): string => fmt.format(n);
 }
+
+// ---------------------------------------------------------------------------
+// Math PR3 — register builtin cartesian mark compilers.
+//
+// Each compiler is a thin trampoline into a private build* function above,
+// preserving the exact argument order so byte output stays identical to
+// the pre-registry switch. The registry's value-add is for marks added
+// in later PRs (math-text, streamline, ...) which can `registerMark(...)`
+// at module-load without touching this file.
+//
+// Marks NOT registered here:
+//   - `treemap`, `sunburst` — dispatched in `compileHierarchy`
+//     (spec.data.hierarchy branch); they don't go through the cartesian
+//     mark loop, so the registry isn't on their hot path.
+//   - `force` — dispatched in `compileGraph` (spec.data.graph branch).
+//   - `contour` — dispatched in `compileContour` (spec.data.grid branch).
+//   - polar `bar/line/point/arc` — dispatched in `compilePolar`.
+// All four data-shape paths render a single mark family per layer
+// and would distort the registry's mark-name keying. PR4-6 marks land
+// in the cartesian path and route through the registry; the four
+// data-shape branches stay direct dispatches.
+// ---------------------------------------------------------------------------
+registerMark({
+  type: "bar",
+  compile(args) {
+    if (args.xScale.type !== "band") {
+      throw new Error("bar mark requires a band x scale");
+    }
+    if (!args.yScale || !args.ctx) return;
+    buildBars(
+      args.out,
+      args.rows,
+      args.schema,
+      args.layer.encoding,
+      args.xField,
+      args.yField,
+      args.xScale,
+      args.yScale,
+      args.theme,
+      args.ctx,
+    );
+  },
+});
+registerMark({
+  type: "point",
+  compile(args) {
+    if (!args.yScale || !args.ctx) return;
+    buildPoints(
+      args.out,
+      args.rows,
+      args.schema,
+      args.layer.encoding,
+      args.xField,
+      args.yField,
+      args.xScale,
+      args.yScale,
+      args.theme,
+      args.ctx,
+    );
+  },
+});
+registerMark({
+  type: "line",
+  compile(args) {
+    if (!args.yScale) return;
+    buildLines(
+      args.out,
+      args.rows,
+      args.schema,
+      args.layer.encoding,
+      args.xField,
+      args.yField,
+      args.xScale,
+      args.yScale,
+      args.theme,
+    );
+  },
+});
+registerMark({
+  type: "area",
+  compile(args) {
+    if (!args.yScale) return;
+    buildAreas(
+      args.out,
+      args.rows,
+      args.schema,
+      args.layer.encoding,
+      args.xField,
+      args.yField,
+      args.xScale,
+      args.yScale,
+      args.theme,
+    );
+  },
+});
+registerMark({
+  type: "rule",
+  compile(args) {
+    buildRules(
+      args.out,
+      args.rows,
+      args.schema,
+      args.layer.encoding,
+      args.xScale,
+      args.yScale,
+      args.theme,
+    );
+  },
+});
+registerMark({
+  type: "geo-region",
+  compile(args) {
+    buildGeoRegions(
+      args.out,
+      args.spec,
+      args.rows,
+      args.schema,
+      args.layer.encoding,
+      args.theme,
+      args.plotArea,
+    );
+  },
+});
+registerMark({
+  type: "heatmap",
+  compile(args) {
+    buildHeatmap(args.out, args.rows, args.schema, args.layer.encoding, args.plotArea, args.theme);
+  },
+});
+registerMark({
+  type: "boxplot",
+  compile(args) {
+    if (!args.yScale) return;
+    buildBoxplot(
+      args.out,
+      args.rows,
+      args.schema,
+      args.layer.encoding,
+      args.xField,
+      args.yField,
+      args.xScale,
+      args.yScale,
+      args.theme,
+    );
+  },
+});
+registerMark({
+  type: "text",
+  compile(args) {
+    if (!args.yScale) return;
+    buildTextAnnotations(
+      args.out,
+      args.rows,
+      args.schema,
+      args.layer.encoding,
+      args.xField,
+      args.yField,
+      args.xScale,
+      args.yScale,
+      args.theme,
+    );
+  },
+});

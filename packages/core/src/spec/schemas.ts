@@ -281,6 +281,11 @@ export const MarkSchema = z.enum([
   // spec.data.grid + spec.thresholds, runs marching-squares, emits one
   // path mark per threshold.
   "contour",
+  // Math PR3 — oriented arrows from a 2D vector field. Rows are
+  // `{x, y, dx, dy}` (precomputed by the user or by a future
+  // function-data extension). Compiler emits one `arrow` SceneMark per
+  // row; SVG renderer emits a `<line>` with `marker-end="url(#glyph-arrow)"`.
+  "vector-field",
 ]);
 
 /**

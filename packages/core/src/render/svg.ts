@@ -144,7 +144,44 @@ function renderMark(m: SceneMark, interactive: boolean): string {
       }
       return `<path d="${d}" fill="${esc(m.fill)}"${stroke}${sw}${data}${aria}/>`;
     }
+    case "arrow": {
+      // Math PR3 — oriented arrow for the `vector-field` mark. Tail at
+      // (x, y); head at (x + length·cos(angle), y + length·sin(angle)).
+      // The marker-end references `#glyph-arrow`, emitted once in
+      // `<defs>` when the scene contains any arrow mark (see
+      // `renderArrowDefs`).
+      const x2 = m.x + Math.cos(m.angle) * m.length;
+      const y2 = m.y + Math.sin(m.angle) * m.length;
+      const sw = m.strokeWidth !== undefined ? m.strokeWidth : 1.5;
+      // Round endpoints to 4 decimals — comfortably inside the roundPx
+      // precision band so byte output stays stable.
+      const r = (n: number): number => Math.round(n * 1e4) / 1e4;
+      return `<line x1="${m.x}" y1="${m.y}" x2="${r(x2)}" y2="${r(y2)}" stroke="${esc(
+        m.stroke,
+      )}" stroke-width="${sw}" marker-end="url(#glyph-arrow)"/>`;
+    }
   }
+}
+
+/**
+ * Emit the `<defs>` block for the arrow marker. Called once per render
+ * when the scene contains any arrow SceneMark; returns "" otherwise so
+ * existing snapshots (no arrows) stay byte-identical. The marker is a
+ * filled triangle pointing along the line direction; the stroke color
+ * of the referencing line drives the marker fill via `context-stroke`
+ * (CSS Paint Module / SVG 2; degrades to black on older renderers).
+ */
+function renderArrowDefs(scene: Scene): string {
+  for (const m of scene.marks) {
+    if (m.type === "arrow") {
+      return (
+        '<defs><marker id="glyph-arrow" viewBox="0 0 10 10" refX="9" refY="5" ' +
+        'markerWidth="6" markerHeight="6" orient="auto-start-reverse" markerUnits="strokeWidth">' +
+        '<path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker></defs>'
+      );
+    }
+  }
+  return "";
 }
 
 /**
@@ -429,7 +466,11 @@ export function renderSvg(scene: Scene): string {
       ? `<g class="glyph-marks${animClass}${uncertainClass}">${markStrs}</g>`
       : markStrs;
   const axes = scene.axes.map(renderAxis).join("");
-  return `${head}${desc}${hoverStyle}${animationStyle}${uncertaintyStyle}${bg}${title}${grid}${marks}${axes}${uncertaintyOverlay}${legends}</svg>\n`;
+  // Math PR3 — emit the arrow marker <defs> once when any arrow
+  // SceneMark is present. Returns "" for scenes with no arrows so
+  // existing snapshots stay byte-identical.
+  const arrowDefs = renderArrowDefs(scene);
+  return `${head}${desc}${hoverStyle}${animationStyle}${uncertaintyStyle}${arrowDefs}${bg}${title}${grid}${marks}${axes}${uncertaintyOverlay}${legends}</svg>\n`;
 }
 
 /**

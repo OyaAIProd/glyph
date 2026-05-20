@@ -274,7 +274,8 @@
                   "treemap",
                   "sunburst",
                   "force",
-                  "contour"
+                  "contour",
+                  "vector-field"
                 ]
               },
               "encoding": {
