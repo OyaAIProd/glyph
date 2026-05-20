@@ -37,8 +37,9 @@
       <div id="chart-preview"></div>
     </section>
     <aside class="pane pane-audit">
-      <h2>Audit <span class="trust" id="trust"></span></h2>
-      <ul id="audit-findings">
+      <h2>Audit <span class="trust" id="trust" aria-live="polite" aria-label="Trust score"></span></h2>
+      <!-- aria-live so screen-reader users hear new findings as they type. -->
+      <ul id="audit-findings" aria-live="polite" aria-label="Audit findings">
         <li class="placeholder">Audit panel lands in PR5.</li>
       </ul>
     </aside>
