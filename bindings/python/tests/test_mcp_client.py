@@ -31,15 +31,11 @@ async def test_list_tools_returns_full_surface(mcp_server_args: list[str]) -> No
 
 
 @pytest.mark.asyncio
-async def test_call_describe_round_trip(
-    mcp_server_args: list[str], rides_csv_path: Path
-) -> None:
+async def test_call_describe_round_trip(mcp_server_args: list[str], rides_csv_path: Path) -> None:
     """A real describe call works end-to-end against the live MCP server."""
     async with McpClient.spawn(mcp_server_args) as client:
         await client.initialize()
-        result = await client.call_tool(
-            "glyph_describe", {"source": str(rides_csv_path)}
-        )
+        result = await client.call_tool("glyph_describe", {"source": str(rides_csv_path)})
         # glyph_describe returns {columns: [{name, suggestedType, ...}], rowCount: N}.
         # Assert the shape rather than a single key so a future renaming of either
         # field fails loudly.
@@ -54,11 +50,28 @@ async def test_call_describe_round_trip(
 
 
 @pytest.mark.asyncio
-async def test_protocol_error_raises(mcp_server_args: list[str]) -> None:
-    """Unknown verbs raise McpProtocolError, not generic Exception."""
+async def test_protocol_error_raises_for_unknown_verb(mcp_server_args: list[str]) -> None:
+    """Unknown verb names hit the JSON-RPC `error` channel."""
     from glyph.exceptions import McpProtocolError
 
     async with McpClient.spawn(mcp_server_args) as client:
         await client.initialize()
         with pytest.raises(McpProtocolError):
             await client.call_tool("glyph_does_not_exist", {})
+
+
+@pytest.mark.asyncio
+async def test_protocol_error_raises_for_iserror_response(
+    mcp_server_args: list[str],
+) -> None:
+    """Known verbs that fail at runtime surface `isError: true` as McpProtocolError."""
+    from glyph.exceptions import McpProtocolError
+
+    async with McpClient.spawn(mcp_server_args) as client:
+        await client.initialize()
+        # glyph_describe with a non-existent file path is a legal call (the
+        # verb exists, args validate) but fails at materialize-time. The MCP
+        # server returns {content: [...], isError: true} for this rather than
+        # a JSON-RPC error.
+        with pytest.raises(McpProtocolError):
+            await client.call_tool("glyph_describe", {"source": "/nonexistent/path/to/nothing.csv"})

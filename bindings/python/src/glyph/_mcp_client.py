@@ -1,8 +1,15 @@
-"""MCP stdio JSON-RPC client. Internal."""
+"""MCP stdio JSON-RPC client. Internal.
+
+Single-caller-at-a-time by construction: each `call_tool` / `list_tools`
+acquires an internal lock so a future caller that issues two concurrent
+requests cannot race on `_recv` and drop a peer's response. Concurrent
+dispatch + notifications/progress fan-out lands in a later PR.
+"""
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -20,6 +27,15 @@ class McpClient:
         self._proc = proc
         self._next_id = 0
         self._initialized = False
+        # Serializes _request — protects _recv from being interleaved between
+        # two concurrent callers. The simple correlation-id loop in _request
+        # would otherwise discard responses targeted at the other caller.
+        self._request_lock = asyncio.Lock()
+        # Background task that drains stderr into a bounded buffer. Prevents
+        # the OS pipe filling up (~64 KB on Linux/macOS) and deadlocking a
+        # long-running tool call.
+        self._stderr_buf: list[bytes] = []
+        self._stderr_task: asyncio.Task[None] | None = None
 
     @classmethod
     @asynccontextmanager
@@ -32,6 +48,7 @@ class McpClient:
             stderr=asyncio.subprocess.PIPE,
         )
         client = cls(proc)
+        client._stderr_task = asyncio.create_task(client._drain_stderr())
         try:
             yield client
         finally:
@@ -40,11 +57,48 @@ class McpClient:
                     proc.terminate()
                     await asyncio.wait_for(proc.wait(), timeout=5)
                 except asyncio.TimeoutError:
-                    proc.kill()
+                    # Race-safe: kill may find the process already gone if it
+                    # exited between the wait_for timeout and the kill call.
+                    with contextlib.suppress(ProcessLookupError):
+                        proc.kill()
                     await proc.wait()
                 except ProcessLookupError:
                     # Already exited between the returncode check and terminate().
                     pass
+            if client._stderr_task is not None:
+                client._stderr_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await client._stderr_task
+
+    async def _drain_stderr(self) -> None:
+        """Continuously read stderr into an in-memory buffer.
+
+        Keeps the OS pipe drained so the subprocess never blocks on a full
+        stderr buffer. The buffer is bounded at 256 KB; older bytes are
+        evicted FIFO once the cap is hit.
+        """
+        if self._proc.stderr is None:
+            return
+        CAP = 256 * 1024
+        total = 0
+        try:
+            while True:
+                chunk = await self._proc.stderr.read(4096)
+                if not chunk:
+                    return
+                self._stderr_buf.append(chunk)
+                total += len(chunk)
+                while total > CAP and self._stderr_buf:
+                    evicted = self._stderr_buf.pop(0)
+                    total -= len(evicted)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # Don't let a stderr-read failure poison the client.
+            return
+
+    def _stderr_text(self) -> str:
+        return b"".join(self._stderr_buf).decode("utf-8", errors="replace")
 
     async def initialize(self) -> dict[str, Any]:
         """Perform the MCP `initialize` handshake and send `initialized`."""
@@ -81,9 +135,7 @@ class McpClient:
         """Invoke a tool by name. Parses JSON text payloads when present."""
         if not self._initialized:
             raise GlyphError("call initialize() before call_tool()")
-        result = await self._request(
-            "tools/call", {"name": name, "arguments": args}
-        )
+        result = await self._request("tools/call", {"name": name, "arguments": args})
         # MCP returns {content: [{type: "text", text: "..."}], isError?: bool}.
         # Surface tool-side errors as McpProtocolError so callers don't have to
         # branch on shape.
@@ -100,23 +152,22 @@ class McpClient:
         return result
 
     async def _request(self, method: str, params: dict[str, Any]) -> Any:
-        self._next_id += 1
-        req_id = self._next_id
-        await self._send(
-            {"jsonrpc": "2.0", "id": req_id, "method": method, "params": params}
-        )
-        while True:
-            msg = await self._recv()
-            if msg.get("id") == req_id:
-                if "error" in msg:
-                    err = msg["error"]
-                    raise McpProtocolError(
-                        f"{method}: {err.get('message')} ({err.get('code')})"
-                    )
-                return msg.get("result")
-            # Notifications and other ids: ignore for the simple client. The
-            # full implementation will dispatch notifications/progress to a
-            # callback (PR-7).
+        async with self._request_lock:
+            self._next_id += 1
+            req_id = self._next_id
+            await self._send({"jsonrpc": "2.0", "id": req_id, "method": method, "params": params})
+            while True:
+                msg = await self._recv()
+                if msg.get("id") == req_id:
+                    if "error" in msg:
+                        err = msg["error"]
+                        raise McpProtocolError(
+                            f"{method}: {err.get('message')} ({err.get('code')})"
+                        )
+                    return msg.get("result")
+                # Notifications and other ids: ignore for the simple client. The
+                # full implementation will dispatch notifications/progress to a
+                # callback (PR-7).
 
     async def _send_notification(self, method: str, params: dict[str, Any]) -> None:
         await self._send({"jsonrpc": "2.0", "method": method, "params": params})
@@ -129,24 +180,22 @@ class McpClient:
         await self._proc.stdin.drain()
 
     async def _recv(self) -> dict[str, Any]:
+        # Framing note: MCP stdio uses newline-delimited JSON (not LSP-style
+        # Content-Length headers). json.dumps escapes literal newlines inside
+        # string values, so one line == one message is always safe here.
         if self._proc.stdout is None:
             raise GlyphError("MCP subprocess has no stdout")
         line = await self._proc.stdout.readline()
         if not line:
-            stderr = ""
-            if self._proc.stderr is not None:
-                stderr = (await self._proc.stderr.read()).decode(
-                    "utf-8", errors="replace"
-                )
-            raise GlyphError(f"MCP server closed stdout. stderr:\n{stderr}")
+            # stderr is being drained into self._stderr_buf in the background;
+            # surface whatever's been collected so far in the error message.
+            raise GlyphError(f"MCP server closed stdout. stderr:\n{self._stderr_text()}")
         try:
             parsed = json.loads(line.decode("utf-8"))
         except json.JSONDecodeError as e:
             raise McpProtocolError(f"non-JSON line from server: {line!r}") from e
         if not isinstance(parsed, dict):
-            raise McpProtocolError(
-                f"expected JSON object from server, got {type(parsed).__name__}"
-            )
+            raise McpProtocolError(f"expected JSON object from server, got {type(parsed).__name__}")
         return parsed
 
 
