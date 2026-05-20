@@ -59,3 +59,16 @@ select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
 [tool.mypy]
 python_version = "3.10"
 strict = true
+
+# Pandas is an optional extra — users of `glyph.pandas` install
+# pandas-stubs themselves if they want column-typed access. Both the
+# legacy missing-imports error AND mypy 1.x's `import-untyped` ("no
+# stubs available") class are silenced here so `mypy src` stays clean
+# without forcing pandas-stubs into the dev deps. The two import sites
+# also have `# type: ignore[import-untyped]` markers — belt-and-braces
+# since `disable_error_code` placement in module overrides has varied
+# across mypy minor versions.
+[[tool.mypy.overrides]]
+module = ["pandas", "pandas.*"]
+ignore_missing_imports = true
+disable_error_code = ["import-untyped"]

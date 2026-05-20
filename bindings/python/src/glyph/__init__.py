@@ -33,6 +33,7 @@ def render(
     spec: Mapping[str, Any],
     *,
     source: str | None = None,
+    data: Any = None,
     audit: bool = True,
 ) -> RenderResult:
     """Render a Glyph spec to SVG.
@@ -41,8 +42,15 @@ def render(
         spec: The chart specification (a JSON-shaped mapping).
         source: Path or URL to a data file (CSV / Parquet / JSON). When
             provided, ``spec.data.source`` is overridden with this value so
-            callers don't have to mutate the spec themselves. PR5 will add
-            an inline ``data=`` keyword for ``pandas.DataFrame``.
+            callers don't have to mutate the spec themselves. Mutually
+            exclusive with ``data``.
+        data: An inline ``pandas.DataFrame`` to chart without writing it to
+            disk. The rows are serialized via
+            :func:`glyph.pandas.dataframe_to_inline_data` (lazy-imported), then
+            registered with the MCP server's ``glyph_import`` verb so the
+            resulting view name can be threaded back into ``spec.data.source``.
+            Mutually exclusive with ``source``. Requires the optional
+            ``pandas`` extra to be installed.
         audit: When True (default), run the 8 audit rules and attach
             findings to ``result.audit``. Set False to skip the extra MCP
             round-trip for hot loops.
@@ -54,7 +62,12 @@ def render(
         SpecValidationError: spec failed schema validation server-side.
         NodeNotFoundError: Node.js ≥ 20 is not available.
         McpProtocolError: any other server-side failure.
+        ValueError: both ``source`` and ``data`` were passed, or ``data`` was
+            not a pandas DataFrame.
     """
+    if source is not None and data is not None:
+        raise ValueError("Pass exactly one of `source=` or `data=`, not both")
+
     full_spec: dict[str, Any] = dict(spec)
     if source is not None:
         # Don't clobber a nested data block the caller may have set — merge
@@ -65,6 +78,52 @@ def render(
             data_block = {**data_block, "source": source}
         else:
             data_block = {"source": source}
+        full_spec["data"] = data_block
+    elif data is not None:
+        # Lazy-import the pandas adapter so the core path stays pandas-free.
+        # Doing this here (rather than at module load) keeps `import glyph`
+        # cheap and avoids a hard dep on the optional extra.
+        from glyph.pandas import dataframe_to_inline_data
+
+        # Runtime type-check. We can't rely on a TYPE_CHECKING guard because
+        # the public signature accepts ``Any`` (the alternative — exposing
+        # ``pd.DataFrame`` in the signature — would force pandas onto every
+        # user importing glyph). A clear ValueError is much friendlier than
+        # the cryptic AttributeError that an .to_dict() call would produce on
+        # a non-DataFrame argument.
+        try:
+            import pandas as _pd  # type: ignore[import-untyped]
+        except ImportError as exc:  # pragma: no cover — defensive
+            raise ImportError(
+                "data= requires `pandas` — install with `pip install glyph[pandas]`"
+            ) from exc
+        if not isinstance(data, _pd.DataFrame):
+            raise ValueError(f"data= must be a pandas.DataFrame, got {type(data).__name__}")
+
+        inline = dataframe_to_inline_data(data)
+        # The TypeScript-side DataSourceSchema is `strict()` and only accepts
+        # source / hierarchy / graph / grid — *not* `values`. So we can't just
+        # drop the inline envelope into the spec; we have to register the
+        # rows server-side via `glyph_import` first and then thread the
+        # returned view name in as `data.source`. This is one extra round-trip
+        # but keeps the Python ergonomics (`data=df`) cheap.
+        import_result = call_verb(
+            "glyph_import",
+            {"payload": {"kind": "json-rows", "rows": inline["values"]}},
+        )
+        if not isinstance(import_result, dict) or "name" not in import_result:
+            raise McpProtocolError(
+                f"glyph_import: unexpected payload shape: {type(import_result).__name__}"
+            )
+        registered_name = import_result["name"]
+
+        # Merge into any existing data block so the caller can still pin
+        # format hints or transforms even when feeding inline data.
+        data_block = full_spec.get("data")
+        if isinstance(data_block, dict):
+            data_block = {**data_block, "source": registered_name}
+        else:
+            data_block = {"source": registered_name}
         full_spec["data"] = data_block
 
     try:
