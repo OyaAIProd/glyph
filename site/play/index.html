@@ -7,9 +7,9 @@
   <meta name="description" content="Paste a CSV, edit a spec, see the chart + audit findings + trust score." />
   <meta property="og:title" content="Glyph Playground" />
   <meta property="og:description" content="Paste a CSV, edit a spec, see the chart + audit findings + trust score." />
-  <meta property="og:image" content="../og-playground.png" />
   <meta property="og:url" content="https://seanhanca.github.io/glyph/play/" />
-  <meta name="twitter:card" content="summary_large_image" />
+  <!-- og:image + twitter:card are intentionally omitted in PR1; both will land
+       in the launch PR alongside a 1200x630 og-playground.png at site/. -->
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -24,19 +24,27 @@
   <main class="playground" id="playground">
     <section class="pane pane-data">
       <h2>Data</h2>
-      <div id="csv-upload"></div>
+      <div id="csv-upload">
+        <p class="placeholder">PR1 skeleton — CSV upload lands in PR2.</p>
+      </div>
     </section>
     <section class="pane pane-spec">
       <h2>Spec</h2>
-      <div id="spec-editor"></div>
+      <div id="spec-editor">
+        <p class="placeholder">Monaco editor lands in PR3.</p>
+      </div>
     </section>
     <section class="pane pane-chart">
       <h2>Chart</h2>
-      <div id="chart-preview"></div>
+      <div id="chart-preview">
+        <p class="placeholder">Live chart preview lands in PR4.</p>
+      </div>
     </section>
     <aside class="pane pane-audit">
       <h2>Audit <span class="trust" id="trust"></span></h2>
-      <ul id="audit-findings"></ul>
+      <ul id="audit-findings">
+        <li class="placeholder">Audit panel lands in PR5.</li>
+      </ul>
     </aside>
   </main>
 

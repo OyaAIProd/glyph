@@ -15,7 +15,7 @@
   },
   "scripts": {
     "build": "pnpm -r --filter './packages/*' run build",
-    "build:playground": "pnpm --filter @glyph/core run build && node scripts/build-playground-bundle.js",
+    "build:playground": "pnpm --filter @glyph/core run build && node scripts/build-playground-bundle.mjs",
     "test": "pnpm -r --filter './packages/*' run test",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",

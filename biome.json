@@ -2,7 +2,15 @@
   "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
-    "ignore": ["dist", "node_modules", "coverage", "snapshots", "*.svg"]
+    "ignore": [
+      "dist",
+      "node_modules",
+      "coverage",
+      "snapshots",
+      "*.svg",
+      "site/play/glyph-bundle.js",
+      "site/play/glyph-bundle.js.map"
+    ]
   },
   "formatter": {
     "enabled": true,

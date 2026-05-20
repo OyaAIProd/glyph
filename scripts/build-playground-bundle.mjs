@@ -2,9 +2,9 @@
 // Bundles @glyph/core into a single ESM file the playground can `import`.
 // Browser target, no Node built-ins.
 
-import { build } from "esbuild";
-import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { build } from "esbuild";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
@@ -16,7 +16,7 @@ await build({
   target: "es2022",
   platform: "browser",
   outfile: resolve(root, "site/play/glyph-bundle.js"),
-  minify: false,             // readable — engineers should be able to view-source
+  minify: false, // readable — engineers should be able to view-source
   sourcemap: "linked",
   legalComments: "inline",
   banner: {

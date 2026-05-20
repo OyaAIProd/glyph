@@ -6,14 +6,13 @@ on:
     paths:
       - "site/**"
       - "packages/core/**"
-      - "scripts/build-playground-bundle.js"
+      - "scripts/build-playground-bundle.mjs"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+# Top-level permissions are read-only by default for safety. Each job below
+# declares the specific writes it needs — this is robust to org policies
+# that restrict default token scopes.
 
 concurrency:
   group: "pages"
@@ -22,6 +21,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -30,9 +31,18 @@ jobs:
         with: { node-version: "22", cache: "pnpm" }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @glyph/core run build
-      - run: node scripts/build-playground-bundle.js
-      - name: Verify bundle exists
-        run: test -s site/play/glyph-bundle.js
+      - run: node scripts/build-playground-bundle.mjs
+      - name: Verify bundle is fresh (matches what build:playground produces)
+        run: |
+          # The committed site/play/glyph-bundle.js should be the byte-identical
+          # output of `pnpm run build:playground`. If it isn't, someone changed
+          # @glyph/core and forgot to regenerate it.
+          if [ -n "$(git status --porcelain site/play/glyph-bundle.js)" ]; then
+            echo "::error::site/play/glyph-bundle.js is stale. Run 'pnpm run build:playground' and commit the result."
+            git diff --stat site/play/glyph-bundle.js
+            exit 1
+          fi
+          test -s site/play/glyph-bundle.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
@@ -41,6 +51,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
