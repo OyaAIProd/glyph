@@ -164,6 +164,90 @@ const DEFAULT_WIDTH = 640;
 const DEFAULT_HEIGHT = 400;
 const PADDING = { top: 24, right: 24, bottom: 40, left: 56 } as const;
 
+/** Estimate how much horizontal space the legend block will need (px).
+ *  Returns 0 when no color encoding is present on any layer.
+ *  Used to widen padRight so legend labels don't get clipped by the SVG edge.
+ */
+function estimateLegendWidth(
+  spec: GlyphSpec,
+  rows: ReadonlyArray<ReadonlyArray<unknown>>,
+  schema: ReadonlyArray<CompileFieldInfo>,
+): number {
+  if (rows.length === 0) return 0;
+  let max = 0;
+  const seen = new Set<string>();
+  const approxCharW = 6.5;
+  const swatchW = 10;
+  const swatchPad = 6;
+  for (const layer of spec.layers) {
+    const cf = fieldOf(layer.encoding.color);
+    if (!cf || seen.has(cf)) continue;
+    seen.add(cf);
+    const cIdx = schema.findIndex((c) => c.name === cf);
+    const colType = schema[cIdx]?.type ?? "VARCHAR";
+    const isContinuous =
+      cIdx >= 0 &&
+      isQuantitativeType(colType) &&
+      (layer.mark === "heatmap" || layer.mark === "geo-region");
+    if (isContinuous) {
+      // 7 numeric stops + title; ~6 chars per number
+      const labelChars = 7;
+      max = Math.max(max, swatchW + swatchPad + labelChars * approxCharW);
+    } else {
+      const domain = distinctOrdered(rows, schema, cf);
+      const widest = domain.reduce((m, s) => Math.max(m, (s ?? "").length), cf.length);
+      max = Math.max(max, swatchW + swatchPad + widest * approxCharW);
+    }
+  }
+  // Pad the estimate so labels never touch the SVG edge.
+  return max > 0 ? Math.ceil(max + 16) : 0;
+}
+
+/** Estimate bottom padding needed so x-axis ticks + axis-title don't clip.
+ *  Base is PADDING.bottom (40 px); for nominal axes with longer or denser
+ *  labels we add headroom. (Glyph doesn't rotate ticks yet, so we just
+ *  reserve more vertical room.)
+ */
+function computeBottomPad(
+  spec: GlyphSpec,
+  rows: ReadonlyArray<ReadonlyArray<unknown>>,
+  schema: ReadonlyArray<CompileFieldInfo>,
+): number {
+  if (rows.length === 0) return PADDING.bottom;
+  // Geo specs don't draw an axis at all.
+  if (spec.layers.some((l) => l.mark === "geo-region" || l.mark === "geo-point")) {
+    return PADDING.top;
+  }
+  // Use the first layer's x channel as a representative.
+  const xCh = spec.layers[0]?.encoding.x;
+  const xField = fieldOf(xCh);
+  if (!xField) return PADDING.bottom;
+  const cIdx = schema.findIndex((c) => c.name === xField);
+  const xType = schema[cIdx]?.type ?? "VARCHAR";
+  // For nominal/string axes, peek at the longest distinct value and the
+  // count. The compiler may rotate labels -45° when slot < label width and
+  // n ≤ 30; rotation eats ~60 px vertical instead of ~16 px horizontal.
+  if (!isQuantitativeType(xType)) {
+    const domain = distinctOrdered(rows, schema, xField);
+    const n = domain.length;
+    const widest = domain.reduce((m, s) => Math.max(m, (s ?? "").length), 0);
+    if (widest >= 8) {
+      // Will rotation kick in? Same condition as makeBottomAxis.
+      // Approximate: if labels per available width > 1, rotate when n ≤ 30.
+      // We don't know plotArea here, but we know spec.width. Use it.
+      const approxW = (spec.width ?? 640) - PADDING.left - PADDING.right;
+      const labelPx = widest * 6.5 + 8;
+      const slot = approxW / Math.max(n, 1);
+      if (labelPx > slot && n <= 30) {
+        // Rotated -45°: vertical = labelPx * sin(45°) + 8px gap + 16 title.
+        return Math.ceil(labelPx * 0.71 + 24);
+      }
+      return PADDING.bottom + 12;
+    }
+  }
+  return PADDING.bottom;
+}
+
 interface Theme {
   readonly background: string;
   readonly fg: string;
@@ -381,14 +465,21 @@ export function compileSpec(input: CompileInput): Scene {
   const theme = resolveTheme(spec.theme);
   const formatTick = makeTickFormatter(spec.locale);
 
-  // Adjust right padding when we'll need a right-side axis.
+  // Adjust right padding for (a) right-side axis OR (b) a legend that will
+  // be drawn to the right of the plot area. Without (b), legend labels for
+  // categorical / continuous color encodings overflow the SVG and clip.
   const anyRight = spec.layers.some((l) => ySideOfLayer(l.encoding) === "right");
-  const padRight = anyRight ? PADDING.left : PADDING.right;
+  const legendW = estimateLegendWidth(spec, rows, schema);
+  const padRight =
+    (anyRight ? PADDING.left : PADDING.right) + (legendW > 0 ? legendW + 12 : 0);
+  // Bump bottom padding when the x-axis has a non-trivial number of band
+  // labels (date strings, country names) so the axis title + ticks fit.
+  const padBottom = computeBottomPad(spec, rows, schema);
   const plotArea = input.plotAreaOverride ?? {
     x: PADDING.left,
     y: PADDING.top,
     width: width - PADDING.left - padRight,
-    height: height - PADDING.top - PADDING.bottom,
+    height: height - PADDING.top - padBottom,
   };
 
   if (spec.layers.length === 0) throw new Error("Spec has no layers");
@@ -581,7 +672,7 @@ export function compileSpec(input: CompileInput): Scene {
     }
     if (layer.mark === "geo-region") {
       // PR44: project each GeoJSON feature, fill by color encoding.
-      buildGeoRegions(marks, spec, rows, schema, enc, theme);
+      buildGeoRegions(marks, spec, rows, schema, enc, theme, plotArea);
       continue;
     }
     if (layer.mark === "heatmap") {
@@ -627,13 +718,51 @@ export function compileSpec(input: CompileInput): Scene {
 
   // ---- Axes ------------------------------------------------------------
   const axes: SceneAxis[] = [];
+  // Geo-region marks render projected polygons in their own coordinate
+  // system; cartesian x/y axes are meaningless. Skip axis emission entirely
+  // when any layer is a geo mark.
+  const hasGeo = spec.layers.some(
+    (l) => l.mark === "geo-region" || l.mark === "geo-point",
+  );
   const xLabel = allXFields[0] ?? "x";
-  if (xScale.type === "band") {
-    axes.push(makeBottomAxis(xScale, plotArea, xLabel));
-  } else if (xTicksLinear) {
-    axes.push(makeBottomAxisLinear(xTicksLinear, xScale, plotArea, xLabel, formatTick));
+  if (!hasGeo) {
+    if (xScale.type === "band") {
+      axes.push(makeBottomAxis(xScale, plotArea, xLabel));
+    } else if (xTicksLinear) {
+      axes.push(makeBottomAxisLinear(xTicksLinear, xScale, plotArea, xLabel, formatTick));
+    }
   }
-  if (leftY) {
+  // Heatmap y-axis override: when the layer is a heatmap with a categorical
+  // y, the leftY linear scale built above is wrong (it tries to coerce
+  // strings to numbers). Replace with a band-scale axis built from
+  // distinctOrdered values, matching buildHeatmap's internal scale.
+  const heatmapLayer = spec.layers.find((l) => l.mark === "heatmap");
+  if (heatmapLayer) {
+    const hy = fieldOf(heatmapLayer.encoding.y);
+    if (hy) {
+      const yDomain = distinctOrdered(rows, schema, hy);
+      if (yDomain.length > 0) {
+        const yBand = bandScale(yDomain, [plotArea.y, plotArea.y + plotArea.height]);
+        // Thin y-axis labels by available vertical budget (~16 px per row).
+        const slot = 16;
+        const maxRows = Math.max(1, Math.floor(plotArea.height / slot));
+        const yStep = yDomain.length <= maxRows ? 1 : Math.ceil(yDomain.length / maxRows);
+        const yTicks: AxisTick[] = [];
+        for (let i = 0; i < yDomain.length; i += yStep) {
+          const d = yDomain[i];
+          if (d === undefined) continue;
+          yTicks.push({ position: yBand.apply(d) + yBand.bandwidth / 2, label: d });
+        }
+        axes.push({
+          orientation: "left",
+          origin: { x: plotArea.x, y: plotArea.y },
+          length: plotArea.height,
+          ticks: yTicks,
+          label: hy,
+        });
+      }
+    }
+  } else if (leftY && !hasGeo) {
     const leftLabel = fieldOf(
       spec.layers.find((l) => ySideOfLayer(l.encoding) === "left")?.encoding.y,
     );
@@ -646,7 +775,7 @@ export function compileSpec(input: CompileInput): Scene {
       })),
     });
   }
-  if (rightY) {
+  if (rightY && !hasGeo) {
     const rightLabel = fieldOf(
       spec.layers.find((l) => ySideOfLayer(l.encoding) === "right")?.encoding.y,
     );
@@ -654,13 +783,53 @@ export function compileSpec(input: CompileInput): Scene {
   }
 
   // ---- Legends ---------------------------------------------------------
-  // One legend per unique color field across all encoded layers.
+  // One legend per unique color field across all encoded layers. For
+  // heatmaps with quantitative color we emit a continuous color-bar legend
+  // (7 stops spanning lo..hi) with a diverging palette when the domain
+  // straddles 0; for categorical color we keep the one-entry-per-value form.
   const legends: SceneLegend[] = [];
   const seenColorFields = new Set<string>();
   for (const layer of spec.layers) {
     const cf = fieldOf(layer.encoding.color);
     if (!cf || seenColorFields.has(cf)) continue;
     seenColorFields.add(cf);
+    const cIdx = schema.findIndex((c) => c.name === cf);
+    const isQuant =
+      cIdx >= 0 &&
+      isQuantitativeType(schema[cIdx]?.type ?? "VARCHAR") &&
+      (layer.mark === "heatmap" || layer.mark === "geo-region");
+    if (isQuant) {
+      let lo = Number.POSITIVE_INFINITY;
+      let hi = Number.NEGATIVE_INFINITY;
+      for (const r of rows) {
+        const v = r[cIdx];
+        const n = typeof v === "number" ? v : typeof v === "bigint" ? Number(v) : Number(v);
+        if (Number.isFinite(n)) {
+          if (n < lo) lo = n;
+          if (n > hi) hi = n;
+        }
+      }
+      if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo === hi) continue;
+      const diverging = lo < 0 && hi > 0;
+      const stops = 7;
+      const entries: LegendEntry[] = [];
+      // Top of legend = high value (matches y-axis "high goes up")
+      for (let i = stops - 1; i >= 0; i--) {
+        const t = i / (stops - 1);
+        const value = lo + t * (hi - lo);
+        entries.push({
+          label: formatTick(roundToSig(value, 3)),
+          color: heatmapColor(value, lo, hi, diverging, theme),
+        });
+      }
+      legends.push({
+        kind: "color",
+        title: cf,
+        origin: { x: plotArea.x + plotArea.width + 12, y: plotArea.y },
+        entries,
+      });
+      continue;
+    }
     const domain = distinctOrdered(rows, schema, cf);
     if (domain.length === 0) continue;
     const entries: LegendEntry[] = domain.map((label, idx) => ({
@@ -1345,13 +1514,42 @@ function colorForRow(
   row: ReadonlyArray<unknown>,
   colorDomain: ReadonlyArray<string>,
   theme: Theme,
+  rows?: ReadonlyArray<ReadonlyArray<unknown>>,
 ): string {
   const field = fieldOf(encoding.color);
   if (!field || colorDomain.length <= 1) return theme.marks[0] ?? "#000";
+  // If the color field is quantitative (declared or schema-inferred), use a
+  // continuous color scale rather than mapping each row to a palette entry.
+  if (rows && isQuantColorField(encoding.color, schema, field)) {
+    const idx = schema.findIndex((c) => c.name === field);
+    let lo = Number.POSITIVE_INFINITY;
+    let hi = Number.NEGATIVE_INFINITY;
+    for (const r of rows) {
+      const n = Number(r[idx]);
+      if (Number.isFinite(n)) {
+        if (n < lo) lo = n;
+        if (n > hi) hi = n;
+      }
+    }
+    const n = Number(valueAt(row, schema, field));
+    if (!Number.isFinite(n) || !Number.isFinite(lo) || !Number.isFinite(hi) || lo === hi)
+      return theme.grid;
+    const diverging = lo < 0 && hi > 0;
+    return heatmapColor(n, lo, hi, diverging, theme);
+  }
   const v = valueAt(row, schema, field);
   const s = v == null ? "" : String(v);
   const i = colorDomain.indexOf(s);
   return theme.marks[Math.max(0, i) % theme.marks.length] ?? "#000";
+}
+
+function isQuantColorField(
+  ch: Channel | undefined,
+  schema: ReadonlyArray<CompileFieldInfo>,
+  field: string,
+): boolean {
+  if (typeof ch !== "string" && ch && ch.type === "quantitative") return true;
+  return isQuantitativeType(typeOfColumn(schema, field));
 }
 
 function buildBars(
@@ -1391,7 +1589,7 @@ function buildBars(
       y: roundPx(top),
       width: xScale.bandwidth,
       height: roundPx(h),
-      fill: colorForRow(encoding, schema, r, colorDomain, theme),
+      fill: colorForRow(encoding, schema, r, colorDomain, theme, rows),
       ...markDataFor(ctx, r, schema, i),
     });
     i++;
@@ -1434,7 +1632,7 @@ function buildPoints(
       cx: roundPx(xpx),
       cy: ypx,
       r: 3,
-      fill: colorForRow(encoding, schema, r, colorDomain, theme),
+      fill: colorForRow(encoding, schema, r, colorDomain, theme, rows),
       ...markDataFor(ctx, r, schema, i),
     });
     i++;
@@ -1929,18 +2127,14 @@ function buildHeatmap(
     }
   }
   if (!Number.isFinite(lo) || !Number.isFinite(hi)) return;
-  const range = hi - lo === 0 ? 1 : hi - lo;
-
-  const lowColor = theme.grid;
-  const highColor = theme.marks[0] ?? "#1a1a1a";
+  const diverging = lo < 0 && hi > 0;
 
   for (const row of rows) {
     const xPos = xScale.apply(String(row[xIdx] ?? ""));
     const yPos = yScale.apply(String(row[yIdx] ?? ""));
     const v = row[cIdx];
     const n = typeof v === "number" ? v : typeof v === "bigint" ? Number(v) : Number(v);
-    const t = Number.isFinite(n) ? (n - lo) / range : 0;
-    const fill = interpolateRgb(lowColor, highColor, t);
+    const fill = heatmapColor(n, lo, hi, diverging, theme);
     out.push({
       type: "rect",
       x: roundPx(xPos),
@@ -1952,6 +2146,40 @@ function buildHeatmap(
       strokeWidth: 0.5,
     });
   }
+}
+
+/** Heatmap cell color. Diverging (red→neutral→green) when domain spans 0,
+ *  otherwise sequential (theme.grid → theme.marks[0]). Centered at 0 in the
+ *  diverging case using the max(|lo|,|hi|) magnitude so the midpoint is
+ *  visually anchored at value=0.
+ */
+function heatmapColor(
+  value: number,
+  lo: number,
+  hi: number,
+  diverging: boolean,
+  theme: Theme,
+): string {
+  if (!Number.isFinite(value)) return theme.grid;
+  if (diverging) {
+    const m = Math.max(Math.abs(lo), Math.abs(hi));
+    if (m === 0) return "#f4f4f5";
+    const t = Math.max(-1, Math.min(1, value / m)); // -1..1
+    if (t >= 0) return interpolateRgb("#f1f5f9", "#15803d", t); // neutral → green
+    return interpolateRgb("#f1f5f9", "#b91c1c", -t); // neutral → red
+  }
+  const range = hi - lo === 0 ? 1 : hi - lo;
+  const t = Math.max(0, Math.min(1, (value - lo) / range));
+  return interpolateRgb(theme.grid, theme.marks[0] ?? "#1a1a1a", t);
+}
+
+/** Round to n significant figures for tidy legend labels. */
+function roundToSig(v: number, n: number): number {
+  if (!Number.isFinite(v) || v === 0) return v;
+  const d = Math.ceil(Math.log10(Math.abs(v)));
+  const power = n - d;
+  const m = Math.pow(10, power);
+  return Math.round(v * m) / m;
 }
 
 /** Linear interpolate two #RRGGBB colors at parameter t ∈ [0,1]. */
@@ -1987,6 +2215,7 @@ function buildGeoRegions(
   schema: ReadonlyArray<CompileFieldInfo>,
   encoding: Encoding,
   theme: Theme,
+  plotArea?: Scene["plotArea"],
 ): void {
   const regionField = fieldOf(encoding.region);
   if (!regionField) return;
@@ -2011,9 +2240,18 @@ function buildGeoRegions(
     typeof (spec.geojson as { idField?: unknown })?.idField === "string"
       ? (spec.geojson as { idField: string }).idField
       : "id";
-  const width = spec.width ?? DEFAULT_WIDTH;
-  const height = spec.height ?? DEFAULT_HEIGHT;
-  const project = projector(spec.projection, { width, height });
+  // Project into the plotArea (not the raw spec width/height) so the map
+  // doesn't bleed into legend or padding zones. Wrap the projector with an
+  // (x, y) translation matching plotArea origin.
+  const projW = plotArea?.width ?? spec.width ?? DEFAULT_WIDTH;
+  const projH = plotArea?.height ?? spec.height ?? DEFAULT_HEIGHT;
+  const dx = plotArea?.x ?? 0;
+  const dy = plotArea?.y ?? 0;
+  const project0 = projector(spec.projection, { width: projW, height: projH });
+  const project = (lon: number, lat: number): [number, number] => {
+    const [x, y] = project0(lon, lat);
+    return [x + dx, y + dy];
+  };
 
   // Build row → value lookup keyed by the region field.
   const regionIdx = schema.findIndex((c) => c.name === regionField);
@@ -2051,7 +2289,7 @@ function buildGeoRegions(
     );
     const matchedRow = valueByRegion.get(featureId);
     const fill = matchedRow
-      ? colorForRow(encoding, schema, matchedRow, colorDomain, theme)
+      ? colorForRow(encoding, schema, matchedRow, colorDomain, theme, rows)
       : theme.grid;
     const d = featureToPath(feature, project);
     if (!d) continue;
@@ -2127,11 +2365,14 @@ function compileFaceted(input: CompileInput): Scene {
     const padR = spec.layers.some((l) => ySideOfLayer(l.encoding) === "right")
       ? PADDING.left
       : PADDING.right;
+    // Use the same legend / bottom-padding logic as the single-panel path
+    // so per-panel x-axis titles + thinned ticks don't get clipped.
+    const panelBottomPad = computeBottomPad(subSpec, subRows, schema);
     const panelPlot = {
       x: offsetX + PADDING.left,
       y: offsetY + PADDING.top,
       width: panelW - PADDING.left - padR,
-      height: panelH - PADDING.top - PADDING.bottom,
+      height: panelH - PADDING.top - panelBottomPad,
     };
     const sub = compileSpec({
       spec: subSpec,
@@ -2170,16 +2411,57 @@ function makeBottomAxis(
   plotArea: Scene["plotArea"],
   label: string,
 ): SceneAxis {
-  const ticks: AxisTick[] = scale.domain.map((d) => ({
-    position: scale.apply(d) + scale.bandwidth / 2,
-    label: d,
-  }));
+  // Decide: emit all horizontally / emit all rotated / thin + horizontal.
+  //   - All horizontal: slot >= label width
+  //   - All rotated -45°: slot < label width AND n is modest (≤ 30); rotated
+  //     labels need only ~13 px each
+  //   - Thin (every Nth): n is too large for either to be readable
+  const n = scale.domain.length;
+  const approxCharW = 6.5;
+  const maxLabelLen = scale.domain.reduce(
+    (m, s) => Math.max(m, (s ?? "").length),
+    1,
+  );
+  const labelPx = maxLabelLen * approxCharW + 8;
+  const slot = n > 0 ? plotArea.width / n : plotArea.width;
+  let rotation = 0;
+  let step = 1;
+  if (labelPx > slot) {
+    if (n <= 30) {
+      // Tilt labels -45° — frees most horizontal space at modest cost
+      rotation = -45;
+      step = 1;
+    } else {
+      const maxLabelsThatFit = Math.max(1, Math.floor(plotArea.width / labelPx));
+      step = Math.ceil(n / maxLabelsThatFit);
+    }
+  }
+  const ticks: AxisTick[] = [];
+  for (let i = 0; i < n; i += step) {
+    const d = scale.domain[i];
+    if (d === undefined) continue;
+    ticks.push({
+      position: scale.apply(d) + scale.bandwidth / 2,
+      label: d,
+    });
+  }
+  // Always include the final label when thinning so the right edge is anchored.
+  if (step > 1) {
+    const last = scale.domain[n - 1];
+    if (last !== undefined && (n - 1) % step !== 0) {
+      ticks.push({
+        position: scale.apply(last) + scale.bandwidth / 2,
+        label: last,
+      });
+    }
+  }
   return {
     orientation: "bottom",
     origin: { x: plotArea.x, y: plotArea.y + plotArea.height },
     length: plotArea.width,
     ticks,
     label,
+    ...(rotation !== 0 ? { tickRotation: rotation } : {}),
   };
 }
 

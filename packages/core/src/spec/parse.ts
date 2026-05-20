@@ -44,9 +44,25 @@ export function parseSpec(input: unknown): GlyphSpec {
   return GlyphSpecSchema.parse(input);
 }
 
-/** Parse a Glyph spec from any JSON-like input. Never throws. */
+/** Parse a Glyph spec from any JSON-like input. Never throws.
+ *  Accepts already-parsed objects OR JSON-encoded strings (some MCP clients
+ *  serialize `z.unknown()` params as strings). */
 export function safeParseSpec(input: unknown): SpecParseResult {
-  const result = GlyphSpecSchema.safeParse(input);
+  let candidate: unknown = input;
+  if (typeof candidate === "string") {
+    try {
+      candidate = JSON.parse(candidate);
+    } catch (err) {
+      return {
+        ok: false,
+        error: {
+          message: `Invalid JSON: ${(err as Error).message}`,
+          issues: [],
+        },
+      };
+    }
+  }
+  const result = GlyphSpecSchema.safeParse(candidate);
   if (result.success) {
     return { ok: true, spec: result.data };
   }

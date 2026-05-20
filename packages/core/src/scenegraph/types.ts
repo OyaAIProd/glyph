@@ -151,6 +151,13 @@ export interface SceneAxis {
    * y axis. When undefined, no grid is drawn.
    */
   readonly gridTicks?: ReadonlyArray<AxisTick>;
+  /**
+   * Optional rotation (degrees, negative = counterclockwise) applied to each
+   * tick label. Set by the compiler when labels are too long to fit
+   * horizontally — typically -30° to -45° for bottom axes with long
+   * categorical strings.
+   */
+  readonly tickRotation?: number;
 }
 
 /** Schema metadata emitted at the SVG root level for interactive scenes. */

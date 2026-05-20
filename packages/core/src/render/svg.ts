@@ -194,22 +194,34 @@ function renderAxis(axis: SceneAxis): string {
         origin.y
       }" stroke="${AXIS_COLOR}" stroke-width="1"/>`,
     );
+    const rot = axis.tickRotation ?? 0;
+    const titleOffset = rot !== 0 ? 60 : 32;
     for (const t of axis.ticks) {
       parts.push(
         `<line x1="${t.position}" y1="${origin.y}" x2="${t.position}" y2="${
           origin.y + 4
         }" stroke="${AXIS_COLOR}" stroke-width="1"/>`,
       );
-      parts.push(
-        `<text x="${t.position}" y="${
-          origin.y + 16
-        }" font-family="${FONT_FAMILY}" font-size="11" fill="${AXIS_LABEL_COLOR}" text-anchor="middle" dominant-baseline="hanging">${esc(t.label)}</text>`,
-      );
+      if (rot !== 0) {
+        // Anchor the label at its end so the rotated text "hangs" below-left
+        // of the tick, the conventional pattern for diagonal axis labels.
+        const lx = t.position;
+        const ly = origin.y + 14;
+        parts.push(
+          `<text x="${lx}" y="${ly}" font-family="${FONT_FAMILY}" font-size="11" fill="${AXIS_LABEL_COLOR}" text-anchor="end" dominant-baseline="middle" transform="rotate(${rot} ${lx} ${ly})">${esc(t.label)}</text>`,
+        );
+      } else {
+        parts.push(
+          `<text x="${t.position}" y="${
+            origin.y + 16
+          }" font-family="${FONT_FAMILY}" font-size="11" fill="${AXIS_LABEL_COLOR}" text-anchor="middle" dominant-baseline="hanging">${esc(t.label)}</text>`,
+        );
+      }
     }
     if (axis.label) {
       parts.push(
         `<text x="${origin.x + length / 2}" y="${
-          origin.y + 32
+          origin.y + titleOffset
         }" font-family="${FONT_FAMILY}" font-size="12" fill="${AXIS_LABEL_COLOR}" text-anchor="middle" dominant-baseline="hanging">${esc(axis.label)}</text>`,
       );
     }
