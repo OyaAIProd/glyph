@@ -141,6 +141,51 @@
                 "values"
               ],
               "additionalProperties": false
+            },
+            "function": {
+              "type": "object",
+              "properties": {
+                "shape": {
+                  "type": "string",
+                  "const": "function"
+                },
+                "x": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    },
+                    "samples": {
+                      "type": "integer",
+                      "minimum": 2,
+                      "maximum": 100000
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max",
+                    "samples"
+                  ],
+                  "additionalProperties": false
+                },
+                "expr": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "zExpr": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "shape",
+                "x",
+                "expr"
+              ],
+              "additionalProperties": false
             }
           },
           "additionalProperties": false

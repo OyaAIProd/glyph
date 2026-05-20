@@ -281,8 +281,8 @@ var ZodError = class _ZodError extends Error {
   constructor(issues) {
     super();
     this.issues = [];
-    this.addIssue = (sub) => {
-      this.issues = [...this.issues, sub];
+    this.addIssue = (sub2) => {
+      this.issues = [...this.issues, sub2];
     };
     this.addIssues = (subs = []) => {
       this.issues = [...this.issues, ...subs];
@@ -349,13 +349,13 @@ var ZodError = class _ZodError extends Error {
   flatten(mapper = (issue) => issue.message) {
     const fieldErrors = {};
     const formErrors = [];
-    for (const sub of this.issues) {
-      if (sub.path.length > 0) {
-        const firstEl = sub.path[0];
+    for (const sub2 of this.issues) {
+      if (sub2.path.length > 0) {
+        const firstEl = sub2.path[0];
         fieldErrors[firstEl] = fieldErrors[firstEl] || [];
-        fieldErrors[firstEl].push(mapper(sub));
+        fieldErrors[firstEl].push(mapper(sub2));
       } else {
-        formErrors.push(mapper(sub));
+        formErrors.push(mapper(sub2));
       }
     }
     return { formErrors, fieldErrors };
@@ -1541,24 +1541,24 @@ var ZodString = class _ZodString extends ZodType {
     return !!this._def.checks.find((ch) => ch.kind === "base64url");
   }
   get minLength() {
-    let min = null;
+    let min2 = null;
     for (const ch of this._def.checks) {
       if (ch.kind === "min") {
-        if (min === null || ch.value > min)
-          min = ch.value;
+        if (min2 === null || ch.value > min2)
+          min2 = ch.value;
       }
     }
-    return min;
+    return min2;
   }
   get maxLength() {
-    let max = null;
+    let max2 = null;
     for (const ch of this._def.checks) {
       if (ch.kind === "max") {
-        if (max === null || ch.value < max)
-          max = ch.value;
+        if (max2 === null || ch.value < max2)
+          max2 = ch.value;
       }
     }
-    return max;
+    return max2;
   }
 };
 ZodString.create = (params) => {
@@ -1762,43 +1762,43 @@ var ZodNumber = class _ZodNumber extends ZodType {
     });
   }
   get minValue() {
-    let min = null;
+    let min2 = null;
     for (const ch of this._def.checks) {
       if (ch.kind === "min") {
-        if (min === null || ch.value > min)
-          min = ch.value;
+        if (min2 === null || ch.value > min2)
+          min2 = ch.value;
       }
     }
-    return min;
+    return min2;
   }
   get maxValue() {
-    let max = null;
+    let max2 = null;
     for (const ch of this._def.checks) {
       if (ch.kind === "max") {
-        if (max === null || ch.value < max)
-          max = ch.value;
+        if (max2 === null || ch.value < max2)
+          max2 = ch.value;
       }
     }
-    return max;
+    return max2;
   }
   get isInt() {
     return !!this._def.checks.find((ch) => ch.kind === "int" || ch.kind === "multipleOf" && util.isInteger(ch.value));
   }
   get isFinite() {
-    let max = null;
-    let min = null;
+    let max2 = null;
+    let min2 = null;
     for (const ch of this._def.checks) {
       if (ch.kind === "finite" || ch.kind === "int" || ch.kind === "multipleOf") {
         return true;
       } else if (ch.kind === "min") {
-        if (min === null || ch.value > min)
-          min = ch.value;
+        if (min2 === null || ch.value > min2)
+          min2 = ch.value;
       } else if (ch.kind === "max") {
-        if (max === null || ch.value < max)
-          max = ch.value;
+        if (max2 === null || ch.value < max2)
+          max2 = ch.value;
       }
     }
-    return Number.isFinite(min) && Number.isFinite(max);
+    return Number.isFinite(min2) && Number.isFinite(max2);
   }
 };
 ZodNumber.create = (params) => {
@@ -1953,24 +1953,24 @@ var ZodBigInt = class _ZodBigInt extends ZodType {
     });
   }
   get minValue() {
-    let min = null;
+    let min2 = null;
     for (const ch of this._def.checks) {
       if (ch.kind === "min") {
-        if (min === null || ch.value > min)
-          min = ch.value;
+        if (min2 === null || ch.value > min2)
+          min2 = ch.value;
       }
     }
-    return min;
+    return min2;
   }
   get maxValue() {
-    let max = null;
+    let max2 = null;
     for (const ch of this._def.checks) {
       if (ch.kind === "max") {
-        if (max === null || ch.value < max)
-          max = ch.value;
+        if (max2 === null || ch.value < max2)
+          max2 = ch.value;
       }
     }
-    return max;
+    return max2;
   }
 };
 ZodBigInt.create = (params) => {
@@ -2087,24 +2087,24 @@ var ZodDate = class _ZodDate extends ZodType {
     });
   }
   get minDate() {
-    let min = null;
+    let min2 = null;
     for (const ch of this._def.checks) {
       if (ch.kind === "min") {
-        if (min === null || ch.value > min)
-          min = ch.value;
+        if (min2 === null || ch.value > min2)
+          min2 = ch.value;
       }
     }
-    return min != null ? new Date(min) : null;
+    return min2 != null ? new Date(min2) : null;
   }
   get maxDate() {
-    let max = null;
+    let max2 = null;
     for (const ch of this._def.checks) {
       if (ch.kind === "max") {
-        if (max === null || ch.value < max)
-          max = ch.value;
+        if (max2 === null || ch.value < max2)
+          max2 = ch.value;
       }
     }
-    return max != null ? new Date(max) : null;
+    return max2 != null ? new Date(max2) : null;
   }
 };
 ZodDate.create = (params) => {
@@ -4079,6 +4079,22 @@ var GraphDataSchema = external_exports.object({
     distance: external_exports.number().positive().optional()
   }).strict()).optional()
 }).strict();
+var FunctionDataSchema = external_exports.object({
+  shape: external_exports.literal("function"),
+  x: external_exports.object({
+    min: external_exports.number().refine(Number.isFinite, "x.min must be finite"),
+    max: external_exports.number().refine(Number.isFinite, "x.max must be finite"),
+    samples: external_exports.number().int().min(2).max(1e5)
+  }).strict().refine((r) => r.min < r.max, {
+    message: "function data: x.min must be < x.max"
+  }),
+  expr: external_exports.string().min(1),
+  /**
+   * Optional 3D z-coordinate. Today's 2D renderer ignores it; a future
+   * 3D renderer (Option B) reads it without a spec rev.
+   */
+  zExpr: external_exports.string().min(1).optional()
+}).strict();
 var DataSourceSchema = external_exports.object({
   /**
    * Path, URL, or named registered table for tabular data. Optional when
@@ -4112,8 +4128,16 @@ var DataSourceSchema = external_exports.object({
    * viz. When set, the compiler skips DuckDB and dispatches to
    * `compileContour`. Pair with `mark: "contour"` and `thresholds`.
    */
-  grid: GridDataSchema.optional()
-}).strict().refine((d) => d.source !== void 0 || d.hierarchy !== void 0 || d.graph !== void 0 || d.grid !== void 0, "data needs a 'source', 'hierarchy', 'graph', or 'grid'");
+  grid: GridDataSchema.optional(),
+  /**
+   * Math PR1 — inline math expression sampled into rows. When set, the
+   * compiler skips DuckDB, samples the expression at evenly-spaced
+   * points, and routes the resulting rows through the normal line /
+   * area / point pipeline so all downstream features (facet, polar,
+   * animation, audit) work unchanged.
+   */
+  function: FunctionDataSchema.optional()
+}).strict().refine((d) => d.source !== void 0 || d.hierarchy !== void 0 || d.graph !== void 0 || d.grid !== void 0 || d.function !== void 0, "data needs a 'source', 'hierarchy', 'graph', 'grid', or 'function'");
 var MarkSchema = external_exports.enum([
   "bar",
   "line",
@@ -4801,6 +4825,1732 @@ function segmentsToPathD(segments, scale) {
   return parts.join(" ");
 }
 
+// packages/core/dist/eval/evaluator.js
+var EvaluationError = class extends Error {
+  expression;
+  identifier;
+  constructor(message, expression, identifier) {
+    super(message);
+    this.name = "EvaluationError";
+    this.expression = expression;
+    this.identifier = identifier;
+  }
+};
+
+// node_modules/.pnpm/expr-eval@2.0.2/node_modules/expr-eval/dist/index.mjs
+var INUMBER = "INUMBER";
+var IOP1 = "IOP1";
+var IOP2 = "IOP2";
+var IOP3 = "IOP3";
+var IVAR = "IVAR";
+var IVARNAME = "IVARNAME";
+var IFUNCALL = "IFUNCALL";
+var IFUNDEF = "IFUNDEF";
+var IEXPR = "IEXPR";
+var IEXPREVAL = "IEXPREVAL";
+var IMEMBER = "IMEMBER";
+var IENDSTATEMENT = "IENDSTATEMENT";
+var IARRAY = "IARRAY";
+function Instruction(type, value) {
+  this.type = type;
+  this.value = value !== void 0 && value !== null ? value : 0;
+}
+Instruction.prototype.toString = function() {
+  switch (this.type) {
+    case INUMBER:
+    case IOP1:
+    case IOP2:
+    case IOP3:
+    case IVAR:
+    case IVARNAME:
+    case IENDSTATEMENT:
+      return this.value;
+    case IFUNCALL:
+      return "CALL " + this.value;
+    case IFUNDEF:
+      return "DEF " + this.value;
+    case IARRAY:
+      return "ARRAY " + this.value;
+    case IMEMBER:
+      return "." + this.value;
+    default:
+      return "Invalid Instruction";
+  }
+};
+function unaryInstruction(value) {
+  return new Instruction(IOP1, value);
+}
+function binaryInstruction(value) {
+  return new Instruction(IOP2, value);
+}
+function ternaryInstruction(value) {
+  return new Instruction(IOP3, value);
+}
+function simplify(tokens, unaryOps, binaryOps, ternaryOps, values) {
+  var nstack = [];
+  var newexpression = [];
+  var n1, n2, n3;
+  var f;
+  for (var i = 0; i < tokens.length; i++) {
+    var item = tokens[i];
+    var type = item.type;
+    if (type === INUMBER || type === IVARNAME) {
+      if (Array.isArray(item.value)) {
+        nstack.push.apply(nstack, simplify(item.value.map(function(x) {
+          return new Instruction(INUMBER, x);
+        }).concat(new Instruction(IARRAY, item.value.length)), unaryOps, binaryOps, ternaryOps, values));
+      } else {
+        nstack.push(item);
+      }
+    } else if (type === IVAR && values.hasOwnProperty(item.value)) {
+      item = new Instruction(INUMBER, values[item.value]);
+      nstack.push(item);
+    } else if (type === IOP2 && nstack.length > 1) {
+      n2 = nstack.pop();
+      n1 = nstack.pop();
+      f = binaryOps[item.value];
+      item = new Instruction(INUMBER, f(n1.value, n2.value));
+      nstack.push(item);
+    } else if (type === IOP3 && nstack.length > 2) {
+      n3 = nstack.pop();
+      n2 = nstack.pop();
+      n1 = nstack.pop();
+      if (item.value === "?") {
+        nstack.push(n1.value ? n2.value : n3.value);
+      } else {
+        f = ternaryOps[item.value];
+        item = new Instruction(INUMBER, f(n1.value, n2.value, n3.value));
+        nstack.push(item);
+      }
+    } else if (type === IOP1 && nstack.length > 0) {
+      n1 = nstack.pop();
+      f = unaryOps[item.value];
+      item = new Instruction(INUMBER, f(n1.value));
+      nstack.push(item);
+    } else if (type === IEXPR) {
+      while (nstack.length > 0) {
+        newexpression.push(nstack.shift());
+      }
+      newexpression.push(new Instruction(IEXPR, simplify(item.value, unaryOps, binaryOps, ternaryOps, values)));
+    } else if (type === IMEMBER && nstack.length > 0) {
+      n1 = nstack.pop();
+      nstack.push(new Instruction(INUMBER, n1.value[item.value]));
+    } else {
+      while (nstack.length > 0) {
+        newexpression.push(nstack.shift());
+      }
+      newexpression.push(item);
+    }
+  }
+  while (nstack.length > 0) {
+    newexpression.push(nstack.shift());
+  }
+  return newexpression;
+}
+function substitute(tokens, variable, expr) {
+  var newexpression = [];
+  for (var i = 0; i < tokens.length; i++) {
+    var item = tokens[i];
+    var type = item.type;
+    if (type === IVAR && item.value === variable) {
+      for (var j = 0; j < expr.tokens.length; j++) {
+        var expritem = expr.tokens[j];
+        var replitem;
+        if (expritem.type === IOP1) {
+          replitem = unaryInstruction(expritem.value);
+        } else if (expritem.type === IOP2) {
+          replitem = binaryInstruction(expritem.value);
+        } else if (expritem.type === IOP3) {
+          replitem = ternaryInstruction(expritem.value);
+        } else {
+          replitem = new Instruction(expritem.type, expritem.value);
+        }
+        newexpression.push(replitem);
+      }
+    } else if (type === IEXPR) {
+      newexpression.push(new Instruction(IEXPR, substitute(item.value, variable, expr)));
+    } else {
+      newexpression.push(item);
+    }
+  }
+  return newexpression;
+}
+function evaluate(tokens, expr, values) {
+  var nstack = [];
+  var n1, n2, n3;
+  var f, args, argCount;
+  if (isExpressionEvaluator(tokens)) {
+    return resolveExpression(tokens, values);
+  }
+  var numTokens = tokens.length;
+  for (var i = 0; i < numTokens; i++) {
+    var item = tokens[i];
+    var type = item.type;
+    if (type === INUMBER || type === IVARNAME) {
+      nstack.push(item.value);
+    } else if (type === IOP2) {
+      n2 = nstack.pop();
+      n1 = nstack.pop();
+      if (item.value === "and") {
+        nstack.push(n1 ? !!evaluate(n2, expr, values) : false);
+      } else if (item.value === "or") {
+        nstack.push(n1 ? true : !!evaluate(n2, expr, values));
+      } else if (item.value === "=") {
+        f = expr.binaryOps[item.value];
+        nstack.push(f(n1, evaluate(n2, expr, values), values));
+      } else {
+        f = expr.binaryOps[item.value];
+        nstack.push(f(resolveExpression(n1, values), resolveExpression(n2, values)));
+      }
+    } else if (type === IOP3) {
+      n3 = nstack.pop();
+      n2 = nstack.pop();
+      n1 = nstack.pop();
+      if (item.value === "?") {
+        nstack.push(evaluate(n1 ? n2 : n3, expr, values));
+      } else {
+        f = expr.ternaryOps[item.value];
+        nstack.push(f(resolveExpression(n1, values), resolveExpression(n2, values), resolveExpression(n3, values)));
+      }
+    } else if (type === IVAR) {
+      if (item.value in expr.functions) {
+        nstack.push(expr.functions[item.value]);
+      } else if (item.value in expr.unaryOps && expr.parser.isOperatorEnabled(item.value)) {
+        nstack.push(expr.unaryOps[item.value]);
+      } else {
+        var v = values[item.value];
+        if (v !== void 0) {
+          nstack.push(v);
+        } else {
+          throw new Error("undefined variable: " + item.value);
+        }
+      }
+    } else if (type === IOP1) {
+      n1 = nstack.pop();
+      f = expr.unaryOps[item.value];
+      nstack.push(f(resolveExpression(n1, values)));
+    } else if (type === IFUNCALL) {
+      argCount = item.value;
+      args = [];
+      while (argCount-- > 0) {
+        args.unshift(resolveExpression(nstack.pop(), values));
+      }
+      f = nstack.pop();
+      if (f.apply && f.call) {
+        nstack.push(f.apply(void 0, args));
+      } else {
+        throw new Error(f + " is not a function");
+      }
+    } else if (type === IFUNDEF) {
+      nstack.push(function() {
+        var n22 = nstack.pop();
+        var args2 = [];
+        var argCount2 = item.value;
+        while (argCount2-- > 0) {
+          args2.unshift(nstack.pop());
+        }
+        var n12 = nstack.pop();
+        var f2 = function() {
+          var scope = Object.assign({}, values);
+          for (var i2 = 0, len = args2.length; i2 < len; i2++) {
+            scope[args2[i2]] = arguments[i2];
+          }
+          return evaluate(n22, expr, scope);
+        };
+        Object.defineProperty(f2, "name", {
+          value: n12,
+          writable: false
+        });
+        values[n12] = f2;
+        return f2;
+      }());
+    } else if (type === IEXPR) {
+      nstack.push(createExpressionEvaluator(item, expr));
+    } else if (type === IEXPREVAL) {
+      nstack.push(item);
+    } else if (type === IMEMBER) {
+      n1 = nstack.pop();
+      nstack.push(n1[item.value]);
+    } else if (type === IENDSTATEMENT) {
+      nstack.pop();
+    } else if (type === IARRAY) {
+      argCount = item.value;
+      args = [];
+      while (argCount-- > 0) {
+        args.unshift(nstack.pop());
+      }
+      nstack.push(args);
+    } else {
+      throw new Error("invalid Expression");
+    }
+  }
+  if (nstack.length > 1) {
+    throw new Error("invalid Expression (parity)");
+  }
+  return nstack[0] === 0 ? 0 : resolveExpression(nstack[0], values);
+}
+function createExpressionEvaluator(token, expr, values) {
+  if (isExpressionEvaluator(token)) return token;
+  return {
+    type: IEXPREVAL,
+    value: function(scope) {
+      return evaluate(token.value, expr, scope);
+    }
+  };
+}
+function isExpressionEvaluator(n) {
+  return n && n.type === IEXPREVAL;
+}
+function resolveExpression(n, values) {
+  return isExpressionEvaluator(n) ? n.value(values) : n;
+}
+function expressionToString(tokens, toJS) {
+  var nstack = [];
+  var n1, n2, n3;
+  var f, args, argCount;
+  for (var i = 0; i < tokens.length; i++) {
+    var item = tokens[i];
+    var type = item.type;
+    if (type === INUMBER) {
+      if (typeof item.value === "number" && item.value < 0) {
+        nstack.push("(" + item.value + ")");
+      } else if (Array.isArray(item.value)) {
+        nstack.push("[" + item.value.map(escapeValue).join(", ") + "]");
+      } else {
+        nstack.push(escapeValue(item.value));
+      }
+    } else if (type === IOP2) {
+      n2 = nstack.pop();
+      n1 = nstack.pop();
+      f = item.value;
+      if (toJS) {
+        if (f === "^") {
+          nstack.push("Math.pow(" + n1 + ", " + n2 + ")");
+        } else if (f === "and") {
+          nstack.push("(!!" + n1 + " && !!" + n2 + ")");
+        } else if (f === "or") {
+          nstack.push("(!!" + n1 + " || !!" + n2 + ")");
+        } else if (f === "||") {
+          nstack.push("(function(a,b){ return Array.isArray(a) && Array.isArray(b) ? a.concat(b) : String(a) + String(b); }((" + n1 + "),(" + n2 + ")))");
+        } else if (f === "==") {
+          nstack.push("(" + n1 + " === " + n2 + ")");
+        } else if (f === "!=") {
+          nstack.push("(" + n1 + " !== " + n2 + ")");
+        } else if (f === "[") {
+          nstack.push(n1 + "[(" + n2 + ") | 0]");
+        } else {
+          nstack.push("(" + n1 + " " + f + " " + n2 + ")");
+        }
+      } else {
+        if (f === "[") {
+          nstack.push(n1 + "[" + n2 + "]");
+        } else {
+          nstack.push("(" + n1 + " " + f + " " + n2 + ")");
+        }
+      }
+    } else if (type === IOP3) {
+      n3 = nstack.pop();
+      n2 = nstack.pop();
+      n1 = nstack.pop();
+      f = item.value;
+      if (f === "?") {
+        nstack.push("(" + n1 + " ? " + n2 + " : " + n3 + ")");
+      } else {
+        throw new Error("invalid Expression");
+      }
+    } else if (type === IVAR || type === IVARNAME) {
+      nstack.push(item.value);
+    } else if (type === IOP1) {
+      n1 = nstack.pop();
+      f = item.value;
+      if (f === "-" || f === "+") {
+        nstack.push("(" + f + n1 + ")");
+      } else if (toJS) {
+        if (f === "not") {
+          nstack.push("(!" + n1 + ")");
+        } else if (f === "!") {
+          nstack.push("fac(" + n1 + ")");
+        } else {
+          nstack.push(f + "(" + n1 + ")");
+        }
+      } else if (f === "!") {
+        nstack.push("(" + n1 + "!)");
+      } else {
+        nstack.push("(" + f + " " + n1 + ")");
+      }
+    } else if (type === IFUNCALL) {
+      argCount = item.value;
+      args = [];
+      while (argCount-- > 0) {
+        args.unshift(nstack.pop());
+      }
+      f = nstack.pop();
+      nstack.push(f + "(" + args.join(", ") + ")");
+    } else if (type === IFUNDEF) {
+      n2 = nstack.pop();
+      argCount = item.value;
+      args = [];
+      while (argCount-- > 0) {
+        args.unshift(nstack.pop());
+      }
+      n1 = nstack.pop();
+      if (toJS) {
+        nstack.push("(" + n1 + " = function(" + args.join(", ") + ") { return " + n2 + " })");
+      } else {
+        nstack.push("(" + n1 + "(" + args.join(", ") + ") = " + n2 + ")");
+      }
+    } else if (type === IMEMBER) {
+      n1 = nstack.pop();
+      nstack.push(n1 + "." + item.value);
+    } else if (type === IARRAY) {
+      argCount = item.value;
+      args = [];
+      while (argCount-- > 0) {
+        args.unshift(nstack.pop());
+      }
+      nstack.push("[" + args.join(", ") + "]");
+    } else if (type === IEXPR) {
+      nstack.push("(" + expressionToString(item.value, toJS) + ")");
+    } else if (type === IENDSTATEMENT) ;
+    else {
+      throw new Error("invalid Expression");
+    }
+  }
+  if (nstack.length > 1) {
+    if (toJS) {
+      nstack = [nstack.join(",")];
+    } else {
+      nstack = [nstack.join(";")];
+    }
+  }
+  return String(nstack[0]);
+}
+function escapeValue(v) {
+  if (typeof v === "string") {
+    return JSON.stringify(v).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+  }
+  return v;
+}
+function contains(array, obj) {
+  for (var i = 0; i < array.length; i++) {
+    if (array[i] === obj) {
+      return true;
+    }
+  }
+  return false;
+}
+function getSymbols(tokens, symbols, options) {
+  options = options || {};
+  var withMembers = !!options.withMembers;
+  var prevVar = null;
+  for (var i = 0; i < tokens.length; i++) {
+    var item = tokens[i];
+    if (item.type === IVAR || item.type === IVARNAME) {
+      if (!withMembers && !contains(symbols, item.value)) {
+        symbols.push(item.value);
+      } else if (prevVar !== null) {
+        if (!contains(symbols, prevVar)) {
+          symbols.push(prevVar);
+        }
+        prevVar = item.value;
+      } else {
+        prevVar = item.value;
+      }
+    } else if (item.type === IMEMBER && withMembers && prevVar !== null) {
+      prevVar += "." + item.value;
+    } else if (item.type === IEXPR) {
+      getSymbols(item.value, symbols, options);
+    } else if (prevVar !== null) {
+      if (!contains(symbols, prevVar)) {
+        symbols.push(prevVar);
+      }
+      prevVar = null;
+    }
+  }
+  if (prevVar !== null && !contains(symbols, prevVar)) {
+    symbols.push(prevVar);
+  }
+}
+function Expression(tokens, parser2) {
+  this.tokens = tokens;
+  this.parser = parser2;
+  this.unaryOps = parser2.unaryOps;
+  this.binaryOps = parser2.binaryOps;
+  this.ternaryOps = parser2.ternaryOps;
+  this.functions = parser2.functions;
+}
+Expression.prototype.simplify = function(values) {
+  values = values || {};
+  return new Expression(simplify(this.tokens, this.unaryOps, this.binaryOps, this.ternaryOps, values), this.parser);
+};
+Expression.prototype.substitute = function(variable, expr) {
+  if (!(expr instanceof Expression)) {
+    expr = this.parser.parse(String(expr));
+  }
+  return new Expression(substitute(this.tokens, variable, expr), this.parser);
+};
+Expression.prototype.evaluate = function(values) {
+  values = values || {};
+  return evaluate(this.tokens, this, values);
+};
+Expression.prototype.toString = function() {
+  return expressionToString(this.tokens, false);
+};
+Expression.prototype.symbols = function(options) {
+  options = options || {};
+  var vars = [];
+  getSymbols(this.tokens, vars, options);
+  return vars;
+};
+Expression.prototype.variables = function(options) {
+  options = options || {};
+  var vars = [];
+  getSymbols(this.tokens, vars, options);
+  var functions = this.functions;
+  return vars.filter(function(name) {
+    return !(name in functions);
+  });
+};
+Expression.prototype.toJSFunction = function(param, variables) {
+  var expr = this;
+  var f = new Function(param, "with(this.functions) with (this.ternaryOps) with (this.binaryOps) with (this.unaryOps) { return " + expressionToString(this.simplify(variables).tokens, true) + "; }");
+  return function() {
+    return f.apply(expr, arguments);
+  };
+};
+var TEOF = "TEOF";
+var TOP = "TOP";
+var TNUMBER = "TNUMBER";
+var TSTRING = "TSTRING";
+var TPAREN = "TPAREN";
+var TBRACKET = "TBRACKET";
+var TCOMMA = "TCOMMA";
+var TNAME = "TNAME";
+var TSEMICOLON = "TSEMICOLON";
+function Token(type, value, index) {
+  this.type = type;
+  this.value = value;
+  this.index = index;
+}
+Token.prototype.toString = function() {
+  return this.type + ": " + this.value;
+};
+function TokenStream(parser2, expression) {
+  this.pos = 0;
+  this.current = null;
+  this.unaryOps = parser2.unaryOps;
+  this.binaryOps = parser2.binaryOps;
+  this.ternaryOps = parser2.ternaryOps;
+  this.consts = parser2.consts;
+  this.expression = expression;
+  this.savedPosition = 0;
+  this.savedCurrent = null;
+  this.options = parser2.options;
+  this.parser = parser2;
+}
+TokenStream.prototype.newToken = function(type, value, pos) {
+  return new Token(type, value, pos != null ? pos : this.pos);
+};
+TokenStream.prototype.save = function() {
+  this.savedPosition = this.pos;
+  this.savedCurrent = this.current;
+};
+TokenStream.prototype.restore = function() {
+  this.pos = this.savedPosition;
+  this.current = this.savedCurrent;
+};
+TokenStream.prototype.next = function() {
+  if (this.pos >= this.expression.length) {
+    return this.newToken(TEOF, "EOF");
+  }
+  if (this.isWhitespace() || this.isComment()) {
+    return this.next();
+  } else if (this.isRadixInteger() || this.isNumber() || this.isOperator() || this.isString() || this.isParen() || this.isBracket() || this.isComma() || this.isSemicolon() || this.isNamedOp() || this.isConst() || this.isName()) {
+    return this.current;
+  } else {
+    this.parseError('Unknown character "' + this.expression.charAt(this.pos) + '"');
+  }
+};
+TokenStream.prototype.isString = function() {
+  var r = false;
+  var startPos = this.pos;
+  var quote = this.expression.charAt(startPos);
+  if (quote === "'" || quote === '"') {
+    var index = this.expression.indexOf(quote, startPos + 1);
+    while (index >= 0 && this.pos < this.expression.length) {
+      this.pos = index + 1;
+      if (this.expression.charAt(index - 1) !== "\\") {
+        var rawString = this.expression.substring(startPos + 1, index);
+        this.current = this.newToken(TSTRING, this.unescape(rawString), startPos);
+        r = true;
+        break;
+      }
+      index = this.expression.indexOf(quote, index + 1);
+    }
+  }
+  return r;
+};
+TokenStream.prototype.isParen = function() {
+  var c = this.expression.charAt(this.pos);
+  if (c === "(" || c === ")") {
+    this.current = this.newToken(TPAREN, c);
+    this.pos++;
+    return true;
+  }
+  return false;
+};
+TokenStream.prototype.isBracket = function() {
+  var c = this.expression.charAt(this.pos);
+  if ((c === "[" || c === "]") && this.isOperatorEnabled("[")) {
+    this.current = this.newToken(TBRACKET, c);
+    this.pos++;
+    return true;
+  }
+  return false;
+};
+TokenStream.prototype.isComma = function() {
+  var c = this.expression.charAt(this.pos);
+  if (c === ",") {
+    this.current = this.newToken(TCOMMA, ",");
+    this.pos++;
+    return true;
+  }
+  return false;
+};
+TokenStream.prototype.isSemicolon = function() {
+  var c = this.expression.charAt(this.pos);
+  if (c === ";") {
+    this.current = this.newToken(TSEMICOLON, ";");
+    this.pos++;
+    return true;
+  }
+  return false;
+};
+TokenStream.prototype.isConst = function() {
+  var startPos = this.pos;
+  var i = startPos;
+  for (; i < this.expression.length; i++) {
+    var c = this.expression.charAt(i);
+    if (c.toUpperCase() === c.toLowerCase()) {
+      if (i === this.pos || c !== "_" && c !== "." && (c < "0" || c > "9")) {
+        break;
+      }
+    }
+  }
+  if (i > startPos) {
+    var str = this.expression.substring(startPos, i);
+    if (str in this.consts) {
+      this.current = this.newToken(TNUMBER, this.consts[str]);
+      this.pos += str.length;
+      return true;
+    }
+  }
+  return false;
+};
+TokenStream.prototype.isNamedOp = function() {
+  var startPos = this.pos;
+  var i = startPos;
+  for (; i < this.expression.length; i++) {
+    var c = this.expression.charAt(i);
+    if (c.toUpperCase() === c.toLowerCase()) {
+      if (i === this.pos || c !== "_" && (c < "0" || c > "9")) {
+        break;
+      }
+    }
+  }
+  if (i > startPos) {
+    var str = this.expression.substring(startPos, i);
+    if (this.isOperatorEnabled(str) && (str in this.binaryOps || str in this.unaryOps || str in this.ternaryOps)) {
+      this.current = this.newToken(TOP, str);
+      this.pos += str.length;
+      return true;
+    }
+  }
+  return false;
+};
+TokenStream.prototype.isName = function() {
+  var startPos = this.pos;
+  var i = startPos;
+  var hasLetter = false;
+  for (; i < this.expression.length; i++) {
+    var c = this.expression.charAt(i);
+    if (c.toUpperCase() === c.toLowerCase()) {
+      if (i === this.pos && (c === "$" || c === "_")) {
+        if (c === "_") {
+          hasLetter = true;
+        }
+        continue;
+      } else if (i === this.pos || !hasLetter || c !== "_" && (c < "0" || c > "9")) {
+        break;
+      }
+    } else {
+      hasLetter = true;
+    }
+  }
+  if (hasLetter) {
+    var str = this.expression.substring(startPos, i);
+    this.current = this.newToken(TNAME, str);
+    this.pos += str.length;
+    return true;
+  }
+  return false;
+};
+TokenStream.prototype.isWhitespace = function() {
+  var r = false;
+  var c = this.expression.charAt(this.pos);
+  while (c === " " || c === "	" || c === "\n" || c === "\r") {
+    r = true;
+    this.pos++;
+    if (this.pos >= this.expression.length) {
+      break;
+    }
+    c = this.expression.charAt(this.pos);
+  }
+  return r;
+};
+var codePointPattern = /^[0-9a-f]{4}$/i;
+TokenStream.prototype.unescape = function(v) {
+  var index = v.indexOf("\\");
+  if (index < 0) {
+    return v;
+  }
+  var buffer = v.substring(0, index);
+  while (index >= 0) {
+    var c = v.charAt(++index);
+    switch (c) {
+      case "'":
+        buffer += "'";
+        break;
+      case '"':
+        buffer += '"';
+        break;
+      case "\\":
+        buffer += "\\";
+        break;
+      case "/":
+        buffer += "/";
+        break;
+      case "b":
+        buffer += "\b";
+        break;
+      case "f":
+        buffer += "\f";
+        break;
+      case "n":
+        buffer += "\n";
+        break;
+      case "r":
+        buffer += "\r";
+        break;
+      case "t":
+        buffer += "	";
+        break;
+      case "u":
+        var codePoint = v.substring(index + 1, index + 5);
+        if (!codePointPattern.test(codePoint)) {
+          this.parseError("Illegal escape sequence: \\u" + codePoint);
+        }
+        buffer += String.fromCharCode(parseInt(codePoint, 16));
+        index += 4;
+        break;
+      default:
+        throw this.parseError('Illegal escape sequence: "\\' + c + '"');
+    }
+    ++index;
+    var backslash = v.indexOf("\\", index);
+    buffer += v.substring(index, backslash < 0 ? v.length : backslash);
+    index = backslash;
+  }
+  return buffer;
+};
+TokenStream.prototype.isComment = function() {
+  var c = this.expression.charAt(this.pos);
+  if (c === "/" && this.expression.charAt(this.pos + 1) === "*") {
+    this.pos = this.expression.indexOf("*/", this.pos) + 2;
+    if (this.pos === 1) {
+      this.pos = this.expression.length;
+    }
+    return true;
+  }
+  return false;
+};
+TokenStream.prototype.isRadixInteger = function() {
+  var pos = this.pos;
+  if (pos >= this.expression.length - 2 || this.expression.charAt(pos) !== "0") {
+    return false;
+  }
+  ++pos;
+  var radix;
+  var validDigit;
+  if (this.expression.charAt(pos) === "x") {
+    radix = 16;
+    validDigit = /^[0-9a-f]$/i;
+    ++pos;
+  } else if (this.expression.charAt(pos) === "b") {
+    radix = 2;
+    validDigit = /^[01]$/i;
+    ++pos;
+  } else {
+    return false;
+  }
+  var valid = false;
+  var startPos = pos;
+  while (pos < this.expression.length) {
+    var c = this.expression.charAt(pos);
+    if (validDigit.test(c)) {
+      pos++;
+      valid = true;
+    } else {
+      break;
+    }
+  }
+  if (valid) {
+    this.current = this.newToken(TNUMBER, parseInt(this.expression.substring(startPos, pos), radix));
+    this.pos = pos;
+  }
+  return valid;
+};
+TokenStream.prototype.isNumber = function() {
+  var valid = false;
+  var pos = this.pos;
+  var startPos = pos;
+  var resetPos = pos;
+  var foundDot = false;
+  var foundDigits = false;
+  var c;
+  while (pos < this.expression.length) {
+    c = this.expression.charAt(pos);
+    if (c >= "0" && c <= "9" || !foundDot && c === ".") {
+      if (c === ".") {
+        foundDot = true;
+      } else {
+        foundDigits = true;
+      }
+      pos++;
+      valid = foundDigits;
+    } else {
+      break;
+    }
+  }
+  if (valid) {
+    resetPos = pos;
+  }
+  if (c === "e" || c === "E") {
+    pos++;
+    var acceptSign = true;
+    var validExponent = false;
+    while (pos < this.expression.length) {
+      c = this.expression.charAt(pos);
+      if (acceptSign && (c === "+" || c === "-")) {
+        acceptSign = false;
+      } else if (c >= "0" && c <= "9") {
+        validExponent = true;
+        acceptSign = false;
+      } else {
+        break;
+      }
+      pos++;
+    }
+    if (!validExponent) {
+      pos = resetPos;
+    }
+  }
+  if (valid) {
+    this.current = this.newToken(TNUMBER, parseFloat(this.expression.substring(startPos, pos)));
+    this.pos = pos;
+  } else {
+    this.pos = resetPos;
+  }
+  return valid;
+};
+TokenStream.prototype.isOperator = function() {
+  var startPos = this.pos;
+  var c = this.expression.charAt(this.pos);
+  if (c === "+" || c === "-" || c === "*" || c === "/" || c === "%" || c === "^" || c === "?" || c === ":" || c === ".") {
+    this.current = this.newToken(TOP, c);
+  } else if (c === "\u2219" || c === "\u2022") {
+    this.current = this.newToken(TOP, "*");
+  } else if (c === ">") {
+    if (this.expression.charAt(this.pos + 1) === "=") {
+      this.current = this.newToken(TOP, ">=");
+      this.pos++;
+    } else {
+      this.current = this.newToken(TOP, ">");
+    }
+  } else if (c === "<") {
+    if (this.expression.charAt(this.pos + 1) === "=") {
+      this.current = this.newToken(TOP, "<=");
+      this.pos++;
+    } else {
+      this.current = this.newToken(TOP, "<");
+    }
+  } else if (c === "|") {
+    if (this.expression.charAt(this.pos + 1) === "|") {
+      this.current = this.newToken(TOP, "||");
+      this.pos++;
+    } else {
+      return false;
+    }
+  } else if (c === "=") {
+    if (this.expression.charAt(this.pos + 1) === "=") {
+      this.current = this.newToken(TOP, "==");
+      this.pos++;
+    } else {
+      this.current = this.newToken(TOP, c);
+    }
+  } else if (c === "!") {
+    if (this.expression.charAt(this.pos + 1) === "=") {
+      this.current = this.newToken(TOP, "!=");
+      this.pos++;
+    } else {
+      this.current = this.newToken(TOP, c);
+    }
+  } else {
+    return false;
+  }
+  this.pos++;
+  if (this.isOperatorEnabled(this.current.value)) {
+    return true;
+  } else {
+    this.pos = startPos;
+    return false;
+  }
+};
+TokenStream.prototype.isOperatorEnabled = function(op) {
+  return this.parser.isOperatorEnabled(op);
+};
+TokenStream.prototype.getCoordinates = function() {
+  var line = 0;
+  var column;
+  var newline = -1;
+  do {
+    line++;
+    column = this.pos - newline;
+    newline = this.expression.indexOf("\n", newline + 1);
+  } while (newline >= 0 && newline < this.pos);
+  return {
+    line,
+    column
+  };
+};
+TokenStream.prototype.parseError = function(msg) {
+  var coords = this.getCoordinates();
+  throw new Error("parse error [" + coords.line + ":" + coords.column + "]: " + msg);
+};
+function ParserState(parser2, tokenStream, options) {
+  this.parser = parser2;
+  this.tokens = tokenStream;
+  this.current = null;
+  this.nextToken = null;
+  this.next();
+  this.savedCurrent = null;
+  this.savedNextToken = null;
+  this.allowMemberAccess = options.allowMemberAccess !== false;
+}
+ParserState.prototype.next = function() {
+  this.current = this.nextToken;
+  return this.nextToken = this.tokens.next();
+};
+ParserState.prototype.tokenMatches = function(token, value) {
+  if (typeof value === "undefined") {
+    return true;
+  } else if (Array.isArray(value)) {
+    return contains(value, token.value);
+  } else if (typeof value === "function") {
+    return value(token);
+  } else {
+    return token.value === value;
+  }
+};
+ParserState.prototype.save = function() {
+  this.savedCurrent = this.current;
+  this.savedNextToken = this.nextToken;
+  this.tokens.save();
+};
+ParserState.prototype.restore = function() {
+  this.tokens.restore();
+  this.current = this.savedCurrent;
+  this.nextToken = this.savedNextToken;
+};
+ParserState.prototype.accept = function(type, value) {
+  if (this.nextToken.type === type && this.tokenMatches(this.nextToken, value)) {
+    this.next();
+    return true;
+  }
+  return false;
+};
+ParserState.prototype.expect = function(type, value) {
+  if (!this.accept(type, value)) {
+    var coords = this.tokens.getCoordinates();
+    throw new Error("parse error [" + coords.line + ":" + coords.column + "]: Expected " + (value || type));
+  }
+};
+ParserState.prototype.parseAtom = function(instr) {
+  var unaryOps = this.tokens.unaryOps;
+  function isPrefixOperator(token) {
+    return token.value in unaryOps;
+  }
+  if (this.accept(TNAME) || this.accept(TOP, isPrefixOperator)) {
+    instr.push(new Instruction(IVAR, this.current.value));
+  } else if (this.accept(TNUMBER)) {
+    instr.push(new Instruction(INUMBER, this.current.value));
+  } else if (this.accept(TSTRING)) {
+    instr.push(new Instruction(INUMBER, this.current.value));
+  } else if (this.accept(TPAREN, "(")) {
+    this.parseExpression(instr);
+    this.expect(TPAREN, ")");
+  } else if (this.accept(TBRACKET, "[")) {
+    if (this.accept(TBRACKET, "]")) {
+      instr.push(new Instruction(IARRAY, 0));
+    } else {
+      var argCount = this.parseArrayList(instr);
+      instr.push(new Instruction(IARRAY, argCount));
+    }
+  } else {
+    throw new Error("unexpected " + this.nextToken);
+  }
+};
+ParserState.prototype.parseExpression = function(instr) {
+  var exprInstr = [];
+  if (this.parseUntilEndStatement(instr, exprInstr)) {
+    return;
+  }
+  this.parseVariableAssignmentExpression(exprInstr);
+  if (this.parseUntilEndStatement(instr, exprInstr)) {
+    return;
+  }
+  this.pushExpression(instr, exprInstr);
+};
+ParserState.prototype.pushExpression = function(instr, exprInstr) {
+  for (var i = 0, len = exprInstr.length; i < len; i++) {
+    instr.push(exprInstr[i]);
+  }
+};
+ParserState.prototype.parseUntilEndStatement = function(instr, exprInstr) {
+  if (!this.accept(TSEMICOLON)) return false;
+  if (this.nextToken && this.nextToken.type !== TEOF && !(this.nextToken.type === TPAREN && this.nextToken.value === ")")) {
+    exprInstr.push(new Instruction(IENDSTATEMENT));
+  }
+  if (this.nextToken.type !== TEOF) {
+    this.parseExpression(exprInstr);
+  }
+  instr.push(new Instruction(IEXPR, exprInstr));
+  return true;
+};
+ParserState.prototype.parseArrayList = function(instr) {
+  var argCount = 0;
+  while (!this.accept(TBRACKET, "]")) {
+    this.parseExpression(instr);
+    ++argCount;
+    while (this.accept(TCOMMA)) {
+      this.parseExpression(instr);
+      ++argCount;
+    }
+  }
+  return argCount;
+};
+ParserState.prototype.parseVariableAssignmentExpression = function(instr) {
+  this.parseConditionalExpression(instr);
+  while (this.accept(TOP, "=")) {
+    var varName = instr.pop();
+    var varValue = [];
+    var lastInstrIndex = instr.length - 1;
+    if (varName.type === IFUNCALL) {
+      if (!this.tokens.isOperatorEnabled("()=")) {
+        throw new Error("function definition is not permitted");
+      }
+      for (var i = 0, len = varName.value + 1; i < len; i++) {
+        var index = lastInstrIndex - i;
+        if (instr[index].type === IVAR) {
+          instr[index] = new Instruction(IVARNAME, instr[index].value);
+        }
+      }
+      this.parseVariableAssignmentExpression(varValue);
+      instr.push(new Instruction(IEXPR, varValue));
+      instr.push(new Instruction(IFUNDEF, varName.value));
+      continue;
+    }
+    if (varName.type !== IVAR && varName.type !== IMEMBER) {
+      throw new Error("expected variable for assignment");
+    }
+    this.parseVariableAssignmentExpression(varValue);
+    instr.push(new Instruction(IVARNAME, varName.value));
+    instr.push(new Instruction(IEXPR, varValue));
+    instr.push(binaryInstruction("="));
+  }
+};
+ParserState.prototype.parseConditionalExpression = function(instr) {
+  this.parseOrExpression(instr);
+  while (this.accept(TOP, "?")) {
+    var trueBranch = [];
+    var falseBranch = [];
+    this.parseConditionalExpression(trueBranch);
+    this.expect(TOP, ":");
+    this.parseConditionalExpression(falseBranch);
+    instr.push(new Instruction(IEXPR, trueBranch));
+    instr.push(new Instruction(IEXPR, falseBranch));
+    instr.push(ternaryInstruction("?"));
+  }
+};
+ParserState.prototype.parseOrExpression = function(instr) {
+  this.parseAndExpression(instr);
+  while (this.accept(TOP, "or")) {
+    var falseBranch = [];
+    this.parseAndExpression(falseBranch);
+    instr.push(new Instruction(IEXPR, falseBranch));
+    instr.push(binaryInstruction("or"));
+  }
+};
+ParserState.prototype.parseAndExpression = function(instr) {
+  this.parseComparison(instr);
+  while (this.accept(TOP, "and")) {
+    var trueBranch = [];
+    this.parseComparison(trueBranch);
+    instr.push(new Instruction(IEXPR, trueBranch));
+    instr.push(binaryInstruction("and"));
+  }
+};
+var COMPARISON_OPERATORS = ["==", "!=", "<", "<=", ">=", ">", "in"];
+ParserState.prototype.parseComparison = function(instr) {
+  this.parseAddSub(instr);
+  while (this.accept(TOP, COMPARISON_OPERATORS)) {
+    var op = this.current;
+    this.parseAddSub(instr);
+    instr.push(binaryInstruction(op.value));
+  }
+};
+var ADD_SUB_OPERATORS = ["+", "-", "||"];
+ParserState.prototype.parseAddSub = function(instr) {
+  this.parseTerm(instr);
+  while (this.accept(TOP, ADD_SUB_OPERATORS)) {
+    var op = this.current;
+    this.parseTerm(instr);
+    instr.push(binaryInstruction(op.value));
+  }
+};
+var TERM_OPERATORS = ["*", "/", "%"];
+ParserState.prototype.parseTerm = function(instr) {
+  this.parseFactor(instr);
+  while (this.accept(TOP, TERM_OPERATORS)) {
+    var op = this.current;
+    this.parseFactor(instr);
+    instr.push(binaryInstruction(op.value));
+  }
+};
+ParserState.prototype.parseFactor = function(instr) {
+  var unaryOps = this.tokens.unaryOps;
+  function isPrefixOperator(token) {
+    return token.value in unaryOps;
+  }
+  this.save();
+  if (this.accept(TOP, isPrefixOperator)) {
+    if (this.current.value !== "-" && this.current.value !== "+") {
+      if (this.nextToken.type === TPAREN && this.nextToken.value === "(") {
+        this.restore();
+        this.parseExponential(instr);
+        return;
+      } else if (this.nextToken.type === TSEMICOLON || this.nextToken.type === TCOMMA || this.nextToken.type === TEOF || this.nextToken.type === TPAREN && this.nextToken.value === ")") {
+        this.restore();
+        this.parseAtom(instr);
+        return;
+      }
+    }
+    var op = this.current;
+    this.parseFactor(instr);
+    instr.push(unaryInstruction(op.value));
+  } else {
+    this.parseExponential(instr);
+  }
+};
+ParserState.prototype.parseExponential = function(instr) {
+  this.parsePostfixExpression(instr);
+  while (this.accept(TOP, "^")) {
+    this.parseFactor(instr);
+    instr.push(binaryInstruction("^"));
+  }
+};
+ParserState.prototype.parsePostfixExpression = function(instr) {
+  this.parseFunctionCall(instr);
+  while (this.accept(TOP, "!")) {
+    instr.push(unaryInstruction("!"));
+  }
+};
+ParserState.prototype.parseFunctionCall = function(instr) {
+  var unaryOps = this.tokens.unaryOps;
+  function isPrefixOperator(token) {
+    return token.value in unaryOps;
+  }
+  if (this.accept(TOP, isPrefixOperator)) {
+    var op = this.current;
+    this.parseAtom(instr);
+    instr.push(unaryInstruction(op.value));
+  } else {
+    this.parseMemberExpression(instr);
+    while (this.accept(TPAREN, "(")) {
+      if (this.accept(TPAREN, ")")) {
+        instr.push(new Instruction(IFUNCALL, 0));
+      } else {
+        var argCount = this.parseArgumentList(instr);
+        instr.push(new Instruction(IFUNCALL, argCount));
+      }
+    }
+  }
+};
+ParserState.prototype.parseArgumentList = function(instr) {
+  var argCount = 0;
+  while (!this.accept(TPAREN, ")")) {
+    this.parseExpression(instr);
+    ++argCount;
+    while (this.accept(TCOMMA)) {
+      this.parseExpression(instr);
+      ++argCount;
+    }
+  }
+  return argCount;
+};
+ParserState.prototype.parseMemberExpression = function(instr) {
+  this.parseAtom(instr);
+  while (this.accept(TOP, ".") || this.accept(TBRACKET, "[")) {
+    var op = this.current;
+    if (op.value === ".") {
+      if (!this.allowMemberAccess) {
+        throw new Error('unexpected ".", member access is not permitted');
+      }
+      this.expect(TNAME);
+      instr.push(new Instruction(IMEMBER, this.current.value));
+    } else if (op.value === "[") {
+      if (!this.tokens.isOperatorEnabled("[")) {
+        throw new Error('unexpected "[]", arrays are disabled');
+      }
+      this.parseExpression(instr);
+      this.expect(TBRACKET, "]");
+      instr.push(binaryInstruction("["));
+    } else {
+      throw new Error("unexpected symbol: " + op.value);
+    }
+  }
+};
+function add(a, b) {
+  return Number(a) + Number(b);
+}
+function sub(a, b) {
+  return a - b;
+}
+function mul(a, b) {
+  return a * b;
+}
+function div(a, b) {
+  return a / b;
+}
+function mod(a, b) {
+  return a % b;
+}
+function concat(a, b) {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.concat(b);
+  }
+  return "" + a + b;
+}
+function equal(a, b) {
+  return a === b;
+}
+function notEqual(a, b) {
+  return a !== b;
+}
+function greaterThan(a, b) {
+  return a > b;
+}
+function lessThan(a, b) {
+  return a < b;
+}
+function greaterThanEqual(a, b) {
+  return a >= b;
+}
+function lessThanEqual(a, b) {
+  return a <= b;
+}
+function andOperator(a, b) {
+  return Boolean(a && b);
+}
+function orOperator(a, b) {
+  return Boolean(a || b);
+}
+function inOperator(a, b) {
+  return contains(b, a);
+}
+function sinh(a) {
+  return (Math.exp(a) - Math.exp(-a)) / 2;
+}
+function cosh(a) {
+  return (Math.exp(a) + Math.exp(-a)) / 2;
+}
+function tanh(a) {
+  if (a === Infinity) return 1;
+  if (a === -Infinity) return -1;
+  return (Math.exp(a) - Math.exp(-a)) / (Math.exp(a) + Math.exp(-a));
+}
+function asinh(a) {
+  if (a === -Infinity) return a;
+  return Math.log(a + Math.sqrt(a * a + 1));
+}
+function acosh(a) {
+  return Math.log(a + Math.sqrt(a * a - 1));
+}
+function atanh(a) {
+  return Math.log((1 + a) / (1 - a)) / 2;
+}
+function log10(a) {
+  return Math.log(a) * Math.LOG10E;
+}
+function neg(a) {
+  return -a;
+}
+function not(a) {
+  return !a;
+}
+function trunc(a) {
+  return a < 0 ? Math.ceil(a) : Math.floor(a);
+}
+function random(a) {
+  return Math.random() * (a || 1);
+}
+function factorial(a) {
+  return gamma(a + 1);
+}
+function isInteger(value) {
+  return isFinite(value) && value === Math.round(value);
+}
+var GAMMA_G = 4.7421875;
+var GAMMA_P = [
+  0.9999999999999971,
+  57.15623566586292,
+  -59.59796035547549,
+  14.136097974741746,
+  -0.4919138160976202,
+  3399464998481189e-20,
+  4652362892704858e-20,
+  -9837447530487956e-20,
+  1580887032249125e-19,
+  -21026444172410488e-20,
+  21743961811521265e-20,
+  -1643181065367639e-19,
+  8441822398385275e-20,
+  -26190838401581408e-21,
+  36899182659531625e-22
+];
+function gamma(n) {
+  var t, x;
+  if (isInteger(n)) {
+    if (n <= 0) {
+      return isFinite(n) ? Infinity : NaN;
+    }
+    if (n > 171) {
+      return Infinity;
+    }
+    var value = n - 2;
+    var res = n - 1;
+    while (value > 1) {
+      res *= value;
+      value--;
+    }
+    if (res === 0) {
+      res = 1;
+    }
+    return res;
+  }
+  if (n < 0.5) {
+    return Math.PI / (Math.sin(Math.PI * n) * gamma(1 - n));
+  }
+  if (n >= 171.35) {
+    return Infinity;
+  }
+  if (n > 85) {
+    var twoN = n * n;
+    var threeN = twoN * n;
+    var fourN = threeN * n;
+    var fiveN = fourN * n;
+    return Math.sqrt(2 * Math.PI / n) * Math.pow(n / Math.E, n) * (1 + 1 / (12 * n) + 1 / (288 * twoN) - 139 / (51840 * threeN) - 571 / (2488320 * fourN) + 163879 / (209018880 * fiveN) + 5246819 / (75246796800 * fiveN * n));
+  }
+  --n;
+  x = GAMMA_P[0];
+  for (var i = 1; i < GAMMA_P.length; ++i) {
+    x += GAMMA_P[i] / (n + i);
+  }
+  t = n + GAMMA_G + 0.5;
+  return Math.sqrt(2 * Math.PI) * Math.pow(t, n + 0.5) * Math.exp(-t) * x;
+}
+function stringOrArrayLength(s) {
+  if (Array.isArray(s)) {
+    return s.length;
+  }
+  return String(s).length;
+}
+function hypot() {
+  var sum = 0;
+  var larg = 0;
+  for (var i = 0; i < arguments.length; i++) {
+    var arg = Math.abs(arguments[i]);
+    var div2;
+    if (larg < arg) {
+      div2 = larg / arg;
+      sum = sum * div2 * div2 + 1;
+      larg = arg;
+    } else if (arg > 0) {
+      div2 = arg / larg;
+      sum += div2 * div2;
+    } else {
+      sum += arg;
+    }
+  }
+  return larg === Infinity ? Infinity : larg * Math.sqrt(sum);
+}
+function condition(cond, yep, nope) {
+  return cond ? yep : nope;
+}
+function roundTo(value, exp) {
+  if (typeof exp === "undefined" || +exp === 0) {
+    return Math.round(value);
+  }
+  value = +value;
+  exp = -+exp;
+  if (isNaN(value) || !(typeof exp === "number" && exp % 1 === 0)) {
+    return NaN;
+  }
+  value = value.toString().split("e");
+  value = Math.round(+(value[0] + "e" + (value[1] ? +value[1] - exp : -exp)));
+  value = value.toString().split("e");
+  return +(value[0] + "e" + (value[1] ? +value[1] + exp : exp));
+}
+function setVar(name, value, variables) {
+  if (variables) variables[name] = value;
+  return value;
+}
+function arrayIndex(array, index) {
+  return array[index | 0];
+}
+function max(array) {
+  if (arguments.length === 1 && Array.isArray(array)) {
+    return Math.max.apply(Math, array);
+  } else {
+    return Math.max.apply(Math, arguments);
+  }
+}
+function min(array) {
+  if (arguments.length === 1 && Array.isArray(array)) {
+    return Math.min.apply(Math, array);
+  } else {
+    return Math.min.apply(Math, arguments);
+  }
+}
+function arrayMap(f, a) {
+  if (typeof f !== "function") {
+    throw new Error("First argument to map is not a function");
+  }
+  if (!Array.isArray(a)) {
+    throw new Error("Second argument to map is not an array");
+  }
+  return a.map(function(x, i) {
+    return f(x, i);
+  });
+}
+function arrayFold(f, init, a) {
+  if (typeof f !== "function") {
+    throw new Error("First argument to fold is not a function");
+  }
+  if (!Array.isArray(a)) {
+    throw new Error("Second argument to fold is not an array");
+  }
+  return a.reduce(function(acc, x, i) {
+    return f(acc, x, i);
+  }, init);
+}
+function arrayFilter(f, a) {
+  if (typeof f !== "function") {
+    throw new Error("First argument to filter is not a function");
+  }
+  if (!Array.isArray(a)) {
+    throw new Error("Second argument to filter is not an array");
+  }
+  return a.filter(function(x, i) {
+    return f(x, i);
+  });
+}
+function stringOrArrayIndexOf(target, s) {
+  if (!(Array.isArray(s) || typeof s === "string")) {
+    throw new Error("Second argument to indexOf is not a string or array");
+  }
+  return s.indexOf(target);
+}
+function arrayJoin(sep, a) {
+  if (!Array.isArray(a)) {
+    throw new Error("Second argument to join is not an array");
+  }
+  return a.join(sep);
+}
+function sign(x) {
+  return (x > 0) - (x < 0) || +x;
+}
+var ONE_THIRD = 1 / 3;
+function cbrt(x) {
+  return x < 0 ? -Math.pow(-x, ONE_THIRD) : Math.pow(x, ONE_THIRD);
+}
+function expm1(x) {
+  return Math.exp(x) - 1;
+}
+function log1p(x) {
+  return Math.log(1 + x);
+}
+function log2(x) {
+  return Math.log(x) / Math.LN2;
+}
+function Parser(options) {
+  this.options = options || {};
+  this.unaryOps = {
+    sin: Math.sin,
+    cos: Math.cos,
+    tan: Math.tan,
+    asin: Math.asin,
+    acos: Math.acos,
+    atan: Math.atan,
+    sinh: Math.sinh || sinh,
+    cosh: Math.cosh || cosh,
+    tanh: Math.tanh || tanh,
+    asinh: Math.asinh || asinh,
+    acosh: Math.acosh || acosh,
+    atanh: Math.atanh || atanh,
+    sqrt: Math.sqrt,
+    cbrt: Math.cbrt || cbrt,
+    log: Math.log,
+    log2: Math.log2 || log2,
+    ln: Math.log,
+    lg: Math.log10 || log10,
+    log10: Math.log10 || log10,
+    expm1: Math.expm1 || expm1,
+    log1p: Math.log1p || log1p,
+    abs: Math.abs,
+    ceil: Math.ceil,
+    floor: Math.floor,
+    round: Math.round,
+    trunc: Math.trunc || trunc,
+    "-": neg,
+    "+": Number,
+    exp: Math.exp,
+    not,
+    length: stringOrArrayLength,
+    "!": factorial,
+    sign: Math.sign || sign
+  };
+  this.binaryOps = {
+    "+": add,
+    "-": sub,
+    "*": mul,
+    "/": div,
+    "%": mod,
+    "^": Math.pow,
+    "||": concat,
+    "==": equal,
+    "!=": notEqual,
+    ">": greaterThan,
+    "<": lessThan,
+    ">=": greaterThanEqual,
+    "<=": lessThanEqual,
+    and: andOperator,
+    or: orOperator,
+    "in": inOperator,
+    "=": setVar,
+    "[": arrayIndex
+  };
+  this.ternaryOps = {
+    "?": condition
+  };
+  this.functions = {
+    random,
+    fac: factorial,
+    min,
+    max,
+    hypot: Math.hypot || hypot,
+    pyt: Math.hypot || hypot,
+    // backward compat
+    pow: Math.pow,
+    atan2: Math.atan2,
+    "if": condition,
+    gamma,
+    roundTo,
+    map: arrayMap,
+    fold: arrayFold,
+    filter: arrayFilter,
+    indexOf: stringOrArrayIndexOf,
+    join: arrayJoin
+  };
+  this.consts = {
+    E: Math.E,
+    PI: Math.PI,
+    "true": true,
+    "false": false
+  };
+}
+Parser.prototype.parse = function(expr) {
+  var instr = [];
+  var parserState = new ParserState(
+    this,
+    new TokenStream(this, expr),
+    { allowMemberAccess: this.options.allowMemberAccess }
+  );
+  parserState.parseExpression(instr);
+  parserState.expect(TEOF, "EOF");
+  return new Expression(instr, this);
+};
+Parser.prototype.evaluate = function(expr, variables) {
+  return this.parse(expr).evaluate(variables);
+};
+var sharedParser = new Parser();
+Parser.parse = function(expr) {
+  return sharedParser.parse(expr);
+};
+Parser.evaluate = function(expr, variables) {
+  return sharedParser.parse(expr).evaluate(variables);
+};
+var optionNameMap = {
+  "+": "add",
+  "-": "subtract",
+  "*": "multiply",
+  "/": "divide",
+  "%": "remainder",
+  "^": "power",
+  "!": "factorial",
+  "<": "comparison",
+  ">": "comparison",
+  "<=": "comparison",
+  ">=": "comparison",
+  "==": "comparison",
+  "!=": "comparison",
+  "||": "concatenate",
+  "and": "logical",
+  "or": "logical",
+  "not": "logical",
+  "?": "conditional",
+  ":": "conditional",
+  "=": "assignment",
+  "[": "array",
+  "()=": "fndef"
+};
+function getOptionName(op) {
+  return optionNameMap.hasOwnProperty(op) ? optionNameMap[op] : op;
+}
+Parser.prototype.isOperatorEnabled = function(op) {
+  var optionName = getOptionName(op);
+  var operators = this.options.operators || {};
+  return !(optionName in operators) || !!operators[optionName];
+};
+/*!
+ Based on ndef.parser, by Raphael Graf(r@undefined.ch)
+ http://www.undefined.ch/mparser/index.html
+
+ Ported to JavaScript and modified by Matthew Crumley (email@matthewcrumley.com, http://silentmatt.com/)
+
+ You are free to use and modify this code in anyway you find useful. Please leave this comment in the code
+ to acknowledge its original source. If you feel like it, I enjoy hearing about projects that use my code,
+ but don't feel like you have to let me know or ask permission.
+*/
+
+// packages/core/dist/eval/expr-eval-adapter.js
+var parser = new Parser({
+  operators: {
+    add: true,
+    concatenate: false,
+    conditional: true,
+    divide: true,
+    factorial: false,
+    multiply: true,
+    power: true,
+    remainder: true,
+    subtract: true,
+    logical: true,
+    comparison: true,
+    in: false,
+    assignment: false
+  }
+});
+var NON_DETERMINISTIC_FNS = ["random"];
+var NON_NUMERIC_FNS = ["fac", "map", "fold", "filter", "indexOf", "join"];
+var fns = parser.functions;
+for (const name of [...NON_DETERMINISTIC_FNS, ...NON_NUMERIC_FNS]) {
+  delete fns[name];
+}
+var AST_CACHE_MAX = 1024;
+var cache = /* @__PURE__ */ new Map();
+var UNDEFINED_VAR_RE = /undefined variable:?\s*(\w+)/i;
+var defaultEvaluator = (expr, scope) => {
+  let ast = cache.get(expr);
+  if (ast === void 0) {
+    try {
+      ast = parser.parse(expr);
+    } catch (e) {
+      throw new EvaluationError(`Cannot parse expression: ${e.message}`, expr);
+    }
+    if (cache.size >= AST_CACHE_MAX) {
+      cache.clear();
+    }
+    cache.set(expr, ast);
+  }
+  let result;
+  try {
+    result = ast.evaluate(scope);
+  } catch (e) {
+    const msg = e.message;
+    const match = UNDEFINED_VAR_RE.exec(msg);
+    if (match) {
+      throw new EvaluationError(msg, expr, match[1]);
+    }
+    throw new EvaluationError(msg, expr);
+  }
+  if (typeof result !== "number" || !Number.isFinite(result)) {
+    throw new EvaluationError(`Expression evaluated to non-finite ${String(result)}`, expr);
+  }
+  return result;
+};
+
+// packages/core/dist/data/shapes/function.js
+var MAX_SAMPLES = 1e5;
+function sampleFunction(spec, evaluator = defaultEvaluator) {
+  if (!Number.isFinite(spec.x.min) || !Number.isFinite(spec.x.max)) {
+    throw new Error(`function data: x.min and x.max must be finite (got ${spec.x.min}, ${spec.x.max})`);
+  }
+  if (spec.x.min >= spec.x.max) {
+    throw new Error(`function data: x.min (${spec.x.min}) must be < x.max (${spec.x.max})`);
+  }
+  if (!Number.isInteger(spec.x.samples) || spec.x.samples < 2) {
+    throw new Error(`function data: x.samples must be an integer >= 2 (got ${spec.x.samples})`);
+  }
+  if (spec.x.samples > MAX_SAMPLES) {
+    throw new Error(`function data: x.samples (${spec.x.samples}) exceeds MAX_SAMPLES (${MAX_SAMPLES})`);
+  }
+  const rows = [];
+  const step = (spec.x.max - spec.x.min) / (spec.x.samples - 1);
+  const hasZ = spec.zExpr !== void 0;
+  for (let i = 0; i < spec.x.samples; i++) {
+    const x = i === spec.x.samples - 1 ? spec.x.max : spec.x.min + step * i;
+    const y = safeEval(evaluator, spec.expr, { x });
+    if (hasZ) {
+      const z = safeEval(evaluator, spec.zExpr, { x });
+      rows.push({ x, y, z });
+    } else {
+      rows.push({ x, y });
+    }
+  }
+  return rows;
+}
+function safeEval(evaluator, expr, scope) {
+  try {
+    return evaluator(expr, scope);
+  } catch (e) {
+    if (e instanceof EvaluationError && /non-finite/.test(e.message)) {
+      return null;
+    }
+    throw e;
+  }
+}
+
 // packages/core/dist/geo/index.js
 var DEG2RAD = Math.PI / 180;
 function projector(projection, frame) {
@@ -5407,7 +7157,7 @@ var PADDING = { top: 24, right: 24, bottom: 40, left: 56 };
 function estimateLegendWidth(spec, rows, schema) {
   if (rows.length === 0)
     return 0;
-  let max = 0;
+  let max2 = 0;
   const seen = /* @__PURE__ */ new Set();
   const approxCharW = 6.5;
   const swatchW = 10;
@@ -5422,14 +7172,14 @@ function estimateLegendWidth(spec, rows, schema) {
     const isContinuous = cIdx >= 0 && isQuantitativeType(colType) && (layer.mark === "heatmap" || layer.mark === "geo-region");
     if (isContinuous) {
       const labelChars = 7;
-      max = Math.max(max, swatchW + swatchPad + labelChars * approxCharW);
+      max2 = Math.max(max2, swatchW + swatchPad + labelChars * approxCharW);
     } else {
       const domain = distinctOrdered(rows, schema, cf);
       const widest = domain.reduce((m, s) => Math.max(m, (s ?? "").length), cf.length);
-      max = Math.max(max, swatchW + swatchPad + widest * approxCharW);
+      max2 = Math.max(max2, swatchW + swatchPad + widest * approxCharW);
     }
   }
-  return max > 0 ? Math.ceil(max + 16) : 0;
+  return max2 > 0 ? Math.ceil(max2 + 16) : 0;
 }
 function computeBottomPad(spec, rows, schema) {
   if (rows.length === 0)
@@ -5528,22 +7278,22 @@ function distinctOrdered(rows, schema, field) {
   return out;
 }
 function numericExtent(rows, schema, field) {
-  let min = Number.POSITIVE_INFINITY;
-  let max = Number.NEGATIVE_INFINITY;
+  let min2 = Number.POSITIVE_INFINITY;
+  let max2 = Number.NEGATIVE_INFINITY;
   for (const r of rows) {
     const v = Number(valueAt(r, schema, field));
     if (Number.isFinite(v)) {
-      if (v < min)
-        min = v;
-      if (v > max)
-        max = v;
+      if (v < min2)
+        min2 = v;
+      if (v > max2)
+        max2 = v;
     }
   }
-  if (!Number.isFinite(min) || !Number.isFinite(max))
+  if (!Number.isFinite(min2) || !Number.isFinite(max2))
     return [0, 1];
-  if (min === max)
-    return [min - 1, max + 1];
-  return [min, max];
+  if (min2 === max2)
+    return [min2 - 1, max2 + 1];
+  return [min2, max2];
 }
 var LOW_SAMPLE_THRESHOLD = 30;
 function deriveUncertainty(provenance, interactive) {
@@ -5568,6 +7318,34 @@ function ySideOfLayer(enc) {
     return "right";
   return "left";
 }
+function materializeFunctionInput(input) {
+  const { spec } = input;
+  const fn = spec.data?.function;
+  if (!fn) {
+    throw new Error("materializeFunctionInput called without spec.data.function");
+  }
+  const sampledRows = sampleFunction(fn);
+  const hasZ = sampledRows.length > 0 && sampledRows[0]?.z !== void 0;
+  const schema = [
+    { name: "x", type: "DOUBLE" },
+    { name: "y", type: "DOUBLE" },
+    ...hasZ ? [{ name: "z", type: "DOUBLE" }] : []
+  ];
+  const rows = sampledRows.map((r) => hasZ ? [r.x, r.y, r.z ?? null] : [r.x, r.y]);
+  return {
+    ...input,
+    spec: {
+      ...spec,
+      // Drop spec.data.function so the recursive compileSpec call falls
+      // through to the normal tabular path. Substitute a stub `source`
+      // so the spec still satisfies DataSourceSchema's refinement when
+      // re-validated downstream.
+      data: { source: "<inline:function>" }
+    },
+    rows,
+    schema
+  };
+}
 function compileSpec(input) {
   const { spec, rows, schema } = input;
   if (spec.facet) {
@@ -5584,6 +7362,9 @@ function compileSpec(input) {
   }
   if (spec.data?.grid) {
     return compileContour(input);
+  }
+  if (spec.data?.function) {
+    return compileSpec(materializeFunctionInput(input));
   }
   const width = spec.width ?? DEFAULT_WIDTH;
   const height = spec.height ?? DEFAULT_HEIGHT;
@@ -7001,7 +8782,7 @@ function compileFaceted(input) {
       width: panelW - PADDING.left - padR,
       height: panelH - PADDING.top - panelBottomPad
     };
-    const sub = compileSpec({
+    const sub2 = compileSpec({
       spec: subSpec,
       rows: subRows,
       schema,
@@ -7011,9 +8792,9 @@ function compileFaceted(input) {
       title: val,
       titleX: offsetX + panelW / 2,
       titleY: offsetY - 8,
-      plotArea: sub.plotArea,
-      marks: sub.marks,
-      axes: sub.axes
+      plotArea: sub2.plotArea,
+      marks: sub2.marks,
+      axes: sub2.axes
     };
   });
   return {
@@ -8489,7 +10270,7 @@ function holtWintersForecast(input) {
   const S = requestedSeason;
   const alpha = input.alpha ?? 0.3;
   const beta = input.beta ?? 0.1;
-  const gamma = input.gamma ?? 0.1;
+  const gamma2 = input.gamma ?? 0.1;
   let levelMean = 0;
   for (let i = 0; i < S; i++)
     levelMean += sorted[i]?.y ?? 0;
@@ -8515,7 +10296,7 @@ function holtWintersForecast(input) {
     const prevTrend = trends[t - 1] ?? trend;
     const lvl = alpha * (y - seasonAtIdx) + (1 - alpha) * (prevLevel + prevTrend);
     const trd = beta * (lvl - prevLevel) + (1 - beta) * prevTrend;
-    const sea = gamma * (y - lvl) + (1 - gamma) * seasonAtIdx;
+    const sea = gamma2 * (y - lvl) + (1 - gamma2) * seasonAtIdx;
     levels[t] = lvl;
     trends[t] = trd;
     if (t >= S)
@@ -8590,7 +10371,7 @@ function holtWintersForecast(input) {
   });
   const annotated = {
     ...explanation,
-    headline: `${explanation.headline} (Holt-Winters \u03B1=${alpha} \u03B2=${beta} \u03B3=${gamma}, season=${S}.)`
+    headline: `${explanation.headline} (Holt-Winters \u03B1=${alpha} \u03B2=${beta} \u03B3=${gamma2}, season=${S}.)`
   };
   return { rows, schema, season: S, residualStd, explanation: annotated };
 }
@@ -8697,7 +10478,7 @@ function metricColumnName(metricName) {
 function collectMetricNames(spec) {
   const out = [];
   const seen = /* @__PURE__ */ new Set();
-  const add = (name) => {
+  const add2 = (name) => {
     if (!seen.has(name)) {
       seen.add(name);
       out.push(name);
@@ -8706,7 +10487,7 @@ function collectMetricNames(spec) {
   for (const layer of spec.layers) {
     forEachChannel(layer.encoding, (c) => {
       if (typeof c === "object" && c.metric !== void 0)
-        add(c.metric);
+        add2(c.metric);
     });
   }
   return out;
@@ -8714,20 +10495,20 @@ function collectMetricNames(spec) {
 function collectGroupByFields(spec) {
   const out = [];
   const seen = /* @__PURE__ */ new Set();
-  const add = (name) => {
+  const add2 = (name) => {
     if (!seen.has(name)) {
       seen.add(name);
       out.push(name);
     }
   };
   if (spec.facet?.col)
-    add(spec.facet.col);
+    add2(spec.facet.col);
   for (const layer of spec.layers) {
     forEachChannel(layer.encoding, (c) => {
       if (typeof c === "string")
-        add(c);
+        add2(c);
       else if (c.field !== void 0)
-        add(c.field);
+        add2(c.field);
     });
   }
   return out;
@@ -8826,14 +10607,14 @@ function collectNumeric(rows, idx) {
   return out;
 }
 function describeDistribution(values) {
-  let min = Number.POSITIVE_INFINITY;
-  let max = Number.NEGATIVE_INFINITY;
+  let min2 = Number.POSITIVE_INFINITY;
+  let max2 = Number.NEGATIVE_INFINITY;
   let sum = 0;
   for (const v of values) {
-    if (v < min)
-      min = v;
-    if (v > max)
-      max = v;
+    if (v < min2)
+      min2 = v;
+    if (v > max2)
+      max2 = v;
     sum += v;
   }
   const mean = sum / values.length;
@@ -8848,12 +10629,12 @@ function describeDistribution(values) {
   const std = Math.sqrt(variance);
   const skewness = std === 0 ? 0 : cubeSum / values.length / std ** 3;
   let ratio = 1;
-  if (min > 0 && max > 0)
-    ratio = max / min;
-  else if (max < 0 && min < 0)
-    ratio = Math.abs(min / max);
-  const hasZeroCrossing = min < 0 && max > 0;
-  return { min, max, mean, std, skewness, ratio, hasZeroCrossing };
+  if (min2 > 0 && max2 > 0)
+    ratio = max2 / min2;
+  else if (max2 < 0 && min2 < 0)
+    ratio = Math.abs(min2 / max2);
+  const hasZeroCrossing = min2 < 0 && max2 > 0;
+  return { min: min2, max: max2, mean, std, skewness, ratio, hasZeroCrossing };
 }
 function pickSuggestion(field, s) {
   if (s.hasZeroCrossing && Math.abs(s.min) > 0.1 * s.max && Math.abs(s.max) > 0.1 * Math.abs(s.min)) {
@@ -9115,8 +10896,8 @@ function walk(a, b, path, added, removed, changed) {
     return;
   }
   if (Array.isArray(a) && Array.isArray(b)) {
-    const max = Math.max(a.length, b.length);
-    for (let i = 0; i < max; i++) {
+    const max2 = Math.max(a.length, b.length);
+    for (let i = 0; i < max2; i++) {
       const childPath = `${path}/${i}`;
       if (i >= a.length)
         added.push({ path: childPath, value: b[i] });
@@ -9737,6 +11518,7 @@ export {
   EncodingSchema,
   FacetSchema,
   FieldTypeSchema,
+  FunctionDataSchema,
   GlyphSpecSchema,
   GraphDataSchema,
   GridDataSchema,

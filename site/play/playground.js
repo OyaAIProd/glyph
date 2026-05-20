@@ -4,7 +4,7 @@
 // SVG chart. Later PRs add audit panel + share.
 import { describeTable, getDuckDb, loadCsv, queryRows } from "./duckdb.js";
 import * as glyph from "./glyph-bundle.js";
-import { compileAndRender } from "./glyph-runtime.js";
+import { compileAndRender, runAudit } from "./glyph-runtime.js";
 import { mountSpecEditor } from "./monaco-bootstrap.js";
 
 console.log("playground booting…");
@@ -95,6 +95,8 @@ function mountCsvUpload(host, onLoaded) {
 
 const csvHost = document.getElementById("csv-upload");
 const chartHost = document.getElementById("chart-preview");
+const auditHost = document.getElementById("audit-findings");
+const trustHost = document.getElementById("trust");
 let dataset = null;
 
 // Compile + render the current spec against the current dataset and
@@ -104,18 +106,31 @@ let dataset = null;
 // a column that doesn't exist in the user's CSV — that's a runtime
 // concern, surfaced as a readable message in the chart pane.
 function rerender() {
-  // Defensive guard: a malformed dataset (e.g. an upstream PR's onLoaded
-  // callback firing before rows/columns are set) would otherwise throw
-  // an uncaught TypeError inside the compile block below and leave the
-  // previous chart visible. Fail soft: just no-op until the next call.
-  if (!dataset || !Array.isArray(dataset.columns) || !Array.isArray(dataset.rows)) {
-    return;
-  }
+  // Parse first — both chart and audit need the spec object. If the editor
+  // contents aren't legal JSON, surface the error in both panes (chart pane
+  // gets a red pre; audit pane gets a placeholder + the trust chip cleared)
+  // and bail before touching the dataset path.
   let spec;
   try {
     spec = JSON.parse(currentSpec);
   } catch (e) {
-    chartHost.innerHTML = `<pre class="error">JSON parse error: ${escapeHtml(e.message)}</pre>`;
+    if (chartHost) {
+      chartHost.innerHTML = `<pre class="error">JSON parse error: ${escapeHtml(e.message)}</pre>`;
+    }
+    renderAuditError(`JSON parse error: ${e.message}`);
+    return;
+  }
+
+  // Audit is dataset-independent — runs on the spec alone. Row count is
+  // passed when available so AUDIT-04 (excessive aggregation) can fire.
+  renderAuditPanel(spec, dataset?.rows?.length);
+
+  // Defensive guard: a malformed dataset (e.g. an upstream PR's onLoaded
+  // callback firing before rows/columns are set) would otherwise throw
+  // an uncaught TypeError inside the compile block below and leave the
+  // previous chart visible. Fail soft: just no-op the chart render until
+  // the next call — audit panel already updated above.
+  if (!dataset || !Array.isArray(dataset.columns) || !Array.isArray(dataset.rows)) {
     return;
   }
   try {
@@ -140,6 +155,62 @@ function rerender() {
     if (raw.length > 1000) console.error("Glyph compile error (full):", e);
     chartHost.innerHTML = `<pre class="error">Compile error: ${escapeHtml(msg)}</pre>`;
   }
+}
+
+// Paint the audit panel + trust chip for a (already-parsed) spec.
+// Lives outside rerender() so it stays single-purpose and so PR6's share
+// flow can call it directly after restoring a spec from a URL hash.
+function renderAuditPanel(spec, rowCount) {
+  if (!auditHost || !trustHost) return;
+  let result;
+  try {
+    result = runAudit(spec, { rowCount });
+  } catch (e) {
+    renderAuditError(`audit error: ${e.message ?? e}`);
+    return;
+  }
+  paintTrustChip(result.trust);
+  if (result.findings.length === 0) {
+    auditHost.innerHTML = '<li class="clean">✓ no findings</li>';
+    return;
+  }
+  // Findings are already sorted high → low by @glyph/core. Render each as
+  // a list item carrying the severity class (consumed by styles.css) plus
+  // the rule_id, message, and optional suggestion + JSON pointer.
+  auditHost.innerHTML = result.findings
+    .map((f) => {
+      const sev =
+        f.severity === "high" || f.severity === "medium" || f.severity === "low"
+          ? f.severity
+          : "low";
+      const suggestionHtml = f.suggestion
+        ? `<div class="audit-suggestion">${escapeHtml(f.suggestion)}</div>`
+        : "";
+      const pathHtml = f.path ? `<code class="audit-path">${escapeHtml(f.path)}</code>` : "";
+      return `<li class="severity-${sev}">
+        <div class="audit-head"><strong>${escapeHtml(f.rule_id)}</strong> <span class="audit-sev">${sev}</span></div>
+        <div class="audit-msg">${escapeHtml(f.message)}</div>
+        ${suggestionHtml}
+        ${pathHtml}
+      </li>`;
+    })
+    .join("");
+}
+
+// Paint the `#trust` chip. Wrapped in helpers so PR6's screenshot can hook
+// the `.trust-score` span specifically. Severity bands match the plan:
+// red < 50, amber < 80, green ≥ 80.
+function paintTrustChip(trust) {
+  const color = trust < 50 ? "var(--red)" : trust < 80 ? "#d4a017" : "var(--green)";
+  trustHost.innerHTML = `<span class="trust-score">${trust}</span><span class="trust-label"> / 100</span>`;
+  trustHost.style.color = color;
+}
+
+function renderAuditError(message) {
+  if (!auditHost || !trustHost) return;
+  auditHost.innerHTML = `<li class="severity-high">${escapeHtml(message)}</li>`;
+  trustHost.innerHTML = "";
+  trustHost.style.color = "";
 }
 
 // Minimal HTML escape for error messages. Errors from the compiler can
@@ -168,7 +239,14 @@ mountSpecEditor(specHost, DEFAULT_SPEC, (next) => {
   currentSpec = next;
   console.log("spec changed:", currentSpec.length, "chars");
   rerender();
-}).catch((e) => {
-  console.error("monaco mount failed:", e);
-  specHost.innerHTML = `<p class="placeholder">Editor failed to load: ${e.message ?? e}</p>`;
-});
+})
+  .then(() => {
+    // Monaco fires onChange only on user edits, so the default-spec audit
+    // wouldn't render until the first keystroke. Paint once on successful
+    // mount so the user sees the audit panel populated immediately.
+    rerender();
+  })
+  .catch((e) => {
+    console.error("monaco mount failed:", e);
+    specHost.innerHTML = `<p class="placeholder">Editor failed to load: ${e.message ?? e}</p>`;
+  });

@@ -86,6 +86,13 @@ button:hover {
   font-family: var(--mono);
   font-weight: 700;
 }
+.trust .trust-score {
+  font-size: 14px;
+}
+.trust .trust-label {
+  font-weight: 400;
+  color: var(--fg-soft);
+}
 #audit-findings {
   list-style: none;
   padding: 0;
@@ -100,13 +107,57 @@ button:hover {
   font-size: 12px;
   border-radius: 3px;
 }
-#audit-findings li.error {
+/* Severity classes match @glyph/core's AuditFinding contract:
+   high → red, medium → amber, low → accent blue (the default).
+   The PR1 stubs used error/warning/info; those tier names don't exist
+   in the real audit module — we use low/medium/high directly. */
+#audit-findings li.severity-high {
   border-left-color: var(--red);
   background: #fdecea;
 }
-#audit-findings li.warning {
+#audit-findings li.severity-medium {
   border-left-color: #d4a017;
   background: #fbf2d8;
+}
+#audit-findings li.severity-low {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+#audit-findings li.clean {
+  border-left-color: var(--green);
+  background: #eaf6ee;
+  color: var(--green);
+}
+#audit-findings .audit-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+#audit-findings .audit-sev {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--fg-soft);
+  letter-spacing: 0.04em;
+}
+#audit-findings .audit-msg {
+  color: var(--fg);
+}
+#audit-findings .audit-suggestion {
+  color: var(--fg-soft);
+  font-style: italic;
+  margin-top: 4px;
+}
+#audit-findings .audit-path {
+  display: inline-block;
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-soft);
+  background: rgba(0, 0, 0, 0.04);
+  padding: 1px 4px;
+  border-radius: 3px;
 }
 .placeholder {
   color: var(--fg-soft);

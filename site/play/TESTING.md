@@ -175,3 +175,88 @@ Pass criteria:
   a `ZodError`, the message is the raw JSON-ish issue list — readable
   but not pretty. Better formatting can land alongside the audit
   panel (PR5).
+
+## PR5 — Audit panel + trust score
+
+Prereqs:
+- Run `pnpm run build:playground` once.
+- Serve the `site/` directory as in PR2/PR3/PR4.
+
+Steps:
+
+1. Open `http://localhost:8000/play/` in a Chromium-based browser.
+2. On first paint (no CSV loaded yet), the Audit pane should already
+   show findings for the default spec (`bar` / `hour` / `rides`).
+   At minimum: `AUDIT-04` (excessive aggregation) does NOT fire yet
+   because no row count is known — that's expected; we only feed
+   `rowCount` to the auditor once data loads. Trust chip in the header
+   shows `NN / 100` colored according to severity bands.
+3. From the example dropdown, pick `rides.csv (12 rows)`. The chart
+   pane fills with a `Compile error:` (default spec uses `hour`, not
+   `pickup_hour`). The audit panel re-runs with the now-known row count
+   and may add `AUDIT-04` if aggregation is excessive.
+4. In the Spec editor, change `"x": "hour"` → `"x": "pickup_hour"`.
+   Chart renders. Audit re-runs on the same keystroke. No layout
+   thrash — findings list and trust chip both update in place.
+5. **Trigger a high-severity finding.** Add a `scale` block under
+   the `y` channel that pins the domain above zero:
+   ```json
+   {
+     "layers": [
+       {
+         "mark": "bar",
+         "encoding": {
+           "x": "pickup_hour",
+           "y": { "field": "rides", "scale": { "domain": [20, 60] } }
+         }
+       }
+     ]
+   }
+   ```
+   `AUDIT-01` ("bar chart y-axis domain starts at 20, not 0…") fires
+   with a red left border (severity-high). Trust score drops by 15.
+6. **Trigger a low-severity finding.** Inflate the rendering width
+   to force AUDIT-07 (extreme aspect ratio):
+   ```json
+   { "width": 1200, "height": 200, "layers": [...] }
+   ```
+   `AUDIT-07` should appear with a blue (accent) left border
+   (severity-low). Trust score drops by 3 from the previous value.
+7. **Clean spec → empty state.** Restore the spec to a vanilla
+   `bar` chart with `pickup_hour` / `rides`. The findings list
+   collapses to a single green `✓ no findings` item. Trust chip
+   reads `100 / 100` in green.
+8. **JSON parse error path.** Type a stray `{` at the start of the
+   spec. Audit pane shows a red `JSON parse error: …` line; trust
+   chip clears (empty). Restore valid JSON — both repopulate.
+9. **Severity color spot-check.** With one finding visible at each
+   tier (force them by editing the spec), confirm:
+   - high → red left border (`#c0392b`)
+   - medium → amber left border (`#d4a017`)
+   - low → accent-blue left border (`#4c78a8`)
+   And the trust chip color:
+   - `>=80` → green
+   - `>=50` → amber
+   - `<50`  → red
+
+Pass criteria:
+- Audit panel populates on initial mount (no need to load data first).
+- Findings re-render on every spec edit, with stable severity classes
+  (`severity-high` / `severity-medium` / `severity-low`).
+- Trust chip renders as `<span class="trust-score">NN</span><span
+  class="trust-label"> / 100</span>` so PR6's share screenshot can
+  highlight it.
+- Empty findings → green `✓ no findings` placeholder, trust = 100.
+- JSON parse error wipes audit + clears trust chip (no stale data).
+
+## Known limitations (PR5)
+
+- The trust-score formula is a temporary playground-local fallback
+  (`100 - Σ(15·high + 7·medium + 3·low)`). `@glyph/core` does not yet
+  export a `computeTrust` helper; once it does, delete the fallback
+  in `site/play/glyph-runtime.js`. The MCP verb `glyph_trust` is a
+  separate concept (provenance/freshness) and is intentionally NOT
+  what this score reports.
+- Findings re-render synchronously on every keystroke. For very large
+  specs this can stutter; deferred to PR6's perf pass if benchmarks
+  justify a debounce.
