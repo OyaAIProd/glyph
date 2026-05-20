@@ -396,12 +396,25 @@ if (shareGistBtn) {
 async function applyPayload({ spec, csv }) {
   if (spec) {
     const text = typeof spec === "string" ? spec : JSON.stringify(spec, null, 2);
+    // Defensive cap on the spec JSON itself — a malicious share could ship
+    // a deeply-nested spec that hangs JSON.parse or Monaco's setValue.
+    if (text.length > 1_000_000) {
+      flashStatus(`Refusing to load — spec is ${(text.length / 1024).toFixed(0)} KB (cap 1 MB).`);
+      return;
+    }
     currentSpec = text;
     if (specEditor && typeof specEditor.setValue === "function") {
       specEditor.setValue(text);
     }
   }
   if (csv) {
+    // Mirror the CSV_SIZE_CAP_BYTES guard on the paste path so a hostile
+    // gist or share URL can't ship a 50 MB CSV and brick the visitor's tab.
+    if (csv.length > CSV_SIZE_CAP_BYTES) {
+      const mb = (csv.length / 1024 / 1024).toFixed(1);
+      flashStatus(`Refusing to load — shared CSV is ${mb} MB (cap 10 MB).`);
+      return;
+    }
     const csvPaste = document.getElementById("csv-paste");
     if (csvPaste) {
       csvPaste.value = csv;
