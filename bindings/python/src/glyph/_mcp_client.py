@@ -39,8 +39,21 @@ class McpClient:
 
     @classmethod
     @asynccontextmanager
-    async def spawn(cls, args: list[str]) -> AsyncIterator[McpClient]:
-        """Spawn the MCP server, yield a client, terminate on exit."""
+    async def spawn(cls, args: list[str] | None = None) -> AsyncIterator[McpClient]:
+        """Spawn the MCP server, yield a client, terminate on exit.
+
+        When ``args`` is ``None`` (the default), resolution is delegated to
+        :func:`glyph._node.resolve_mcp_args` which honours ``$GLYPH_MCP_BIN``,
+        a monorepo build, or falls back to ``npx -y @glyph/mcp``. Passing an
+        explicit ``args`` list bypasses resolution entirely — used by tests
+        that want to pin a specific bundle.
+        """
+        if args is None:
+            # Lazy import: keeps the module-import cost flat and avoids a
+            # cycle if _node ever needs to reference the client.
+            from glyph._node import resolve_mcp_args
+
+            args = resolve_mcp_args()
         proc = await asyncio.create_subprocess_exec(
             *args,
             stdin=asyncio.subprocess.PIPE,
