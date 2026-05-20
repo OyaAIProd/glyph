@@ -28,5 +28,8 @@ bindings/python/.ruff_cache/
 bindings/python/.mypy_cache/
 
 # Playground bundle source maps (generated artifact;
-# the bundle itself IS committed so GH Pages serves it without a build step)
+# the bundle itself IS committed so GH Pages serves it without a build step).
+# Note: site/play/spec.schema.json is ALSO a generated artifact, but it IS
+# committed for the same reason — Monaco fetches it at runtime for spec
+# autocomplete + validation, so it must be served from the static site.
 site/play/glyph-bundle.js.map

@@ -9,7 +9,8 @@
       "snapshots",
       "*.svg",
       "site/play/glyph-bundle.js",
-      "site/play/glyph-bundle.js.map"
+      "site/play/glyph-bundle.js.map",
+      "site/play/spec.schema.json"
     ]
   },
   "formatter": {

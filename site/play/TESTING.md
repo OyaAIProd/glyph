@@ -65,3 +65,56 @@ Also verify on the **deployed GitHub Pages URL**, not just localhost:
   the user's browser. The playground holds no auth context and no user
   data leaves the page, but we'll self-host the wasm + js under
   `site/play/vendor/` in a future PR.
+
+## PR3 — Spec editor (Monaco via CDN)
+
+Prereqs:
+- Run `pnpm run build:playground` once. The build now also copies
+  `packages/core/dist/spec.schema.json` → `site/play/spec.schema.json`
+  (Monaco fetches it at runtime for autocomplete + validation).
+- Serve the `site/` directory as in PR2.
+
+Steps:
+
+1. Open `http://localhost:8000/play/` in a Chromium-based browser.
+2. The Spec pane shows a Monaco editor pre-filled with:
+   ```json
+   {
+     "layers": [
+       {
+         "mark": "bar",
+         "encoding": { "x": "hour", "y": "rides" }
+       }
+     ]
+   }
+   ```
+   Initial paint may flash blank for ~300 ms while Monaco's AMD loader
+   and language workers fetch from jsdelivr.
+3. Place the cursor inside the `"mark"` value and replace `"bar"` with
+   `"ba`. Within ~200 ms the suggestion popup should list valid marks
+   (`bar`, `bar-stacked`, `line`, etc.) — autocomplete is sourced from
+   the JSON schema's `enum`.
+4. Replace `"mark"` with `"invalid"`. A red squiggle appears under the
+   string; hovering shows
+   `Value is not accepted. Valid values: "bar", "bar-stacked", ...`.
+   This proves schema validation is wired.
+5. Type any character. DevTools Console logs
+   `spec changed: N chars` on every keystroke — confirms the
+   `onChange` callback (used by PR4 to drive live render) fires.
+6. In DevTools → Network, confirm the editor chunks load from
+   `cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/...` (pinned
+   minor version) and `./spec.schema.json` 200s from the same origin.
+
+Pass criteria:
+- Monaco editor mounts inside `#spec-editor` (no placeholder text).
+- Autocomplete + red squiggles work against the Glyph schema.
+- Editor failure (e.g. CDN blocked) shows the fallback message
+  `Editor failed to load: …` instead of a blank pane.
+
+## Known limitations (PR3)
+
+- Monaco loads from jsdelivr at runtime — same CDN trust caveat as
+  DuckDB-wasm in PR2. We'll evaluate self-hosting in a later PR.
+- The schema is fetched once on mount. If `@glyph/core`'s spec
+  contract changes between page-load and edit, the user has to
+  refresh to see the new validation rules.

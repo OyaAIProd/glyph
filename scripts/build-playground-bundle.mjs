@@ -2,6 +2,7 @@
 // Bundles @glyph/core into a single ESM file the playground can `import`.
 // Browser target, no Node built-ins.
 
+import { copyFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
@@ -25,3 +26,12 @@ await build({
 });
 
 console.log("Wrote site/play/glyph-bundle.js");
+
+// Also copy the published JSON schema next to the bundle so Monaco can
+// fetch it at runtime for autocomplete + validation. Keeping it in
+// `site/play/` (instead of fetching from packages/) means GH Pages serves
+// it with no build step on the visitor's side.
+const schemaSrc = resolve(root, "packages/core/dist/spec.schema.json");
+const schemaDst = resolve(root, "site/play/spec.schema.json");
+await copyFile(schemaSrc, schemaDst);
+console.log("Copied spec.schema.json");

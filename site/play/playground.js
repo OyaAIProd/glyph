@@ -1,11 +1,21 @@
 // site/play/playground.js
-// Main controller. PR2 wires CSV upload + DuckDB-wasm. Later PRs add spec
-// editor, live chart, audit panel, and share.
+// Main controller. PR2 wires CSV upload + DuckDB-wasm; PR3 mounts the
+// Monaco spec editor. Later PRs add live chart, audit panel, and share.
 import { describeTable, getDuckDb, loadCsv, queryRows } from "./duckdb.js";
 import * as glyph from "./glyph-bundle.js";
+import { mountSpecEditor } from "./monaco-bootstrap.js";
 
 console.log("playground booting…");
 console.log("@glyph/core exports:", Object.keys(glyph).slice(0, 10));
+
+// Default spec used on first paint. Stringified once so the editor's
+// model and our local `currentSpec` start in lockstep.
+const DEFAULT_SPEC = JSON.stringify(
+  { layers: [{ mark: "bar", encoding: { x: "hour", y: "rides" } }] },
+  null,
+  2,
+);
+let currentSpec = DEFAULT_SPEC;
 
 // 10 MB cap on pasted/uploaded CSVs. Anything larger hangs the tab while
 // DuckDB-wasm tries to parse + materialize the file; a public playground
@@ -86,4 +96,15 @@ let dataset = null;
 mountCsvUpload(csvHost, (loaded) => {
   dataset = loaded;
   console.log("data loaded:", dataset);
+});
+
+// Mount the Monaco spec editor. The onChange handler just updates the
+// in-memory copy of the spec; PR4 will turn that into a live chart.
+const specHost = document.getElementById("spec-editor");
+mountSpecEditor(specHost, DEFAULT_SPEC, (next) => {
+  currentSpec = next;
+  console.log("spec changed:", currentSpec.length, "chars");
+}).catch((e) => {
+  console.error("monaco mount failed:", e);
+  specHost.innerHTML = `<p class="placeholder">Editor failed to load: ${e.message ?? e}</p>`;
 });

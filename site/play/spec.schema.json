@@ -1,0 +1,719 @@
+{
+  "$ref": "#/definitions/GlyphSpec",
+  "definitions": {
+    "GlyphSpec": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "enum": [
+            "glyph/0.1"
+          ]
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "minLength": 1
+            },
+            "format": {
+              "type": "string",
+              "enum": [
+                "parquet",
+                "csv",
+                "json",
+                "arrow"
+              ]
+            },
+            "transform": {
+              "type": "string"
+            },
+            "hierarchy": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "value": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "children": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/GlyphSpec/properties/data/properties/hierarchy"
+                  }
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            "graph": {
+              "type": "object",
+              "properties": {
+                "nodes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      },
+                      "r": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      "group": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "minItems": 1
+                },
+                "edges": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "target": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "distance": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "target"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "nodes"
+              ],
+              "additionalProperties": false
+            },
+            "grid": {
+              "type": "object",
+              "properties": {
+                "rows": {
+                  "type": "integer",
+                  "minimum": 2
+                },
+                "cols": {
+                  "type": "integer",
+                  "minimum": 2
+                },
+                "values": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 4
+                }
+              },
+              "required": [
+                "rows",
+                "cols",
+                "values"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/definitions/GlyphSpec/properties/data"
+              },
+              "mark": {
+                "type": "string",
+                "enum": [
+                  "bar",
+                  "line",
+                  "point",
+                  "area",
+                  "rect",
+                  "rule",
+                  "geo-point",
+                  "geo-region",
+                  "heatmap",
+                  "boxplot",
+                  "text",
+                  "treemap",
+                  "sunburst",
+                  "force",
+                  "contour"
+                ]
+              },
+              "encoding": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "metric": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "quantitative",
+                              "ordinal",
+                              "nominal",
+                              "temporal"
+                            ]
+                          },
+                          "scale": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "linear",
+                                  "log",
+                                  "sqrt",
+                                  "time",
+                                  "band",
+                                  "point",
+                                  "ordinal"
+                                ]
+                              },
+                              "domain": {
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "minItems": 2,
+                                    "maxItems": 2,
+                                    "items": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "number"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "number"
+                                    }
+                                  }
+                                ]
+                              },
+                              "range": {
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "minItems": 2,
+                                    "maxItems": 2,
+                                    "items": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "number"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                ]
+                              },
+                              "side": {
+                                "type": "string",
+                                "enum": [
+                                  "left",
+                                  "right"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "aggregate": {
+                            "type": "string",
+                            "enum": [
+                              "count",
+                              "sum",
+                              "mean",
+                              "median",
+                              "min",
+                              "max"
+                            ]
+                          },
+                          "title": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "y": {
+                    "$ref": "#/definitions/GlyphSpec/properties/layers/items/properties/encoding/properties/x"
+                  },
+                  "color": {
+                    "$ref": "#/definitions/GlyphSpec/properties/layers/items/properties/encoding/properties/x"
+                  },
+                  "size": {
+                    "$ref": "#/definitions/GlyphSpec/properties/layers/items/properties/encoding/properties/x"
+                  },
+                  "opacity": {
+                    "$ref": "#/definitions/GlyphSpec/properties/layers/items/properties/encoding/properties/x"
+                  },
+                  "tooltip": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/definitions/GlyphSpec/properties/layers/items/properties/encoding/properties/x"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/definitions/GlyphSpec/properties/layers/items/properties/encoding/properties/x"
+                        }
+                      }
+                    ]
+                  },
+                  "lat": {
+                    "$ref": "#/definitions/GlyphSpec/properties/layers/items/properties/encoding/properties/x"
+                  },
+                  "lon": {
+                    "$ref": "#/definitions/GlyphSpec/properties/layers/items/properties/encoding/properties/x"
+                  },
+                  "region": {
+                    "$ref": "#/definitions/GlyphSpec/properties/layers/items/properties/encoding/properties/x"
+                  },
+                  "text": {
+                    "$ref": "#/definitions/GlyphSpec/properties/layers/items/properties/encoding/properties/x"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "stat": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "bin",
+                      "count",
+                      "sum",
+                      "mean",
+                      "median",
+                      "quantile"
+                    ]
+                  },
+                  "params": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": [
+                        "number",
+                        "string"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "additionalProperties": false
+              },
+              "position": {
+                "type": "string",
+                "enum": [
+                  "stack",
+                  "dodge",
+                  "identity"
+                ]
+              }
+            },
+            "required": [
+              "mark",
+              "encoding"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "title": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "theme": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "light",
+                "dark"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "background": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "fg": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "axis": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "grid": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "palette": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "background",
+                "fg",
+                "axis",
+                "grid",
+                "palette"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "locale": {
+          "type": "string",
+          "minLength": 2
+        },
+        "facet": {
+          "type": "object",
+          "properties": {
+            "col": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "col"
+          ],
+          "additionalProperties": false
+        },
+        "interactive": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "hover": {
+              "type": "boolean"
+            },
+            "uncertainty": {
+              "type": "boolean"
+            },
+            "zoomable": {
+              "type": "boolean"
+            },
+            "lassoable": {
+              "type": "boolean"
+            },
+            "voronoi": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "tool": {
+                "type": "string",
+                "minLength": 1
+              },
+              "argMap": {
+                "type": "object",
+                "additionalProperties": {}
+              },
+              "description": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "label"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "projection": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "equirectangular",
+                "mercator",
+                "naturalEarth",
+                "albersUsa"
+              ]
+            },
+            "center": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "scale": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        "coordinates": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "polar"
+            },
+            "innerRadius": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.95
+            },
+            "outerRadius": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "startAngle": {
+              "type": "number",
+              "minimum": -360,
+              "maximum": 360
+            },
+            "endAngle": {
+              "type": "number",
+              "minimum": -360,
+              "maximum": 360
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "thresholds": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "geojson": {
+          "type": "object",
+          "properties": {
+            "features": {
+              "type": "array",
+              "items": {}
+            },
+            "topology": {},
+            "object": {
+              "type": "string"
+            },
+            "idField": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
+        },
+        "graticule": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "step": {
+                  "type": "integer",
+                  "minimum": 5,
+                  "maximum": 180
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "link_group": {
+          "type": "string",
+          "minLength": 1
+        },
+        "animation": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "stage",
+                    "stage-stagger"
+                  ]
+                },
+                "duration_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 60000
+                },
+                "stagger_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "race"
+                },
+                "frame_field": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "duration_ms": {
+                  "type": "integer",
+                  "minimum": 100,
+                  "maximum": 120000
+                }
+              },
+              "required": [
+                "kind",
+                "frame_field"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "scrub"
+                },
+                "frame_field": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "duration_ms": {
+                  "type": "integer",
+                  "minimum": 100,
+                  "maximum": 120000
+                }
+              },
+              "required": [
+                "kind",
+                "frame_field"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "layers"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

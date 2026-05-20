@@ -115,6 +115,13 @@ button:hover {
   padding: 6px 0;
   margin: 0;
 }
+/* Monaco needs a sized host or it renders 0×0. The pane is already a
+   flex column; let the editor fill whatever vertical space is left. */
+#spec-editor {
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 240px;
+}
 .hint {
   color: var(--fg-soft);
   font-family: var(--mono);
