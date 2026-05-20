@@ -28,7 +28,11 @@ result.handle         # gdf://... — pass to query/audit/explain
 result.audit          # list of AuditFinding
 ```
 
-In Jupyter, `result` renders inline.
+In Jupyter, `result` renders inline. The 60-second tour is the example notebook at [`examples/01_hello_chart.ipynb`](https://github.com/seanhanca/glyph/blob/main/bindings/python/examples/01_hello_chart.ipynb); run it with the `jupyter` + `pandas` extras:
+
+```bash
+pip install "glyph-charts[jupyter,pandas]"
+```
 
 ## More
 
