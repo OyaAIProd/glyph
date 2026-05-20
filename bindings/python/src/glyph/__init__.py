@@ -82,21 +82,19 @@ def render(
     elif data is not None:
         # Lazy-import the pandas adapter so the core path stays pandas-free.
         # Doing this here (rather than at module load) keeps `import glyph`
-        # cheap and avoids a hard dep on the optional extra.
+        # cheap and avoids a hard dep on the optional extra. If pandas isn't
+        # installed, this import already raises ImportError with the
+        # "install glyph[pandas]" hint — see glyph/pandas.py module header.
+        # Runtime type-check via a local pandas reference. We can't rely on
+        # a TYPE_CHECKING guard because the public signature accepts ``Any``
+        # (the alternative — exposing ``pd.DataFrame`` in the signature —
+        # would force pandas onto every user importing glyph). A clear
+        # ValueError is much friendlier than the cryptic AttributeError that
+        # an .to_dict() call would produce on a non-DataFrame argument.
+        import pandas as _pd  # type: ignore[import-untyped]
+
         from glyph.pandas import dataframe_to_inline_data
 
-        # Runtime type-check. We can't rely on a TYPE_CHECKING guard because
-        # the public signature accepts ``Any`` (the alternative — exposing
-        # ``pd.DataFrame`` in the signature — would force pandas onto every
-        # user importing glyph). A clear ValueError is much friendlier than
-        # the cryptic AttributeError that an .to_dict() call would produce on
-        # a non-DataFrame argument.
-        try:
-            import pandas as _pd  # type: ignore[import-untyped]
-        except ImportError as exc:  # pragma: no cover — defensive
-            raise ImportError(
-                "data= requires `pandas` — install with `pip install glyph[pandas]`"
-            ) from exc
         if not isinstance(data, _pd.DataFrame):
             raise ValueError(f"data= must be a pandas.DataFrame, got {type(data).__name__}")
 

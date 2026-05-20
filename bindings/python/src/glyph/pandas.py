@@ -88,6 +88,14 @@ def dataframe_to_inline_data(df: pd.DataFrame) -> dict[str, list[dict[str, Any]]
         iterating ``itertuples`` because the former handles MultiIndex column
         names by collapsing them to tuples — same behaviour the rest of the
         Glyph TypeScript surface assumes when it accepts a row dict.
+
+        ``to_dict("records")`` **drops the DataFrame index**. If you've done
+        ``df.set_index("date")`` or have a non-default index from a
+        ``groupby(...).sum()``, the grouping key is lost. Call
+        ``df.reset_index()`` first to promote the index into a regular
+        column. This is intentional today — promoting indices automatically
+        would surprise users who use the default RangeIndex (an integer 0..N
+        column would appear out of nowhere) — but it's worth knowing.
     """
     records = df.to_dict(orient="records")
     cleaned: list[dict[str, Any]] = []
