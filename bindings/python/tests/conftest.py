@@ -27,11 +27,5 @@ def mcp_server_args() -> list[str]:
 def rides_csv_path(tmp_path: Path) -> Path:
     """A small fixture CSV used by describe / render round-trips."""
     p = tmp_path / "rides.csv"
-    p.write_text(
-        "pickup_hour,fare,rides\n"
-        "0,12.50,42\n"
-        "1,11.20,38\n"
-        "8,18.20,260\n"
-        "17,16.30,240\n"
-    )
+    p.write_text("pickup_hour,fare,rides\n0,12.50,42\n1,11.20,38\n8,18.20,260\n17,16.30,240\n")
     return p
