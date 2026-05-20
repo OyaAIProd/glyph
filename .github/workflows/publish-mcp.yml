@@ -1,0 +1,64 @@
+name: publish-mcp
+
+on:
+  push:
+    tags:
+      - "mcp-v*"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build publishable workspaces
+        run: |
+          pnpm --filter @glyph/core run build
+          pnpm --filter @glyph/duckdb run build
+          pnpm --filter @glyph/preview-server run build
+          pnpm --filter @glyph/mcp run build
+
+      - name: Test publishable workspaces
+        run: |
+          pnpm --filter @glyph/core run test
+          pnpm --filter @glyph/duckdb run test
+          pnpm --filter @glyph/preview-server run test
+          pnpm --filter @glyph/mcp run test
+
+      - name: Publish workspace packages in dependency order
+        run: |
+          pnpm --filter @glyph/core publish --no-git-checks
+          pnpm --filter @glyph/duckdb publish --no-git-checks
+          pnpm --filter @glyph/preview-server publish --no-git-checks
+          pnpm --filter @glyph/mcp publish --no-git-checks
+        env:
+          NPM_CONFIG_PROVENANCE: "true"
+
+      - name: Summary
+        run: |
+          echo "## Published packages" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          for pkg in core duckdb preview-server mcp; do
+            v=$(node -p "require('./packages/$pkg/package.json').version")
+            echo "- @glyph/$pkg @ $v — https://www.npmjs.com/package/@glyph/$pkg" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Next: run \`mcp-publisher publish\` locally to refresh the MCP Registry entry." >> $GITHUB_STEP_SUMMARY

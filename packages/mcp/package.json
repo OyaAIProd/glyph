@@ -1,7 +1,8 @@
 {
   "name": "@glyph/mcp",
-  "version": "0.0.0",
-  "description": "Glyph MCP server — three tools (describe, render, query) for AI agents.",
+  "version": "0.1.0",
+  "mcpName": "io.github.seanhanca/glyph",
+  "description": "Glyph MCP server — 49 verbs for deterministic chart rendering, query, audit, anomaly, forecast, decompose, explain, story planning, and Whyboard analytics.",
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -10,6 +11,18 @@
     "glyph-mcp": "./dist/bin.js"
   },
   "files": ["dist", "README.md"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seanhanca/glyph.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://github.com/seanhanca/glyph",
+  "bugs": "https://github.com/seanhanca/glyph/issues",
+  "keywords": ["mcp", "charts", "visualization", "duckdb", "agents", "data-viz", "anthropic"],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json && node ../cli/scripts/make-bin-executable.js",
     "test": "vitest run --testTimeout=15000"

@@ -1,6 +1,6 @@
 {
   "name": "@glyph/core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Glyph core — spec AST, compiler, scenegraph, SVG renderer.",
   "license": "Apache-2.0",
   "type": "module",
@@ -14,6 +14,18 @@
     "./spec.schema.json": "./dist/spec.schema.json"
   },
   "files": ["dist", "README.md"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seanhanca/glyph.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/seanhanca/glyph",
+  "bugs": "https://github.com/seanhanca/glyph/issues",
+  "keywords": ["charts", "visualization", "svg", "grammar-of-graphics", "deterministic", "agents"],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json && tsx scripts/generate-schema.ts",
     "test": "vitest run",

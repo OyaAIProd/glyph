@@ -1,6 +1,6 @@
 {
   "name": "@glyph/preview-server",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Opt-in, localhost-only HTTP server that hosts an interactive Glyph chart preview. Used by @glyph/mcp to close the click → agent loop.",
   "license": "Apache-2.0",
   "type": "module",
@@ -13,6 +13,18 @@
     }
   },
   "files": ["dist", "README.md"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seanhanca/glyph.git",
+    "directory": "packages/preview-server"
+  },
+  "homepage": "https://github.com/seanhanca/glyph",
+  "bugs": "https://github.com/seanhanca/glyph/issues",
+  "keywords": ["glyph", "preview", "mcp", "charts"],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run"
