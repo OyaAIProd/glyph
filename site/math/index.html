@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Glyph · Math examples</title>
+    <meta
+      name="description"
+      content="Four math chart examples that ship with Glyph today: scalar function, parametric function, vector field, and animation composition. Each page has the full spec JSON and the byte-stable rendered SVG."
+    />
+    <meta property="og:title" content="Glyph · Math examples" />
+    <meta
+      property="og:description"
+      content="Scalar functions, parametric curves, vector fields, animation composition — each with the spec and the rendered SVG."
+    />
+    <meta property="og:url" content="https://seanhanca.github.io/glyph/math/" />
+    <meta property="og:image" content="../og-playground.png" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='2' y='9' width='2' height='5' fill='%234c78a8'/%3E%3Crect x='6' y='5' width='2' height='9' fill='%234c78a8'/%3E%3Crect x='10' y='2' width='2' height='12' fill='%234c78a8'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./_shared.css" />
+  </head>
+  <body>
+    <header>
+      <div class="wrap nav">
+        <div class="logo">
+          <svg width="22" height="22" viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="2" y="9" width="2" height="5" fill="#4c78a8" />
+            <rect x="6" y="5" width="2" height="9" fill="#4c78a8" />
+            <rect x="10" y="2" width="2" height="12" fill="#4c78a8" />
+          </svg>
+          <a href="../">Glyph</a>
+          <span class="crumb">Math</span>
+        </div>
+        <nav class="nav-links">
+          <a href="../play/">Playground</a>
+          <a href="../showcase/">What's new</a>
+          <a href="https://github.com/seanhanca/glyph">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="demo-hero wrap">
+        <span class="eyebrow">Math Phase 1 · 4 examples</span>
+        <h1>Math examples</h1>
+        <p class="lede">
+          Every example below is rendered by the actual compiler — the SVGs
+          are pulled straight from <code>packages/core/__fixtures__/math/</code>
+          and are byte-stable across re-renders. Click any card to view the
+          full spec.
+        </p>
+      </section>
+
+      <section class="wrap">
+        <div class="gallery-grid">
+          <a class="gallery-card" href="./sine-wave.html">
+            <div class="thumb">
+              <img
+                src="./sine-wave.svg"
+                alt="Sine wave from y = sin(x) sampled on [-2π, 2π]"
+                loading="lazy"
+              />
+            </div>
+            <div class="body">
+              <h2>Sine wave</h2>
+              <div class="meta">
+                <code>data.shape: "function"</code> · scalar
+              </div>
+              <p>
+                <code>y = sin(x)</code> sampled directly in the compiler — no
+                CSV, no <code>linspace</code>. Just declare the domain and
+                the expression.
+              </p>
+            </div>
+          </a>
+
+          <a class="gallery-card" href="./lissajous.html">
+            <div class="thumb">
+              <img
+                src="./lissajous.svg"
+                alt="Lissajous curve x = sin(3t), y = cos(2t)"
+                loading="lazy"
+              />
+            </div>
+            <div class="body">
+              <h2>Lissajous curve</h2>
+              <div class="meta">
+                <code>data.shape: "function"</code> · parametric
+              </div>
+              <p>
+                Same shape, now with a <code>parameter</code> block plus
+                <code>xExpr</code> / <code>yExpr</code>. Draws arbitrary
+                parametric curves.
+              </p>
+            </div>
+          </a>
+
+          <a class="gallery-card" href="./vector-field.html">
+            <div class="thumb">
+              <img
+                src="./vector-field-rotation.svg"
+                alt="Rotation vector field on a 5×5 grid"
+                loading="lazy"
+              />
+            </div>
+            <div class="body">
+              <h2>Vector field</h2>
+              <div class="meta">
+                <code>mark: "vector-field"</code>
+              </div>
+              <p>
+                A new mark in the registry. Arrows emit through a single
+                <code>&lt;marker&gt;</code> in <code>&lt;defs&gt;</code> —
+                self-contained SVG.
+              </p>
+            </div>
+          </a>
+
+          <a class="gallery-card" href="./animated-trajectory.html">
+            <div class="thumb">
+              <img
+                src="./animated-trajectory.svg"
+                alt="Animated trajectory — one frame from a scrubbable parametric curve"
+                loading="lazy"
+              />
+            </div>
+            <div class="body">
+              <h2>Animated trajectory</h2>
+              <div class="meta">
+                <code>data.shape: "function"</code> +
+                <code>animation.kind: "scrub"</code>
+              </div>
+              <p>
+                Parametric data composes with scrub animation — zero compiler
+                changes. The thesis Math Phase 1 set out to validate.
+              </p>
+            </div>
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <p>
+          Each example mirrors a fixture in
+          <code>packages/core/__fixtures__/math/</code> with a matching
+          snapshot test guarding byte-stability across the test matrix.
+        </p>
+        <p style="margin-top: 6px">
+          <a href="https://github.com/seanhanca/glyph">github.com/seanhanca/glyph</a>
+          &nbsp;·&nbsp;
+          <a href="../play/">playground</a> &nbsp;·&nbsp;
+          <a href="../showcase/">what's new</a>
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

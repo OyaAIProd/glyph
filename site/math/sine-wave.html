@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sine wave · Glyph math examples</title>
+    <meta
+      name="description"
+      content="y = sin(x) rendered directly from a spec — no CSV, no linspace. Just declare the domain and the expression in a `data.shape: function` block."
+    />
+    <link rel="stylesheet" href="./_shared.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='2' y='9' width='2' height='5' fill='%234c78a8'/%3E%3Crect x='6' y='5' width='2' height='9' fill='%234c78a8'/%3E%3Crect x='10' y='2' width='2' height='12' fill='%234c78a8'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <header>
+      <div class="wrap nav">
+        <div class="logo">
+          <svg width="22" height="22" viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="2" y="9" width="2" height="5" fill="#4c78a8" />
+            <rect x="6" y="5" width="2" height="9" fill="#4c78a8" />
+            <rect x="10" y="2" width="2" height="12" fill="#4c78a8" />
+          </svg>
+          <a href="../">Glyph</a>
+          <span class="crumb"><a href="./">Math</a></span>
+          <span class="crumb">Sine wave</span>
+        </div>
+        <nav class="nav-links">
+          <a href="./">All examples</a>
+          <a href="../play/">Playground</a>
+          <a href="https://github.com/seanhanca/glyph">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="demo-hero wrap">
+        <span class="eyebrow">Scalar function</span>
+        <h1>Sine wave</h1>
+        <p class="lede">
+          <code>y = sin(x)</code> sampled 200 times on
+          <code>[-2π, 2π]</code>. The
+          <code>data.shape: "function"</code> block tells the compiler to
+          synthesize rows directly from an expression — no CSV file, no
+          <code>linspace</code> helper.
+        </p>
+      </section>
+
+      <section class="wrap">
+        <div class="chart-card">
+          <img
+            src="./sine-wave.svg"
+            alt="Sine wave: y = sin(x) from -2π to 2π, rendered as a line at 200 sample points."
+          />
+        </div>
+
+        <h3>Spec</h3>
+        <div class="spec-block">
+          <button class="copy-btn" data-target="spec-sine">Copy</button>
+          <pre id="spec-sine">{
+  <span class="str">"version"</span>: <span class="str">"glyph/0.1"</span>,
+  <span class="str">"data"</span>: {
+    <span class="str">"function"</span>: {
+      <span class="str">"shape"</span>: <span class="str">"function"</span>,
+      <span class="str">"x"</span>: { <span class="str">"min"</span>: -<span class="num">6.283185307179586</span>, <span class="str">"max"</span>: <span class="num">6.283185307179586</span>, <span class="str">"samples"</span>: <span class="num">200</span> },
+      <span class="str">"expr"</span>: <span class="str">"sin(x)"</span>
+    }
+  },
+  <span class="str">"layers"</span>: [
+    {
+      <span class="str">"mark"</span>: <span class="str">"line"</span>,
+      <span class="str">"encoding"</span>: {
+        <span class="str">"x"</span>: { <span class="str">"field"</span>: <span class="str">"x"</span>, <span class="str">"type"</span>: <span class="str">"quantitative"</span> },
+        <span class="str">"y"</span>: {
+          <span class="str">"field"</span>: <span class="str">"y"</span>,
+          <span class="str">"type"</span>: <span class="str">"quantitative"</span>,
+          <span class="str">"scale"</span>: { <span class="str">"domain"</span>: [-<span class="num">1.2</span>, <span class="num">1.2</span>] }
+        }
+      }
+    }
+  ]
+}</pre>
+        </div>
+
+        <div class="callout">
+          <strong>What's new:</strong> the <code>"function"</code> shape was
+          added in <strong>Math Phase 1 / PR1</strong>. Before, you had to
+          generate the sample rows yourself (Python, Node, Excel) and import
+          a CSV. Now the compiler does it deterministically with the
+          <code>expr-eval</code> evaluator.
+        </div>
+
+        <div class="cta-row">
+          <a class="cta" href="../play/">Try it in the playground</a>
+          <a
+            class="cta cta-ghost"
+            href="https://github.com/seanhanca/glyph/blob/main/packages/core/__fixtures__/math/sine-wave.json"
+            >View the fixture on GitHub</a
+          >
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <p>
+          <a href="./">← All math examples</a> &nbsp;·&nbsp;
+          <a href="./lissajous.html">Next: Lissajous →</a>
+        </p>
+      </div>
+    </footer>
+
+    <script>
+      // Strip our <span> highlighter tags before copying so users paste plain
+      // JSON, not the colored HTML. textContent already does this — wrapping
+      // navigator.clipboard call in a try/catch keeps the page usable on
+      // older browsers where the API isn't available (will still 'copy' the
+      // 'Copy' button label flash, just without actual clipboard access).
+      for (const btn of document.querySelectorAll(".copy-btn")) {
+        btn.addEventListener("click", async () => {
+          const el = document.getElementById(btn.dataset.target);
+          if (!el) return;
+          const text = el.textContent;
+          try {
+            await navigator.clipboard.writeText(text);
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(() => {
+              btn.textContent = "Copy";
+              btn.classList.remove("copied");
+            }, 1400);
+          } catch (e) {
+            btn.textContent = "Press Ctrl+C";
+            setTimeout(() => (btn.textContent = "Copy"), 1400);
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

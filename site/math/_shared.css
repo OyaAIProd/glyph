@@ -1,0 +1,245 @@
+/* Shared styling for the /site/math/ examples.
+ *
+ * One CSS file for all 5 pages (index + 4 demos) so we don't duplicate
+ * 200 lines of vocabulary across every page. Inlined into the head via
+ * <link rel="stylesheet"> rather than a build step — these are static
+ * pages served straight from GitHub Pages / Vercel.
+ */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f7f8fb;
+  --bg-code: #1e2227;
+  --fg: #1a1a1a;
+  --fg-soft: #4a4a4a;
+  --fg-dim: #7a7a7a;
+  --fg-inverse: #e6e9ee;
+  --accent: #4c78a8;
+  --accent-soft: #e8eef5;
+  --accent-hover: #3d6494;
+  --border: #e6e6e6;
+  --border-strong: #cfd3d8;
+  --green: #2ea84d;
+  --gold: #d4a017;
+  --purple: #7b5da7;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--sans);
+  color: var(--fg);
+  background: var(--bg);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre { font-family: var(--mono); font-size: 13px; }
+code:not(pre code) {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12.5px;
+}
+h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
+h1 { font-size: 32px; margin: 0 0 10px 0; font-weight: 700; }
+h2 { font-size: 20px; margin: 0 0 12px 0; font-weight: 600; }
+h3 { font-size: 14px; margin: 0 0 6px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-dim); }
+p { margin: 0 0 12px 0; color: var(--fg-soft); }
+
+.wrap { max-width: 920px; margin: 0 auto; padding: 0 24px; }
+
+/* HEADER (same across pages) */
+header {
+  border-bottom: 1px solid var(--border);
+  padding: 14px 0;
+  position: sticky;
+  top: 0;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  z-index: 10;
+}
+.nav { display: flex; align-items: center; justify-content: space-between; }
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--fg);
+}
+.logo a { color: inherit; }
+.crumb { font-size: 13px; color: var(--fg-dim); margin-left: 10px; }
+.crumb::before { content: "/ "; color: var(--border-strong); margin-right: 4px; }
+.nav-links { display: flex; gap: 20px; font-size: 13.5px; }
+.nav-links a { color: var(--fg-soft); }
+
+/* HERO (demo pages) */
+.demo-hero { padding: 48px 0 24px 0; }
+.eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.demo-hero .lede {
+  font-size: 16px;
+  color: var(--fg-soft);
+  max-width: 720px;
+  margin: 0 0 6px 0;
+}
+
+/* CHART CARD — big SVG, centered */
+.chart-card {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 24px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.chart-card img {
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  display: block;
+}
+
+/* SPEC BLOCK — JSON shown verbatim + copy button */
+.spec-block {
+  position: relative;
+  margin: 24px 0;
+}
+.spec-block pre {
+  background: var(--bg-code);
+  color: var(--fg-inverse);
+  border-radius: 8px;
+  padding: 18px 20px;
+  overflow-x: auto;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.spec-block pre .kw  { color: #c678dd; }
+.spec-block pre .str { color: #98c379; }
+.spec-block pre .num { color: #d19a66; }
+.spec-block pre .com { color: #7c8389; font-style: italic; }
+.copy-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-family: var(--sans);
+  font-size: 12px;
+  padding: 5px 11px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--fg-inverse);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.copy-btn:hover { background: rgba(255, 255, 255, 0.16); }
+.copy-btn.copied { background: var(--green); border-color: var(--green); color: #fff; }
+
+/* CALLOUT for key concept under the spec */
+.callout {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 12px 18px;
+  border-radius: 0 6px 6px 0;
+  margin: 18px 0;
+  font-size: 13.5px;
+  color: var(--fg-soft);
+}
+.callout strong { color: var(--fg); font-weight: 600; }
+.callout code { background: rgba(255, 255, 255, 0.6); }
+
+/* CTA row at the bottom of a demo page */
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 24px 0 16px 0;
+}
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  font-size: 13.5px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+}
+.cta:hover { background: var(--accent-hover); text-decoration: none; }
+.cta-ghost {
+  background: var(--bg);
+  color: var(--fg);
+  border-color: var(--border-strong);
+}
+.cta-ghost:hover { background: var(--bg-soft); }
+
+/* INDEX gallery */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+  margin: 32px 0;
+}
+@media (max-width: 720px) {
+  .gallery-grid { grid-template-columns: 1fr; }
+}
+.gallery-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.gallery-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  text-decoration: none;
+}
+.gallery-card .thumb {
+  background: var(--bg-soft);
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.gallery-card .thumb img { width: 100%; height: auto; display: block; }
+.gallery-card .body { padding: 14px 18px 16px 18px; }
+.gallery-card h2 { font-size: 17px; margin: 0 0 4px 0; color: var(--fg); }
+.gallery-card .meta {
+  font-size: 11.5px;
+  color: var(--fg-dim);
+  margin-bottom: 8px;
+}
+.gallery-card .meta code {
+  font-size: 11px;
+  padding: 1px 4px;
+}
+.gallery-card p { font-size: 13.5px; margin: 0; }
+
+/* FOOTER */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 28px 0 48px 0;
+  margin-top: 40px;
+  color: var(--fg-dim);
+  font-size: 13px;
+}
+footer p { margin: 0; color: var(--fg-dim); }
