@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Joy of Math — Glyph for Kids</title>
+<meta name="description" content="Math you can play with. Type a sentence, get an animated chart. For kids 8–15. Built on Glyph — the deterministic chart library agents use to talk math.">
+<meta property="og:title" content="Joy of Math — math you can play with">
+<meta property="og:description" content="Type a sentence, get an animated chart. For kids 8–15.">
+<meta property="og:image" content="https://seanhanca.github.io/glyph/forkids-assets/sine-wave-for-an-8yo.svg">
+<style>
+  /* ------------------------------------------------------------------ */
+  /* Joy of Math forkids.html — kid-facing landing page.                 */
+  /* Locked palette mirrors the E4 BrandKit "playground" preset so the   */
+  /* page CSS and embedded charts share a visual language.               */
+  /* ------------------------------------------------------------------ */
+  :root {
+    --bg: #fefce8;        /* warm cream */
+    --fg: #1f2937;        /* soft black */
+    --muted: #6b7280;
+    --primary: #3b82f6;   /* playground blue */
+    --primary-ink: #1e40af;
+    --accent: #facc15;    /* playground yellow */
+    --card: #ffffff;
+    --border: #e5e7eb;
+    --radius: 18px;
+    --shadow: 0 6px 24px rgba(31,41,55,.06);
+    --shadow-soft: 0 2px 8px rgba(31,41,55,.04);
+    --font-sans: "Comic Neue", "Segoe Print", "Patrick Hand", -apple-system, "Helvetica Neue", system-ui, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--font-sans);line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{margin:0 0 .4em;font-weight:700;letter-spacing:-.01em}
+  h1{font-size:clamp(2.2rem,5vw,3.4rem);line-height:1.1}
+  h2{font-size:clamp(1.6rem,3.5vw,2.2rem)}
+  h3{font-size:1.2rem}
+  p{margin:0 0 .8em}
+  a{color:var(--primary-ink);text-decoration-thickness:2px;text-underline-offset:3px}
+  a:hover{color:var(--primary)}
+  /* Layout shells */
+  section{padding:64px 24px;border-top:2px dashed rgba(31,41,55,.08)}
+  section:first-of-type{border-top:none}
+  .container{max-width:1080px;margin:0 auto}
+  .container--narrow{max-width:780px;margin:0 auto}
+  .lede{font-size:1.15rem;color:var(--muted);max-width:60ch}
+  /* Pill button */
+  .btn{display:inline-block;padding:14px 28px;background:var(--primary);color:#fff;border-radius:9999px;font-weight:700;text-decoration:none;box-shadow:var(--shadow);transition:transform .15s ease,box-shadow .15s ease;border:none;cursor:pointer;font-family:inherit;font-size:1.02rem}
+  .btn:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(59,130,246,.32);color:#fff}
+  .btn--accent{background:var(--accent);color:#1f2937}
+  .btn--ghost{background:transparent;color:var(--primary-ink);border:2px solid var(--primary-ink);box-shadow:none}
+  .btn--ghost:hover{background:var(--primary-ink);color:#fff}
+  /* Card */
+  .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-soft);padding:24px}
+  /* ------------------------------------------------------------------ */
+  /* §1 Hero                                                             */
+  /* ------------------------------------------------------------------ */
+  .hero{padding-top:48px;padding-bottom:48px;text-align:center}
+  .hero__svg{max-width:760px;margin:24px auto;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:8px;overflow:hidden}
+  .hero__svg img{display:block;width:100%;height:auto}
+  .hero__caption{font-size:.95rem;color:var(--muted);margin-top:8px}
+  .hero__cta{margin-top:24px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  /* ------------------------------------------------------------------ */
+  /* §2 Gallery                                                          */
+  /* ------------------------------------------------------------------ */
+  .gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:24px}
+  .tile{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-soft);overflow:hidden;display:flex;flex-direction:column}
+  .tile img{display:block;width:100%;height:auto;background:#fff}
+  .tile__body{padding:14px 16px}
+  .tile__title{font-weight:700;font-size:1rem;margin:0 0 4px}
+  .tile__sub{color:var(--muted);font-size:.86rem;margin:0}
+  /* ------------------------------------------------------------------ */
+  /* §3 How does it work?                                                */
+  /* ------------------------------------------------------------------ */
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin-top:24px}
+  .step{padding:24px}
+  .step__num{display:inline-flex;width:38px;height:38px;align-items:center;justify-content:center;background:var(--accent);color:#1f2937;border-radius:50%;font-weight:800;margin-bottom:12px}
+  .step__title{font-weight:700;margin-bottom:6px}
+  pre{background:#1f2937;color:#fefce8;padding:14px 16px;border-radius:12px;overflow-x:auto;font-family:"SF Mono","Cascadia Code",ui-monospace,monospace;font-size:.85rem;line-height:1.5;margin:8px 0 0}
+  /* ------------------------------------------------------------------ */
+  /* §3.5 three.js wow                                                   */
+  /* ------------------------------------------------------------------ */
+  .wow-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px;margin-top:24px}
+  .wow-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column}
+  .wow-card__hint{color:var(--muted);font-size:.85rem;margin:0 0 12px}
+  .wow-card__canvas{position:relative;width:100%;aspect-ratio:4/3;background:#0f172a;border-radius:12px;overflow:hidden}
+  .wow-card__canvas canvas{display:block;width:100%;height:100%}
+  .wow-card__caption{font-size:.95rem;margin-top:14px}
+  .wow-card__formula{font-family:"SF Mono","Cascadia Code",ui-monospace,monospace;background:#f9fafb;border:1px solid var(--border);padding:8px 12px;border-radius:8px;font-size:.85rem;margin-top:8px}
+  .wow-fallback{display:none}
+  .wow-card[data-fallback="true"] .wow-card__canvas{display:none}
+  .wow-card[data-fallback="true"] .wow-fallback{display:block}
+  .wow-fallback img{display:block;width:100%;border-radius:12px}
+  /* ------------------------------------------------------------------ */
+  /* §4 Sliders                                                          */
+  /* ------------------------------------------------------------------ */
+  .sliders-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center}
+  @media (max-width:760px){.sliders-card{grid-template-columns:1fr}}
+  .sliders-card__svg img{width:100%;border-radius:12px;background:#fff}
+  .sliders-card__controls label{display:block;margin-bottom:14px}
+  .sliders-card__controls .lbl{font-size:.9rem;color:var(--muted);display:flex;justify-content:space-between;margin-bottom:6px}
+  .sliders-card__controls input[type=range]{width:100%;accent-color:var(--primary)}
+  .sliders-card__note{font-size:.84rem;color:var(--muted);margin-top:12px}
+  /* ------------------------------------------------------------------ */
+  /* §5 Stories                                                          */
+  /* ------------------------------------------------------------------ */
+  .stories{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:24px}
+  .story{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-soft);padding:14px;display:flex;flex-direction:column}
+  .story img{display:block;width:100%;border-radius:8px;background:#fff;margin-bottom:12px}
+  .story__title{font-weight:700;margin-bottom:6px}
+  .story__sub{color:var(--muted);font-size:.85rem;margin:0}
+  /* ------------------------------------------------------------------ */
+  /* §6 Prompt portal                                                    */
+  /* ------------------------------------------------------------------ */
+  .portal{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;margin-top:24px}
+  .portal__row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .portal__row input{flex:1 1 320px;padding:14px 16px;font-size:1rem;border:2px solid var(--border);border-radius:9999px;font-family:inherit;background:#fff}
+  .portal__row input:focus{outline:none;border-color:var(--primary)}
+  .portal__hint{color:var(--muted);font-size:.86rem;margin-top:10px}
+  .portal__examples{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .portal__chip{background:#f9fafb;border:1px solid var(--border);padding:6px 14px;border-radius:9999px;font-size:.86rem;cursor:pointer;color:var(--primary-ink);font-family:inherit}
+  .portal__chip:hover{background:var(--accent);border-color:var(--accent);color:#1f2937}
+  /* ------------------------------------------------------------------ */
+  /* §7 For parents                                                      */
+  /* ------------------------------------------------------------------ */
+  .parents{background:#1f2937;color:#e5e7eb;border-top:none}
+  .parents h2{color:#fefce8}
+  .parents a{color:#fde047}
+  .parents-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:24px}
+  .parents-item h3{color:#fefce8;font-size:1rem;margin-bottom:6px}
+  .parents-item p{color:#cbd5e1;font-size:.92rem;margin:0}
+  /* prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce){
+    .btn:hover{transform:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- ====================================================================
+     §1 — Hero
+     Animated sine wave (composed by glyph_story for the "kid" audience)
+     drawing itself in. Works without JavaScript — pure SMIL.
+     ==================================================================== -->
+<section class="hero">
+  <div class="container container--narrow">
+    <h1>Math you can <span style="background:var(--accent);padding:0 .15em;border-radius:.2em">play with</span></h1>
+    <p class="lede" style="margin:.4em auto 0;">Type a sentence, get an animated chart. Drag a slider, watch the wave change. For kids 8–15. Built on a library that an AI agent (Claude, ChatGPT, Gemini) can call directly.</p>
+    <div class="hero__svg" aria-label="Animated sine wave with a traveling dot and a labeled peak">
+      <img src="forkids-assets/sine-wave-for-an-8yo.svg" alt="Sine wave story for a kid: the curve draws itself, a dot travels along it, the peak is labeled, and a caption fades in. Composed by one call to the glyph_story MCP verb.">
+    </div>
+    <p class="hero__caption">↑ This is the exact bytes an AI agent gets back from one call to <code>glyph_story</code>.</p>
+    <div class="hero__cta">
+      <a class="btn" href="#prompt-portal">Make your own ↓</a>
+      <a class="btn btn--ghost" href="#stories">Watch math stories ↓</a>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================
+     §2 — Gallery: "What can you make?"
+     Four tiles showing the breadth of what a kid (or their agent) can ask
+     for. Each image is a real test fixture in the repo, locked at byte-
+     identity in CI. No CDN; assets live next to this file.
+     ==================================================================== -->
+<section id="gallery">
+  <div class="container">
+    <h2>What can you make?</h2>
+    <p class="lede">A wave, a spiral, a wiggly heartbeat, a circle that becomes a line. All made by an agent — no drawing skills required.</p>
+    <div class="gallery">
+      <div class="tile">
+        <img src="forkids-assets/lissajous.svg" alt="A figure-eight curve made by tracing sin(3t) horizontally and cos(2t) vertically">
+        <div class="tile__body">
+          <p class="tile__title">A figure-eight</p>
+          <p class="tile__sub">Two waves, one sideways, one up-and-down. Together they draw a loop.</p>
+        </div>
+      </div>
+      <div class="tile">
+        <img src="forkids-assets/draw-in-spiral.svg" alt="An Archimedean spiral drawing itself in over time, from a single point outward">
+        <div class="tile__body">
+          <p class="tile__title">A spiral, drawing itself</p>
+          <p class="tile__sub">The line writes itself onto the page like a pen — same trick a math teacher uses on a chalkboard.</p>
+        </div>
+      </div>
+      <div class="tile">
+        <img src="forkids-assets/predator-prey.svg" alt="A predator-prey graph: two wavy lines that chase each other forever">
+        <div class="tile__body">
+          <p class="tile__title">Foxes and rabbits</p>
+          <p class="tile__sub">When the rabbits boom, the foxes boom. Then the rabbits crash, then the foxes do. Forever.</p>
+        </div>
+      </div>
+      <div class="tile">
+        <img src="forkids-assets/damped-oscillator.svg" alt="A damped oscillator: a wave that gets smaller and smaller over time, like a swing slowing down">
+        <div class="tile__body">
+          <p class="tile__title">A swing that slows down</p>
+          <p class="tile__sub">Push a swing once and let go. Each swing is a little smaller. This is what that looks like in math.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================
+     §3 — How does it work? Three step.
+     ==================================================================== -->
+<section id="how">
+  <div class="container">
+    <h2>How does it work?</h2>
+    <div class="steps">
+      <div class="step card">
+        <div class="step__num">1</div>
+        <div class="step__title">You give it words</div>
+        <p>You type something like <em>"show me a sine wave"</em> — to an AI helper like Claude or ChatGPT.</p>
+      </div>
+      <div class="step card">
+        <div class="step__num">2</div>
+        <div class="step__title">It writes a recipe</div>
+        <p>Behind the scenes, the AI calls <code>glyph_story</code> and gets back a JSON recipe — like a cooking recipe but for a picture.</p>
+        <pre>{
+  "intent": "show me a sine wave",
+  "audience": "kid"
+}</pre>
+      </div>
+      <div class="step card">
+        <div class="step__num">3</div>
+        <div class="step__title">The recipe becomes a chart</div>
+        <p>The recipe gets turned into an animated SVG — like the one at the top. Same recipe = same picture, every single time.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================
+     §3.5 — three.js wow demos
+     Lazy-loaded only when the section scrolls into view. WebGL +
+     IntersectionObserver guarded; falls back to inline SVG posters when
+     either is unavailable or `prefers-reduced-motion: reduce` is set.
+     ==================================================================== -->
+<section id="wow-3d" data-forkids-section="3d">
+  <div class="container">
+    <h2>Math gets weird in 3D</h2>
+    <p class="lede">The same math behind the sine wave above looks completely different in three dimensions. Drag to spin. Pinch to zoom.</p>
+    <div class="wow-grid">
+      <div class="wow-card" data-demo="platonics">
+        <h3>The 5 perfect shapes</h3>
+        <p class="wow-card__hint">Tap a shape · drag to spin</p>
+        <div class="wow-card__canvas" aria-label="Five 3D Platonic solids orbiting in a horizontal circle"></div>
+        <noscript class="wow-fallback"><img src="forkids-assets/threeblueone-brown.svg" alt="Geometric chart in 3Blue1Brown style"></noscript>
+        <div class="wow-fallback"><img src="forkids-assets/threeblueone-brown.svg" alt="Chart in chalkboard style — fallback for browsers without 3D"></div>
+        <p class="wow-card__caption">Plato thought these were the building blocks of the universe. Mathematicians later proved there are <strong>EXACTLY 5</strong>.</p>
+      </div>
+      <div class="wow-card" data-demo="rolling-wave">
+        <h3>When math becomes water</h3>
+        <p class="wow-card__hint">Drag to spin · watch the formula</p>
+        <div class="wow-card__canvas" aria-label="A 3D grid of vertices forming concentric ripples, like a stone dropped in water"></div>
+        <noscript class="wow-fallback"><img src="forkids-assets/draw-in-spiral.svg" alt="2D spiral — fallback for browsers without 3D"></noscript>
+        <div class="wow-fallback"><img src="forkids-assets/draw-in-spiral.svg" alt="2D spiral — fallback for browsers without 3D"></div>
+        <p class="wow-card__formula">z = sin(r − t) · e<sup>−r/10</sup></p>
+        <p class="wow-card__caption">The same <code>sin</code> from the hero at the top — but now in 3D, making water-like ripples that radiate outward.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================
+     §4 — Sliders
+     Demonstrates the A4 sliders concept inline. Drag the amplitude /
+     frequency sliders → the visible sine wave morphs. Pure DOM + an
+     inline path computation — no library required for the demo, and the
+     real `@glyph/live` package wires the same mechanic into any
+     compiled spec.
+     ==================================================================== -->
+<section id="sliders">
+  <div class="container">
+    <h2>Show me what's inside</h2>
+    <p class="lede">Sliders let you change the shape of the wave. Move them around — see what happens.</p>
+    <div class="sliders-card">
+      <div class="sliders-card__svg">
+        <svg id="sliders-svg" viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Interactive sine wave responding to amplitude and frequency sliders">
+          <rect x="0" y="0" width="360" height="220" fill="#fff" rx="12"/>
+          <line x1="30" y1="110" x2="340" y2="110" stroke="#cbd5e1" stroke-width="1.5"/>
+          <line x1="30" y1="30" x2="30" y2="190" stroke="#cbd5e1" stroke-width="1.5"/>
+          <path id="sliders-path" d="" stroke="#3b82f6" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <text x="180" y="208" font-family="inherit" font-size="11" fill="#6b7280" text-anchor="middle">amplitude × sin(frequency × x)</text>
+        </svg>
+      </div>
+      <div class="sliders-card__controls">
+        <label>
+          <span class="lbl"><span>amplitude</span><strong id="lbl-a">1.0</strong></span>
+          <input id="sl-amp" type="range" min="0.2" max="1.8" step="0.05" value="1">
+        </label>
+        <label>
+          <span class="lbl"><span>frequency</span><strong id="lbl-f">2.0</strong></span>
+          <input id="sl-freq" type="range" min="0.5" max="5" step="0.1" value="2">
+        </label>
+        <p class="sliders-card__note">These two sliders live in <code>@glyph/live</code> as <code>attachSlider()</code>. Any chart can wire them in with one call.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================
+     §5 — Stories: three multi-scene timeline animations
+     Each <img> is a real fixture — circle-circumference is the E3
+     timeline canonical demo; the others reuse compact math fixtures.
+     ==================================================================== -->
+<section id="stories">
+  <div class="container">
+    <h2>Stories about numbers</h2>
+    <p class="lede">Three short math stories. Each one plays out over a few seconds — like a comic strip, but the panels animate themselves.</p>
+    <div class="stories">
+      <div class="story">
+        <img src="forkids-assets/circle-circumference.svg" alt="A multi-scene animation: a circle appears, its radius gets marked, then the circle unwraps into a straight line labeled 2πr">
+        <div class="story__title">Why is a circle's edge 2πr?</div>
+        <p class="story__sub">Watch the circle unwrap. Its edge is exactly 2 × π × radius — every time, no exceptions.</p>
+      </div>
+      <div class="story">
+        <img src="forkids-assets/peak-callout.svg" alt="A chart with a labeled peak — showing how a single number can be picked out and named">
+        <div class="story__title">Finding the peak</div>
+        <p class="story__sub">The highest point of a curve. Math has a word for it ("maximum"). So do we — "the peak."</p>
+      </div>
+      <div class="story">
+        <img src="forkids-assets/sine-traveler.svg" alt="A sine wave with a dot traveling along it forever — a visual representation of cyclic motion">
+        <div class="story__title">A dot on a wave</div>
+        <p class="story__sub">A wave never stops being a wave. The dot rides it forever — that's what "cyclic" means.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================
+     §6 — Prompt portal
+     Standalone path: prompt → playground with hash. When served alongside
+     a running MCP server, the same input box could call glyph_story
+     directly (out of scope for the static page).
+     ==================================================================== -->
+<section id="prompt-portal">
+  <div class="container container--narrow">
+    <h2>Tell us what to make</h2>
+    <p class="lede">Type what you want to see. We'll send you to the playground with the recipe pre-filled.</p>
+    <div class="portal">
+      <form id="prompt-form" onsubmit="return goToPlayground(event)">
+        <div class="portal__row">
+          <input id="prompt-input" type="text" placeholder="show me a circle and explain π" maxlength="200" autocomplete="off">
+          <button class="btn btn--accent" type="submit">Make it →</button>
+        </div>
+        <p class="portal__hint">Try these →</p>
+        <div class="portal__examples">
+          <button type="button" class="portal__chip" data-prompt="show me a sine wave for an 8-year-old">show me a sine wave</button>
+          <button type="button" class="portal__chip" data-prompt="show me a parabola">show me a parabola</button>
+          <button type="button" class="portal__chip" data-prompt="show me a circle and explain pi">circle and π</button>
+          <button type="button" class="portal__chip" data-prompt="show me a vector field">a vector field</button>
+          <button type="button" class="portal__chip" data-prompt="show me cosine">cosine</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================
+     §7 — For parents / teachers
+     ==================================================================== -->
+<section class="parents">
+  <div class="container">
+    <h2>For parents & teachers</h2>
+    <p class="lede" style="color:#cbd5e1">Glyph is open-source software an AI assistant uses to draw math. Everything here was generated by a deterministic recipe — no surprise behavior, no telemetry, no ads, no tracking, no account required.</p>
+    <div class="parents-grid">
+      <div class="parents-item">
+        <h3>Free & open source</h3>
+        <p>Apache 2.0 licensed. <a href="https://github.com/seanhanca/glyph">All the code is on GitHub.</a> Fork it, audit it, run it locally.</p>
+      </div>
+      <div class="parents-item">
+        <h3>No tracking</h3>
+        <p>This page has no analytics, no third-party scripts, no cookies. The address bar's URL is the only thing that knows you visited.</p>
+      </div>
+      <div class="parents-item">
+        <h3>Same recipe = same picture</h3>
+        <p>Every chart on this page comes from a JSON spec that an AI can write. The same spec always renders the same bytes — no model drift.</p>
+      </div>
+      <div class="parents-item">
+        <h3>Built for agents</h3>
+        <p>Glyph ships as a 50-verb <a href="https://github.com/seanhanca/glyph#quickstart">MCP server</a> Claude / ChatGPT / Gemini can call directly. The hero animation up top is one MCP call.</p>
+      </div>
+    </div>
+    <p style="margin-top:32px;color:#94a3b8;font-size:.88rem">Joy of Math is part of Glyph — a deterministic chart-and-compute library for AI agents. <a href="https://github.com/seanhanca/glyph">Read the README →</a></p>
+  </div>
+</section>
+
+<!-- ====================================================================
+     Inline <script> — ≤5 KB
+       1. §4 sliders: update the visible sine path on input.
+       2. §6 prompt portal: hand off intent to the playground via hash.
+       3. §3.5 lazy-loader: load forkids-3d.js when the wow section scrolls
+          into view. Respects prefers-reduced-motion and missing WebGL.
+     The script is feature-detected; everything degrades to the static
+     page when JS is off.
+     ==================================================================== -->
+<script>
+(function(){
+  'use strict';
+
+  // ---------------- §4 sliders ----------------
+  // Maps the live amp / freq slider values to an SVG <path> describing
+  // y = amp * sin(freq * x) sampled at 240 points across the visible
+  // 30..340 pixel band. Deterministic + no library dep.
+  var svgPath = document.getElementById('sliders-path');
+  var slAmp = document.getElementById('sl-amp');
+  var slFreq = document.getElementById('sl-freq');
+  var lblA = document.getElementById('lbl-a');
+  var lblF = document.getElementById('lbl-f');
+
+  function rebuildSlidersPath(){
+    if(!svgPath||!slAmp||!slFreq) return;
+    var amp = parseFloat(slAmp.value);
+    var freq = parseFloat(slFreq.value);
+    lblA.textContent = amp.toFixed(2);
+    lblF.textContent = freq.toFixed(1);
+    var d = '';
+    var n = 240, x0 = 30, x1 = 340, y0 = 110, span = 70;
+    for(var i = 0; i <= n; i++){
+      var t = i / n;                  // 0..1 across width
+      var px = x0 + t * (x1 - x0);
+      var theta = t * freq * Math.PI * 2;
+      var py = y0 - amp * Math.sin(theta) * span;
+      d += (i === 0 ? 'M' : 'L') + px.toFixed(2) + ' ' + py.toFixed(2) + ' ';
+    }
+    svgPath.setAttribute('d', d.trim());
+  }
+  if(slAmp) slAmp.addEventListener('input', rebuildSlidersPath);
+  if(slFreq) slFreq.addEventListener('input', rebuildSlidersPath);
+  rebuildSlidersPath();
+
+  // ---------------- §6 prompt portal ----------------
+  // Hand the user's typed intent off to the playground via the URL hash
+  // (#intent=...). The playground reads window.location.hash to pre-fill.
+  // When the page is served alongside a running MCP server (e.g. via
+  // `glyph dev`), the same intent could be sent to glyph_story directly —
+  // out of scope for the static landing page.
+  var examples = document.querySelectorAll('.portal__chip');
+  examples.forEach(function(chip){
+    chip.addEventListener('click', function(){
+      var prompt = chip.getAttribute('data-prompt') || '';
+      var input = document.getElementById('prompt-input');
+      if(input){ input.value = prompt; input.focus(); }
+    });
+  });
+  window.goToPlayground = function(ev){
+    ev.preventDefault();
+    var input = document.getElementById('prompt-input');
+    var intent = (input && input.value || '').trim();
+    if(!intent){ return false; }
+    // Route to the existing playground with the typed intent in the hash.
+    // The kid path: see your chart in seconds, fork-and-edit if you want.
+    var hash = '#intent=' + encodeURIComponent(intent);
+    var url = './play/' + hash;
+    window.location.href = url;
+    return false;
+  };
+
+  // ---------------- §3.5 three.js lazy-loader ----------------
+  // Only load the WebGL bundle when the user actually scrolls to the wow
+  // section, and only if the browser has WebGL + the user hasn't asked
+  // for reduced motion. Otherwise the static <img> fallbacks show through.
+  var sec3d = document.getElementById('wow-3d');
+  function showFallback(){
+    if(!sec3d) return;
+    sec3d.querySelectorAll('.wow-card').forEach(function(c){ c.setAttribute('data-fallback', 'true'); });
+  }
+  var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var hasWebGL = (function(){
+    try { var c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl') || c.getContext('experimental-webgl'))); } catch(e){ return false; }
+  })();
+  if(reducedMotion || !hasWebGL){
+    showFallback();
+  } else if(sec3d && 'IntersectionObserver' in window){
+    var obs = new IntersectionObserver(function(entries){
+      var visible = entries.some(function(e){ return e.isIntersecting; });
+      if(!visible) return;
+      obs.disconnect();
+      var s = document.createElement('script');
+      s.src = 'forkids-3d.js';
+      s.async = true;
+      s.onerror = showFallback;
+      document.head.appendChild(s);
+    }, { rootMargin: '200px' });
+    obs.observe(sec3d);
+  } else {
+    showFallback();
+  }
+})();
+</script>
+</body>
+</html>

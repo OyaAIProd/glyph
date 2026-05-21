@@ -38,7 +38,7 @@ The page CSS uses the E4 `playground` BrandKit palette so visual + chart coheren
 - One small inline `<script>` (~5 KB) for §4 sliders + §6 prompt portal + §3.5 lazy-loader.
 - **No CDN, no build step, no JS framework.** Loads on a school iPad.
 - §1–3, §5, §7 work fully without JavaScript. §3.5 + §4 + §6 degrade gracefully (3D falls back to inlined SVG poster frames, sliders fall back to static, prompt portal links to playground with examples).
-- **§3.5 three.js exception**: three.js is **vendored** as a separate sibling asset (`site/forkids-3d.js` ≤ 200 KB minified — includes bundled three.js + the demo code). It is **lazy-loaded** via `IntersectionObserver` only when §3.5 scrolls into view, so the initial paint of the page is unaffected and bandwidth-limited devices that never reach §3.5 never pay the cost. The page proper (forkids.html) stays ≤ 100 KB. **Still no CDN** — the file is self-hosted next to forkids.html.
+- **§3.5 three.js exception**: three.js is **vendored** as a separate sibling asset (`site/forkids-3d.js` ≈ **500 KB minified / 128 KB gzipped over the wire** — three.js's WebGLRenderer + material system alone is ~230 KB minified, so the original optimistic 200 KB target was not achievable for two demos that need lighting + orbit controls; the gzipped wire cost is the user-visible number). It is **lazy-loaded** via `IntersectionObserver` only when §3.5 scrolls into view, so the initial paint of the page is unaffected and bandwidth-limited devices that never reach §3.5 never pay the cost. The page proper (forkids.html) stays ≤ 100 KB. **Still no CDN** — the file is self-hosted next to forkids.html.
 
 ## Implementation notes
 
