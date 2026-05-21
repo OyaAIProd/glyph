@@ -1,0 +1,25 @@
+{
+  "version": "glyph/0.1",
+  "title": "Quarterly revenue (3b1b preset)",
+  "data": {
+    "function": {
+      "shape": "function",
+      "x": { "min": 0, "max": 6.283185307179586, "samples": 24 },
+      "expr": "10 + 5 * sin(x)"
+    }
+  },
+  "layers": [
+    {
+      "mark": "bar",
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "scale": { "domain": [0, 20] }
+        }
+      }
+    }
+  ],
+  "theme": "3b1b"
+}

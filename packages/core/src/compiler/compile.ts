@@ -40,6 +40,7 @@ import {
 } from "../layout/hierarchy.js";
 import { LIBRARY_VERSION } from "../capabilities.js";
 import { brandKitToTheme, mergeBrandWithTheme } from "../render/brand.js";
+import { PLAYGROUND_BRAND, THREEBLUEONE_BROWN_BRAND } from "../themes/index.js";
 import { computeProvenance, type ProvenanceScales } from "../render/provenance.js";
 import type {
   AxisTick,
@@ -356,18 +357,34 @@ const DARK_THEME: Theme = {
  * Resolve spec.theme to an internal Theme.
  * - undefined / "light" → LIGHT_THEME
  * - "dark"               → DARK_THEME
+ * - "playground"         → PLAYGROUND_BRAND, resolved via brandKitToTheme (Joy of Math E4)
+ * - "3b1b"               → THREEBLUEONE_BROWN_BRAND, resolved via brandKitToTheme (Joy of Math E4)
  * - ThemeConfig          → user palette + tokens, normalized to internal shape
  *
  * Moat PR4 — when `spec.brand` is set, the brand kit resolves to a
  * Theme first; any explicit `spec.theme` ThemeConfig then layers on
  * top as overrides. `brand:` wins for surface + categorical palette
  * when no explicit override is set.
+ *
+ * Joy of Math E4 — when `spec.brand` is absent and `spec.theme` is a
+ * BrandKit-backed preset string ("playground" / "3b1b"), the matching
+ * built-in kit is resolved through `brandKitToTheme()`, so the chart
+ * picks up palette + surface tokens the same way an explicit brand
+ * kit would.
  */
 function resolveTheme(spec: GlyphSpec): Theme {
   const specTheme = spec.theme;
   if (spec.brand !== undefined) {
-    // Brand-only: derive everything from the kit.
-    if (specTheme === undefined || specTheme === "light" || specTheme === "dark") {
+    // Brand-only: derive everything from the kit. String presets
+    // (including the BrandKit-backed ones) are treated as "no
+    // explicit ThemeConfig override" — the brand kit alone wins.
+    if (
+      specTheme === undefined ||
+      specTheme === "light" ||
+      specTheme === "dark" ||
+      specTheme === "playground" ||
+      specTheme === "3b1b"
+    ) {
       return brandKitToTheme(spec.brand);
     }
     // Brand + explicit ThemeConfig: merge (explicit keys win).
@@ -375,6 +392,8 @@ function resolveTheme(spec: GlyphSpec): Theme {
   }
   if (specTheme === undefined || specTheme === "light") return LIGHT_THEME;
   if (specTheme === "dark") return DARK_THEME;
+  if (specTheme === "playground") return brandKitToTheme(PLAYGROUND_BRAND);
+  if (specTheme === "3b1b") return brandKitToTheme(THREEBLUEONE_BROWN_BRAND);
   // Custom ThemeConfig — Zod has already validated structure + non-empty palette.
   return {
     background: specTheme.background,

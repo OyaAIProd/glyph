@@ -1214,10 +1214,21 @@ export const GlyphSpecSchema = z
     width: z.number().int().positive().optional(),
     height: z.number().int().positive().optional(),
     /**
-     * Color theme. Two built-ins ("light" / "dark") or a full ThemeConfig
-     * with brand colors. Defaults to "light".
+     * Color theme. Four built-in presets or a full ThemeConfig with
+     * brand colors. Defaults to "light".
+     *
+     * Presets:
+     *   - "light" / "dark" — Phase-0 minimal themes
+     *   - "playground"     — Joy of Math kid-friendly preset (warm cream
+     *                        bg, primary-toy categorical). Resolved
+     *                        through the BrandKit pipeline.
+     *   - "3b1b"           — Joy of Math 3Blue1Brown-style preset
+     *                        (chalkboard bg, signature blue). Resolved
+     *                        through the BrandKit pipeline.
      */
-    theme: z.union([z.enum(["light", "dark"]), ThemeConfigSchema]).optional(),
+    theme: z
+      .union([z.enum(["light", "dark", "playground", "3b1b"]), ThemeConfigSchema])
+      .optional(),
     /**
      * Moat PR4 — compositional brand kit. When set, the renderer resolves
      * the legacy `theme:` tokens from `brand` first, then merges any
