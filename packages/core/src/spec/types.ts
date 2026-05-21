@@ -138,6 +138,14 @@ export type InteractiveConfig = z.infer<typeof InteractiveSchema>;
  */
 export type CrossfilterConfig = NonNullable<InteractiveConfig["crossfilter"]>;
 
+/**
+ * Track A4 — one entry in `interactive.sliders`. Resolved sub-shape of
+ * `InteractiveConfig.sliders[number]`. The static SVG renderer ignores
+ * this metadata; `@glyph/live`'s `bootSlidersFromSpec()` is the only
+ * consumer.
+ */
+export type SliderConfig = NonNullable<InteractiveConfig["sliders"]>[number];
+
 /** Moat PR1 — cryptographic provenance seal config (see ProvenanceConfigSchema). */
 export type ProvenanceConfig = z.infer<typeof ProvenanceConfigSchema>;
 

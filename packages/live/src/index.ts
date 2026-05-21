@@ -1,3 +1,13 @@
+export {
+  attachSlider,
+  bootSlidersFromSpec,
+  type AttachedSlider,
+  type BootedSliders,
+  type BootSlidersOptions,
+  type SliderConfig,
+  type SliderSpecShape,
+} from "./slider.js";
+
 /**
  * @glyph/live — browser hydration for Glyph SVGs.
  *

@@ -1046,6 +1046,51 @@ export const InteractiveSchema = z
       })
       .strict()
       .optional(),
+    /**
+     * Track A4 — declarative interactive sliders.
+     *
+     * Each entry describes one numeric knob the host page can expose
+     * as an `<input type="range">`. The static SVG renderer in
+     * `@glyph/core` **does not read this field**: a spec that only
+     * differs by the contents of `interactive.sliders` produces a
+     * byte-identical SVG, so existing snapshots stay stable when an
+     * author adds slider metadata.
+     *
+     * `@glyph/live` is the consumer: `bootSlidersFromSpec()` reads
+     * this array, attaches one labelled `<input type="range">` per
+     * entry into the host element, and debounces a caller-supplied
+     * re-render function so dragging the slider keeps the chart in
+     * sync without flooding work on every input tick.
+     *
+     * `field` names a caller-provided variable that the downstream
+     * re-render path interprets — typically a free variable in
+     * `spec.data.expr` (function-shape data) or any other parameter
+     * the caller's compile + render pipeline knows how to splice in.
+     * The schema itself does not constrain how the variable is used.
+     *
+     * Capped at 8 entries to keep the host UI from drowning in knobs.
+     */
+    sliders: z
+      .array(
+        z
+          .object({
+            /** Variable name the slider drives (e.g. "k", "amplitude"). */
+            field: z.string().min(1).max(64),
+            /** Inclusive minimum value (left edge of the range). */
+            min: z.number().finite(),
+            /** Inclusive maximum value (right edge of the range). */
+            max: z.number().finite(),
+            /** Slider granularity. Must be strictly positive. */
+            step: z.number().positive().finite(),
+            /** Initial slider position. */
+            value: z.number().finite(),
+            /** Optional UI label. Defaults to `field` when omitted. */
+            label: z.string().min(1).max(64).optional(),
+          })
+          .strict(),
+      )
+      .max(8)
+      .optional(),
   })
   .strict();
 
