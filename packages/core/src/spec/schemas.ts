@@ -184,6 +184,51 @@ export const ParametricDataSchema = z
  */
 export const FunctionDataSchema = z.union([ScalarFunctionDataSchema, ParametricDataSchema]);
 
+/**
+ * Math Phase 2 Track A PR A1 — `data.shape: "trajectory"`. Describes a
+ * 2D ODE system
+ *
+ *     dx/dt = f(x, y, t)
+ *     dy/dt = g(x, y, t)
+ *
+ * integrated by RK4 (Runge–Kutta 4th order) from `time.min` to
+ * `time.max` in `time.samples - 1` evenly-spaced steps. The
+ * materialized rows are `{t, x, y}` in insertion order; `mark: "line"`
+ * (and `mark: "point"`) consume them like any other tabular data.
+ *
+ * The same `expr-eval` evaluator backs derivative evaluation as the
+ * function shape, so determinism guarantees carry over — same spec →
+ * byte-identical rows across runs.
+ *
+ * `t` first in the row schema is the orthogonality contract with
+ * `animation.kind: "scrub"`: scrub keys off `frame_field` by name, so
+ * `frame_field: "t"` on a trajectory composes with zero compiler
+ * changes (same pattern Math PR2 used for parametric data).
+ */
+export const TrajectoryDataSchema = z
+  .object({
+    shape: z.literal("trajectory"),
+    dxdt: z.string().min(1),
+    dydt: z.string().min(1),
+    initial: z
+      .object({
+        x: z.number().refine(Number.isFinite, "initial.x must be finite"),
+        y: z.number().refine(Number.isFinite, "initial.y must be finite"),
+      })
+      .strict(),
+    time: z
+      .object({
+        min: z.number().refine(Number.isFinite, "time.min must be finite"),
+        max: z.number().refine(Number.isFinite, "time.max must be finite"),
+        samples: z.number().int().min(2).max(100_000),
+      })
+      .strict()
+      .refine((r) => r.min < r.max, {
+        message: "trajectory data: time.min must be < time.max",
+      }),
+  })
+  .strict();
+
 export const DataSourceSchema = z
   .object({
     /**
@@ -227,6 +272,15 @@ export const DataSourceSchema = z
      * animation, audit) work unchanged.
      */
     function: FunctionDataSchema.optional(),
+    /**
+     * Math Phase 2 Track A PR A1 — inline 2D ODE system integrated by
+     * RK4. When set, the compiler skips DuckDB, runs the integration
+     * in-process, and routes the resulting (t, x, y) rows through the
+     * normal line / point pipeline. Like the function shape, the
+     * insertion-order sentinel keeps closed orbits from being
+     * x-sorted into zigzags.
+     */
+    trajectory: TrajectoryDataSchema.optional(),
   })
   .strict()
   .refine(
@@ -235,8 +289,9 @@ export const DataSourceSchema = z
       d.hierarchy !== undefined ||
       d.graph !== undefined ||
       d.grid !== undefined ||
-      d.function !== undefined,
-    "data needs a 'source', 'hierarchy', 'graph', 'grid', or 'function'",
+      d.function !== undefined ||
+      d.trajectory !== undefined,
+    "data needs a 'source', 'hierarchy', 'graph', 'grid', 'function', or 'trajectory'",
   );
 
 // ---------------------------------------------------------------------------

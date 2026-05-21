@@ -19,6 +19,11 @@ import {
   sampleFunction,
 } from "../data/shapes/function.js";
 import {
+  type TrajectoryDataSpec,
+  type TrajectoryRow,
+  integrateTrajectory,
+} from "../data/shapes/trajectory.js";
+import {
   type GeoFeature,
   type Topology,
   buildGraticule,
@@ -461,6 +466,21 @@ function ySideOfLayer(enc: Encoding): YSide {
 const PARAMETRIC_FUNCTION_SOURCE = "<inline:function-parametric>";
 
 /**
+ * Math Phase 2 Track A PR A1 — Internal source marker for materialized
+ * trajectory data. Trajectories are inherently time-ordered (RK4
+ * marches forward in `t`), and closed orbits like the Lotka-Volterra
+ * limit cycle revisit the same `x` values — sorting by `x` would
+ * zigzag them exactly the way it zigzagged parametric Lissajous in
+ * PR5. The line / area mark compilers check for this sentinel and
+ * disable the sort.
+ *
+ * Public consumers should NOT key off this string — it's an internal
+ * compiler sentinel and may change. Check `spec.data.trajectory` on
+ * the unmaterialized spec instead.
+ */
+const TRAJECTORY_SOURCE = "<inline:trajectory>";
+
+/**
  * Math PR1 — Materialize a `data.shape: "function"` spec into row +
  * schema form so the normal compile pipeline can render it. The
  * function shape is the math sibling of the inline hierarchy / graph
@@ -534,6 +554,55 @@ function materializeFunctionInput(input: CompileInput): CompileInput {
   };
 }
 
+/**
+ * Math Phase 2 Track A PR A1 — Materialize a `data.shape: "trajectory"`
+ * spec into row + schema form so the normal compile pipeline can
+ * render it. Mirrors {@link materializeFunctionInput} structurally:
+ * skip DuckDB, integrate the ODE in-process via RK4, swap
+ * `spec.data.trajectory` for a sentinel source so the recursive
+ * `compileSpec` call falls through to the tabular path.
+ *
+ * Schema order: `t` first, then `x`, `y`. The leading `t` column is
+ * the orthogonality contract with the existing `animation.kind:
+ * "scrub"` engine — scrub looks up `frame_field` by name in the
+ * schema, so `frame_field: "t"` Just Works. (PR2 did the same trick
+ * with the parametric form's parameter column.)
+ *
+ * Determinism: pure function of the spec. Same input → same rows
+ * (insertion order, identical evaluator), byte-stable across runs.
+ */
+function materializeTrajectoryInput(input: CompileInput): CompileInput {
+  const { spec } = input;
+  const traj = spec.data?.trajectory as TrajectoryDataSpec | undefined;
+  if (!traj) {
+    throw new Error("materializeTrajectoryInput called without spec.data.trajectory");
+  }
+  const sampledRows = integrateTrajectory(traj);
+  // Schema is `[t, x, y]` — `t` first so animation.frame_field: "t"
+  // resolves through the existing schema lookup with no compiler
+  // changes. Row layout is positional and aligned with this order.
+  const schema: CompileFieldInfo[] = [
+    { name: "t", type: "DOUBLE" },
+    { name: "x", type: "DOUBLE" },
+    { name: "y", type: "DOUBLE" },
+  ];
+  const rows: ReadonlyArray<unknown>[] = sampledRows.map((r: TrajectoryRow) => [r.t, r.x, r.y]);
+  return {
+    ...input,
+    spec: {
+      ...spec,
+      // Drop spec.data.trajectory so the recursive compileSpec call
+      // falls through to the normal tabular path. Substitute the
+      // TRAJECTORY_SOURCE sentinel so line / area marks know to
+      // preserve insertion order (closed orbits would zigzag if
+      // sorted by x).
+      data: { source: TRAJECTORY_SOURCE },
+    },
+    rows,
+    schema,
+  };
+}
+
 export function compileSpec(input: CompileInput): Scene {
   const { spec, rows, schema } = input;
   // Faceted specs split into multiple panels; handle that upfront before
@@ -568,6 +637,15 @@ export function compileSpec(input: CompileInput): Scene {
   // animation, audit) work unchanged.
   if (spec.data?.function) {
     return compileSpec(materializeFunctionInput(input));
+  }
+  // Math Phase 2 Track A PR A1 — `data.shape: "trajectory"`. Integrates
+  // the ODE via RK4 and routes the synthesized (t, x, y) rows through
+  // the normal compile pipeline. Same orthogonality story as the
+  // function shape: `animation.kind: "scrub"` with `frame_field: "t"`
+  // composes with zero compiler changes because `t` is just another
+  // schema column.
+  if (spec.data?.trajectory) {
+    return compileSpec(materializeTrajectoryInput(input));
   }
   const width = spec.width ?? DEFAULT_WIDTH;
   const height = spec.height ?? DEFAULT_HEIGHT;
@@ -2869,12 +2947,17 @@ registerMark({
     // `materializeFunctionInput` swaps `data.source` for our sentinel
     // marker, which is the cheapest signal that survives the recursive
     // compileSpec round-trip without expanding MarkCompileArgs.
+    // Math Phase 2 Track A PR A1 — trajectory data uses the same trick:
+    // RK4-emitted rows are inherently time-ordered, and closed orbits
+    // (Lotka-Volterra limit cycle, damped oscillator spiral) would
+    // zigzag if sorted by x.
     const dataBlock = args.spec.data;
     const dataSource =
       typeof dataBlock === "object" && dataBlock !== null && "source" in dataBlock
         ? (dataBlock as { source?: unknown }).source
         : undefined;
-    const preserveOrder = dataSource === PARAMETRIC_FUNCTION_SOURCE;
+    const preserveOrder =
+      dataSource === PARAMETRIC_FUNCTION_SOURCE || dataSource === TRAJECTORY_SOURCE;
     buildLines(
       args.out,
       args.rows,
@@ -2895,12 +2978,16 @@ registerMark({
     if (!args.yScale) return;
     // Math PR5 — match the line mark's parametric handling so closed
     // regions traced by parametric curves don't get x-sorted.
+    // Math Phase 2 Track A PR A1 — trajectories use the same insertion-
+    // order contract; closed orbits revisit x values, so sorting would
+    // collapse them.
     const dataBlock = args.spec.data;
     const dataSource =
       typeof dataBlock === "object" && dataBlock !== null && "source" in dataBlock
         ? (dataBlock as { source?: unknown }).source
         : undefined;
-    const preserveOrder = dataSource === PARAMETRIC_FUNCTION_SOURCE;
+    const preserveOrder =
+      dataSource === PARAMETRIC_FUNCTION_SOURCE || dataSource === TRAJECTORY_SOURCE;
     buildAreas(
       args.out,
       args.rows,

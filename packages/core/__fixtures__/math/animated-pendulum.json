@@ -1,0 +1,30 @@
+{
+  "version": "glyph/0.1",
+  "data": {
+    "trajectory": {
+      "shape": "trajectory",
+      "dxdt": "y",
+      "dydt": "-sin(x) - 0.05*y",
+      "initial": { "x": 2, "y": 0 },
+      "time": { "min": 0, "max": 20, "samples": 120 }
+    }
+  },
+  "layers": [
+    {
+      "mark": "point",
+      "encoding": {
+        "x": {
+          "field": "x",
+          "type": "quantitative",
+          "scale": { "domain": [-3.5, 3.5] }
+        },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "scale": { "domain": [-2.5, 2.5] }
+        }
+      }
+    }
+  ],
+  "animation": { "kind": "scrub", "duration_ms": 6000, "frame_field": "t" }
+}

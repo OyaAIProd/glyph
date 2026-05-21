@@ -148,6 +148,34 @@ export interface ParametricFunctionData {
  */
 export type FunctionData = ScalarFunctionData | ParametricFunctionData;
 
+/**
+ * Math Phase 2 Track A PR A1 — `data.shape: "trajectory"`. Describes
+ * a 2D ODE system `dx/dt = f(x, y, t)`, `dy/dt = g(x, y, t)`
+ * integrated by RK4 from `time.min` to `time.max` in `time.samples`
+ * evenly-spaced grid points. The materialized rows are `{t, x, y}`
+ * in time (insertion) order. `mark: "line"` traces the trajectory;
+ * `animation.kind: "scrub"` with `frame_field: "t"` composes on top
+ * with zero compiler changes.
+ */
+export interface TrajectoryData {
+  readonly shape: "trajectory";
+  /** Expression for dx/dt; identifiers `x`, `y`, `t` plus the standard math fns. */
+  readonly dxdt: string;
+  /** Expression for dy/dt; identifiers `x`, `y`, `t` plus the standard math fns. */
+  readonly dydt: string;
+  /** Initial state at `t = time.min`. */
+  readonly initial: {
+    readonly x: number;
+    readonly y: number;
+  };
+  /** Time grid. `samples` is the output row count (>= 2). */
+  readonly time: {
+    readonly min: number;
+    readonly max: number;
+    readonly samples: number;
+  };
+}
+
 /** Full theme tokens. Spec.theme accepts this or the built-in 'light'/'dark'. */
 export type ThemeConfig = z.infer<typeof ThemeConfigSchema>;
 

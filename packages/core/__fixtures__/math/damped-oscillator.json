@@ -1,0 +1,29 @@
+{
+  "version": "glyph/0.1",
+  "data": {
+    "trajectory": {
+      "shape": "trajectory",
+      "dxdt": "y",
+      "dydt": "-x - 0.1*y",
+      "initial": { "x": 1, "y": 0 },
+      "time": { "min": 0, "max": 30, "samples": 300 }
+    }
+  },
+  "layers": [
+    {
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "x",
+          "type": "quantitative",
+          "scale": { "domain": [-1.2, 1.2] }
+        },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "scale": { "domain": [-1.2, 1.2] }
+        }
+      }
+    }
+  ]
+}
