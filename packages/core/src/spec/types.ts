@@ -49,6 +49,14 @@ export type GlyphSpec = z.infer<typeof GlyphSpecSchema>;
 /** A data source: a path/URL plus an optional SQL transform. */
 export type DataSource = z.infer<typeof DataSourceSchema>;
 
+/**
+ * Moat PR3 — `data.onMissing` policy for null / undefined / NaN y values.
+ * See `DataSourceSchema.onMissing` in `./schemas.ts` for semantics. Mirrored
+ * here as a named type so the compiler / renderer can import a stable
+ * symbol rather than re-deriving the union from the schema each time.
+ */
+export type MissingPolicy = "skip" | "callout" | "interpolate";
+
 /** One drawing layer: mark + encoding (+ optional stat/position). */
 export type Layer = z.infer<typeof LayerSchema>;
 

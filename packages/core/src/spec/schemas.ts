@@ -281,6 +281,28 @@ export const DataSourceSchema = z
      * x-sorted into zigzags.
      */
     trajectory: TrajectoryDataSchema.optional(),
+    /**
+     * Moat PR3 — failure-aware rendering policy for rows whose
+     * y-encoded value is null / undefined / NaN.
+     *
+     *   - "skip"        (default; back-compat) drop the row silently
+     *                   (the prior behavior). AUDIT-10 flags this at
+     *                   render time when the silent dropout exceeds 5%
+     *                   of input rows, so the agent learns even on
+     *                   the safe default that data is missing.
+     *   - "callout"     emit an explicit visual marker at the row's x
+     *                   position — a small dashed rect on the baseline
+     *                   for bar marks, a "✕" glyph for line / point marks,
+     *                   each carrying a `<title>` "Missing value at
+     *                   x=<value>" for accessibility.
+     *   - "interpolate" linear-interpolate y from the previous valid
+     *                   row to the next valid row. Line / area marks
+     *                   draw the bridging segment with a dashed stroke
+     *                   so it's visually distinct from the solid data.
+     *                   Leading / trailing missing values fall through
+     *                   to "skip" (no neighbor to interpolate against).
+     */
+    onMissing: z.enum(["skip", "callout", "interpolate"]).optional(),
   })
   .strict()
   .refine(

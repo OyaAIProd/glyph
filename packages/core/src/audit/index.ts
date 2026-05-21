@@ -23,16 +23,24 @@
  *                     doesn't specify what it is).
  *   AUDIT-09 (medium) Stacked layers on top of negative values
  *                     (numeric reading is ambiguous; bars can cancel).
- *   AUDIT-11 (medium) Brand-kit accessibility — surface fg/bg contrast
- *                     ratio below the declared `minContrastRatio`, or
- *                     categorical palette collapses under deuteranopia
- *                     simulation when `colorBlindSafe` is set.
+ *   AUDIT-10 (medium) Moat PR3 — render-time pass: silent missing-data
+ *                     dropout. Fires when `data.onMissing` is unset OR
+ *                     "skip" AND >5% of rows have a null / NaN y value.
+ *                     Emitted by `renderTimeAuditFindings(spec, rows,
+ *                     yField, schema)` because computing the missing-rate
+ *                     needs row access (the pure `auditSpec` path doesn't
+ *                     have it). MCP `glyph_audit_spec` invokes both passes
+ *                     and merges the results.
+ *   AUDIT-11 (medium) Moat PR4 — brand-kit accessibility. Fires when
+ *                     surface fg/bg contrast falls below the declared
+ *                     `minContrastRatio`, or when `colorBlindSafe` is set
+ *                     and the categorical palette collapses under
+ *                     deuteranopia simulation.
  *
  * Reserved (planned for a follow-up; not yet implemented):
  *   AUDIT-05 — Time axis with gaps. Needs a temporal-axis schema check
  *              that the audit module doesn't have full coverage for yet.
- *   AUDIT-10 — Title vs. data mismatch. Requires LLM judgment; deferred
- *              until the audit module can call a host-supplied callback.
+ *
  *
  * Deterministic, no clock, no LLM. Each rule lives in its own function so
  * adding rules is a single-file extension.
@@ -357,3 +365,75 @@ function channelScaleType(c: Channel | undefined): string | undefined {
 
 // Re-export the encoding/layer types to make this module self-contained.
 export type { Channel, Encoding, Layer };
+
+// ---------------------------------------------------------------------------
+// Render-time audit: AUDIT-10 (silent missing-data dropout)
+// ---------------------------------------------------------------------------
+//
+// `auditSpec` is `pure-fn(spec)` — it never sees rows, so it can't compute
+// the per-chart missing-data rate. Rather than shoe-horn rows into the
+// pure pass (and break every existing call site), Moat PR3 ships a
+// **separate** render-time audit helper that the MCP layer (or any caller
+// with rows in hand) invokes after `auditSpec`. The two result arrays
+// concatenate cleanly; downstream code treats them identically.
+//
+// The rule:
+//   - Fires when `spec.data.onMissing` is unset OR set to "skip" (the
+//     two cases where the renderer drops rows silently).
+//   - Fires when > 5% of input rows have a null / undefined / NaN value
+//     in the encoded y field.
+//   - Severity: medium. Suggests setting `data.onMissing: "callout"` to
+//     surface the gap visually.
+//
+// The 5% threshold matches the bar in the moat doc: a single NaN in a
+// thousand rows isn't worth a finding; ten in a hundred is.
+
+import type { MissingPolicy } from "../spec/types.js";
+import { countMissingY } from "../compiler/missing-policy.js";
+
+/** Minimum row-missing fraction at which AUDIT-10 fires. */
+const AUDIT_10_THRESHOLD = 0.05;
+
+/**
+ * Compute the render-time audit findings that need row access. Today
+ * this only emits AUDIT-10; future rules of the same shape land here.
+ *
+ * @param spec    The validated spec.
+ * @param rows    The materialized row stream (column order matches schema).
+ * @param yField  Name of the y-encoded field (the compiler's resolved
+ *                `yField`). The helper reads y values by column index
+ *                so callers don't need to convert the rows.
+ * @param schema  Column metadata so we can index into rows[i][yIdx].
+ */
+export function renderTimeAuditFindings(
+  spec: GlyphSpec,
+  rows: ReadonlyArray<ReadonlyArray<unknown>>,
+  yField: string,
+  schema: ReadonlyArray<{ readonly name: string }>,
+): ReadonlyArray<AuditFinding> {
+  const out: AuditFinding[] = [];
+  const dataBlock = spec.data as { onMissing?: MissingPolicy } | undefined;
+  const policy: MissingPolicy = dataBlock?.onMissing ?? "skip";
+  // Only the silent-dropout case is worth flagging — "callout" and
+  // "interpolate" both produce explicit visual signals, so the agent
+  // already knows.
+  if (policy !== "skip") return out;
+  if (rows.length === 0) return out;
+  const yIdx = schema.findIndex((c) => c.name === yField);
+  if (yIdx < 0) return out;
+  const { total, missing } = countMissingY(rows.map((r) => ({ y: r[yIdx] })));
+  if (total === 0) return out;
+  const frac = missing / total;
+  if (frac <= AUDIT_10_THRESHOLD) return out;
+  if (missing === 0) return out;
+  const pct = Math.round(frac * 1000) / 10; // one decimal place
+  out.push({
+    rule_id: "AUDIT-10",
+    severity: "medium",
+    message: `Chart silently dropped ${missing} of ${total} rows (${pct}%) due to missing y values. Set data.onMissing: "callout" to surface them.`,
+    path: "/data/onMissing",
+    suggestion:
+      'Add `"onMissing": "callout"` to data, OR document the gap in an annotation layer.',
+  });
+  return out;
+}

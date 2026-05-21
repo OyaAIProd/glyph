@@ -44,6 +44,12 @@ export type SceneMark =
       readonly fill: string;
       readonly stroke?: string;
       readonly strokeWidth?: number;
+      /**
+       * Moat PR3 — when set, the renderer emits `stroke-dasharray="<value>"`.
+       * Used by the missing-data callout marker to visually distinguish the
+       * "data is missing here" rect from a real data bar.
+       */
+      readonly strokeDasharray?: string;
     } & MarkData)
   | ({
       readonly type: "circle";
@@ -63,6 +69,14 @@ export type SceneMark =
       readonly fill: string;
       readonly anchor: "start" | "middle" | "end";
       readonly baseline: "hanging" | "middle" | "alphabetic";
+      /**
+       * Moat PR3 — optional `<title>` tooltip rendered as a child of the
+       * text element. Used by the missing-data callout marker (a "✕" glyph
+       * with "Missing value at x=<value>" hover text) for accessibility.
+       * Other text marks leave this undefined; the renderer treats it
+       * as a no-op when absent, so existing snapshots stay byte-identical.
+       */
+      readonly tooltip?: string;
     }
   | {
       readonly type: "line";
@@ -86,6 +100,12 @@ export type SceneMark =
       readonly strokeWidth?: number;
       readonly fill?: string;
       readonly opacity?: number;
+      /**
+       * Moat PR3 — when set, the renderer emits `stroke-dasharray="<value>"`.
+       * Used by the line-mark interpolated-segment overlay so the bridge
+       * across a missing-data gap is visually distinct from solid data.
+       */
+      readonly strokeDasharray?: string;
     }
   | ({
       /**

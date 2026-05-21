@@ -64,6 +64,12 @@ import type {
   InteractiveConfig,
 } from "../spec/types.js";
 import { getMarkCompiler, registerMark } from "./mark-registry.js";
+// Moat PR3 — failure-aware rendering. buildBars / buildPoints / buildLines /
+// buildAreas thread the policy through `applyMissingPolicy` instead of
+// inline `Number.isFinite(yv)` filters, so the "callout" + "interpolate"
+// semantics stay in one helper.
+import { applyMissingPolicy } from "./missing-policy.js";
+import type { MissingPolicy } from "../spec/types.js";
 // Side-effect imports: each mark module registers itself with the registry
 // at module-load. The vector-field mark is the first PR3 user; future
 // math marks (math-text, streamline, ...) plug in the same way.
@@ -101,6 +107,17 @@ function attrValue(v: unknown): string {
   if (v === null || v === undefined) return "";
   if (typeof v === "bigint") return String(v);
   return String(v);
+}
+
+/**
+ * Moat PR3 — resolve the spec's missing-data policy, defaulting to "skip"
+ * (back-compat: every existing snapshot was rendered under skip semantics).
+ * Read from `spec.data.onMissing`; layer-level overrides aren't supported
+ * yet (the multi-layer compiler rejects per-layer `data` blocks upstream).
+ */
+function resolveMissingPolicy(spec: GlyphSpec): MissingPolicy {
+  const block = spec.data as { onMissing?: MissingPolicy } | undefined;
+  return block?.onMissing ?? "skip";
 }
 
 /** Build the tooltip text. Honors `encoding.tooltip` when set; otherwise
@@ -1978,24 +1995,67 @@ function buildBars(
   yScale: ReturnType<typeof linearScale>,
   theme: Theme,
   ctx: MarkCtx,
+  policy: MissingPolicy = "skip",
 ): void {
   const colorField = fieldOf(encoding.color);
   const colorDomain = colorField ? distinctOrdered(rows, schema, colorField) : [];
   const yZero = yScale.apply(0);
-  let i = 0;
-  for (const r of rows) {
+  // Moat PR3 — every yv decision routes through the policy resolver so
+  // the "skip" / "callout" / "interpolate" semantics live in one helper.
+  // Under "skip" (the default), this function is byte-equivalent to the
+  // pre-PR3 implementation: missing rows drop, valid rows render as
+  // before.
+  const yIdx = schema.findIndex((c) => c.name === yField);
+  const policied = applyMissingPolicy(
+    rows.map((r) => ({ x: valueAt(r, schema, xField), y: yIdx >= 0 ? r[yIdx] : undefined })),
+    policy,
+  );
+  // Iterate rows directly so MarkData carries the original row index
+  // (matches prior data-row attribute semantics). Under "skip", drop
+  // missing rows on the fly via a parallel cursor into `policied`.
+  let policyCursor = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r) continue;
+    let pt: ReturnType<typeof applyMissingPolicy>[number] | undefined;
+    if (policy === "skip") {
+      const yvRaw = yIdx >= 0 ? r[yIdx] : undefined;
+      const yvNum = Number(yvRaw);
+      if (yvRaw === null || yvRaw === undefined || !Number.isFinite(yvNum)) continue;
+      pt = policied[policyCursor++];
+    } else {
+      pt = policied[i];
+    }
+    if (!pt) continue;
     const xv = valueAt(r, schema, xField);
-    const yv = Number(valueAt(r, schema, yField));
-    if (!Number.isFinite(yv)) {
-      i++;
-      continue;
-    }
     const xpx = xScale.apply(xv == null ? "" : String(xv));
-    if (!Number.isFinite(xpx)) {
-      i++;
+    if (!Number.isFinite(xpx)) continue;
+    if (pt.y === undefined) {
+      // Missing row under "callout" (or unresolved edge under "interpolate").
+      if (policy === "callout") {
+        // Small dashed rect on the baseline — visually says "data was
+        // supposed to live here." Anchored at y=0; we use a fixed pixel
+        // height since plotArea isn't threaded in. The dashed stroke
+        // distinguishes it from any real bar.
+        const calloutH = 12;
+        out.push({
+          type: "rect",
+          x: xpx,
+          y: roundPx(yZero - calloutH),
+          width: xScale.bandwidth,
+          height: calloutH,
+          fill: "none",
+          stroke: theme.axis,
+          strokeWidth: 1,
+          strokeDasharray: "3 3",
+          tooltip: `Missing value at x=${xv == null ? "" : String(xv)}`,
+        });
+      }
+      // "interpolate" with an unresolved edge falls through silently —
+      // no neighbor to bridge against.
       continue;
     }
-    const ypx = yScale.apply(yv);
+    const ypx = yScale.apply(pt.y);
     const top = Math.min(ypx, yZero);
     const h = Math.abs(yZero - ypx);
     out.push({
@@ -2007,7 +2067,6 @@ function buildBars(
       fill: colorForRow(encoding, schema, r, colorDomain, theme, rows),
       ...markDataFor(ctx, r, schema, i),
     });
-    i++;
   }
 }
 
@@ -2022,26 +2081,56 @@ function buildPoints(
   yScale: ReturnType<typeof linearScale>,
   theme: Theme,
   ctx: MarkCtx,
+  policy: MissingPolicy = "skip",
 ): void {
   const colorField = fieldOf(encoding.color);
   const colorDomain = colorField ? distinctOrdered(rows, schema, colorField) : [];
-  let i = 0;
-  for (const r of rows) {
-    const xv = valueAt(r, schema, xField);
-    const yv = Number(valueAt(r, schema, yField));
-    if (!Number.isFinite(yv)) {
-      i++;
-      continue;
+  // Moat PR3 — policy-aware row pipeline. Point marks emit a "✕" glyph
+  // on the y-baseline for callout-mode missing values; "skip" matches
+  // the prior implementation byte-for-byte.
+  const yIdx = schema.findIndex((c) => c.name === yField);
+  const policied = applyMissingPolicy(
+    rows.map((r) => ({ x: valueAt(r, schema, xField), y: yIdx >= 0 ? r[yIdx] : undefined })),
+    policy,
+  );
+  const yBaseline = yScale.apply(0);
+  let policyCursor = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r) continue;
+    let pt: ReturnType<typeof applyMissingPolicy>[number] | undefined;
+    if (policy === "skip") {
+      const yvRaw = yIdx >= 0 ? r[yIdx] : undefined;
+      const yvNum = Number(yvRaw);
+      if (yvRaw === null || yvRaw === undefined || !Number.isFinite(yvNum)) continue;
+      pt = policied[policyCursor++];
+    } else {
+      pt = policied[i];
     }
+    if (!pt) continue;
+    const xv = valueAt(r, schema, xField);
     const xpx =
       xScale.type === "linear"
         ? xScale.apply(Number(xv))
         : xScale.apply(xv == null ? "" : String(xv)) + xScale.bandwidth / 2;
-    if (!Number.isFinite(xpx)) {
-      i++;
+    if (!Number.isFinite(xpx)) continue;
+    if (pt.y === undefined) {
+      if (policy === "callout") {
+        out.push({
+          type: "text",
+          x: roundPx(xpx),
+          y: roundPx(yBaseline),
+          text: "✕",
+          fontSize: 10,
+          fill: theme.fg,
+          anchor: "middle",
+          baseline: "middle",
+          tooltip: `Missing value at x=${xv == null ? "" : String(xv)}`,
+        });
+      }
       continue;
     }
-    const ypx = yScale.apply(yv);
+    const ypx = yScale.apply(pt.y);
     out.push({
       type: "circle",
       cx: roundPx(xpx),
@@ -2050,7 +2139,6 @@ function buildPoints(
       fill: colorForRow(encoding, schema, r, colorDomain, theme, rows),
       ...markDataFor(ctx, r, schema, i),
     });
-    i++;
   }
 }
 
@@ -2064,6 +2152,14 @@ function buildPoints(
  * `preserveOrder=true`, in which case insertion order wins (Math PR5,
  * for parametric curves like Lissajous where the curve legitimately
  * revisits the same x values).
+ *
+ * Moat PR3 — missing-data policy: rows are pre-resolved against
+ * `applyMissingPolicy`. Under "interpolate", interpolated points are
+ * flagged so the per-group emission below splits the polyline into a
+ * solid run + a dashed bridge sub-path (visually distinct from real
+ * data). Under "callout", a "✕" glyph is emitted at each missing row's
+ * x position. Under "skip" (the default), missing rows drop and the
+ * output is byte-identical to the pre-PR3 implementation.
  *
  * The `path` mark carries an SVG-d string built deterministically:
  *   "M x0 y0 L x1 y1 L x2 y2 …"
@@ -2080,21 +2176,53 @@ function buildLines(
   yScale: ReturnType<typeof linearScale>,
   theme: Theme,
   preserveOrder = false,
+  policy: MissingPolicy = "skip",
 ): void {
   const colorField = fieldOf(encoding.color);
   const colorDomain = colorField ? distinctOrdered(rows, schema, colorField) : [""];
+  const yIdx = schema.findIndex((c) => c.name === yField);
+  const policied = applyMissingPolicy(
+    rows.map((r) => ({ x: valueAt(r, schema, xField), y: yIdx >= 0 ? r[yIdx] : undefined })),
+    policy,
+  );
 
-  // Group rows by color (single group when no color encoding).
-  const groups = new Map<string, Array<{ x: number; y: number }>>();
-  for (const r of rows) {
+  // Group resolved points by color group. Each point also carries the
+  // `interpolated` flag (only set when policy === "interpolate" AND the
+  // original y was missing).
+  interface PolyPoint {
+    readonly x: number;
+    readonly y: number;
+    readonly interpolated: boolean;
+  }
+  const groups = new Map<string, Array<PolyPoint>>();
+  const calloutPoints: Array<{ x: number; xRaw: unknown }> = [];
+
+  let policyCursor = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r) continue;
+    let pt: ReturnType<typeof applyMissingPolicy>[number] | undefined;
+    if (policy === "skip") {
+      const yvRaw = yIdx >= 0 ? r[yIdx] : undefined;
+      const yvNum = Number(yvRaw);
+      if (yvRaw === null || yvRaw === undefined || !Number.isFinite(yvNum)) continue;
+      pt = policied[policyCursor++];
+    } else {
+      pt = policied[i];
+    }
+    if (!pt) continue;
     const xv = valueAt(r, schema, xField);
-    const yv = Number(valueAt(r, schema, yField));
-    if (!Number.isFinite(yv)) continue;
     const xpx =
       xScale.type === "linear"
         ? xScale.apply(Number(xv))
         : xScale.apply(xv == null ? "" : String(xv)) + xScale.bandwidth / 2;
     if (!Number.isFinite(xpx)) continue;
+    if (pt.y === undefined) {
+      if (policy === "callout") {
+        calloutPoints.push({ x: roundPx(xpx), xRaw: xv });
+      }
+      continue;
+    }
     const groupKey = colorField
       ? (() => {
           const cv = valueAt(r, schema, colorField);
@@ -2106,32 +2234,70 @@ function buildLines(
       pts = [];
       groups.set(groupKey, pts);
     }
-    pts.push({ x: roundPx(xpx), y: yScale.apply(yv) });
+    pts.push({ x: roundPx(xpx), y: yScale.apply(pt.y), interpolated: pt.interpolated === true });
   }
 
-  // Emit one path per group. Sorted by x for stable, non-crossing lines —
-  // EXCEPT when preserveOrder is set (parametric curves where the curve
-  // legitimately revisits the same x values, so sorting collapses the
-  // closed shape into a zigzag).
-  for (const [groupKey, pts] of groups) {
-    if (pts.length < 2) continue;
-    if (!preserveOrder) pts.sort((a, b) => a.x - b.x);
-    let d = `M ${pts[0]?.x} ${pts[0]?.y}`;
-    for (let i = 1; i < pts.length; i++) {
-      const p = pts[i];
-      if (!p) continue;
-      d += ` L ${p.x} ${p.y}`;
-    }
-    // Color: positional pick from the palette by the group's index in the
-    // domain (first-seen order). Falls back to the first palette entry.
+  // Emit one path per group. When no interpolated points exist the
+  // single-path branch produces byte-identical output to the pre-PR3
+  // implementation. When some points are interpolated, split into
+  // solid + dashed sub-paths.
+  for (const [groupKey, ptsRaw] of groups) {
+    if (ptsRaw.length < 2) continue;
+    const pts: PolyPoint[] = preserveOrder ? ptsRaw.slice() : ptsRaw.slice().sort((a, b) => a.x - b.x);
     const idx = colorField ? Math.max(0, colorDomain.indexOf(groupKey)) : 0;
     const stroke = theme.marks[idx % theme.marks.length] ?? "#000";
+    const hasInterp = pts.some((p) => p.interpolated);
+    if (!hasInterp) {
+      let d = `M ${pts[0]?.x} ${pts[0]?.y}`;
+      for (let i = 1; i < pts.length; i++) {
+        const p = pts[i];
+        if (!p) continue;
+        d += ` L ${p.x} ${p.y}`;
+      }
+      out.push({ type: "path", d, stroke, strokeWidth: 1.5, fill: "none" });
+      continue;
+    }
+    // Split into runs of solid + dashed sub-paths. A segment from
+    // p[i-1] to p[i] is dashed iff p[i].interpolated is true.
+    const solidSegs: string[] = [];
+    const dashedSegs: string[] = [];
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1];
+      const b = pts[i];
+      if (!a || !b) continue;
+      const seg = `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
+      if (b.interpolated) dashedSegs.push(seg);
+      else solidSegs.push(seg);
+    }
+    if (solidSegs.length > 0) {
+      out.push({ type: "path", d: solidSegs.join(" "), stroke, strokeWidth: 1.5, fill: "none" });
+    }
+    if (dashedSegs.length > 0) {
+      out.push({
+        type: "path",
+        d: dashedSegs.join(" "),
+        stroke,
+        strokeWidth: 1.5,
+        fill: "none",
+        strokeDasharray: "4 4",
+      });
+    }
+  }
+
+  // Emit standalone callout markers AFTER the polylines so they paint
+  // on top of the polyline (and stay visible in any gap).
+  const yBaseline = yScale.apply(0);
+  for (const c of calloutPoints) {
     out.push({
-      type: "path",
-      d,
-      stroke,
-      strokeWidth: 1.5,
-      fill: "none",
+      type: "text",
+      x: c.x,
+      y: roundPx(yBaseline),
+      text: "✕",
+      fontSize: 10,
+      fill: theme.fg,
+      anchor: "middle",
+      baseline: "middle",
+      tooltip: `Missing value at x=${c.xRaw == null ? "" : String(c.xRaw)}`,
     });
   }
 }
@@ -2147,6 +2313,11 @@ function buildLines(
  * positional palette as line strokes but at reduced opacity (0.55) so
  * overlapping series remain readable. Stroke is drawn over the fill at
  * full opacity for an explicit outline.
+ *
+ * Moat PR3 — area marks treat "callout" the same as "skip" (a dashed
+ * rectangle on a filled region would bleed into the surrounding paint),
+ * but "interpolate" lets the polygon close cleanly across the gap so
+ * the area shape is continuous. AUDIT-10 still flags the missing rate.
  */
 function buildAreas(
   out: SceneMark[],
@@ -2159,16 +2330,33 @@ function buildAreas(
   yScale: ReturnType<typeof linearScale>,
   theme: Theme,
   preserveOrder = false,
+  policy: MissingPolicy = "skip",
 ): void {
   const colorField = fieldOf(encoding.color);
   const colorDomain = colorField ? distinctOrdered(rows, schema, colorField) : [""];
   const baselinePx = yScale.apply(0);
+  const yIdx = schema.findIndex((c) => c.name === yField);
+  const policied = applyMissingPolicy(
+    rows.map((r) => ({ x: valueAt(r, schema, xField), y: yIdx >= 0 ? r[yIdx] : undefined })),
+    policy,
+  );
 
   const groups = new Map<string, Array<{ x: number; y: number }>>();
-  for (const r of rows) {
+  let policyCursor = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r) continue;
+    let pt: ReturnType<typeof applyMissingPolicy>[number] | undefined;
+    if (policy === "skip") {
+      const yvRaw = yIdx >= 0 ? r[yIdx] : undefined;
+      const yvNum = Number(yvRaw);
+      if (yvRaw === null || yvRaw === undefined || !Number.isFinite(yvNum)) continue;
+      pt = policied[policyCursor++];
+    } else {
+      pt = policied[i];
+    }
+    if (!pt || pt.y === undefined) continue;
     const xv = valueAt(r, schema, xField);
-    const yv = Number(valueAt(r, schema, yField));
-    if (!Number.isFinite(yv)) continue;
     const xpx =
       xScale.type === "linear"
         ? xScale.apply(Number(xv))
@@ -2185,7 +2373,7 @@ function buildAreas(
       pts = [];
       groups.set(groupKey, pts);
     }
-    pts.push({ x: roundPx(xpx), y: yScale.apply(yv) });
+    pts.push({ x: roundPx(xpx), y: yScale.apply(pt.y) });
   }
 
   for (const [groupKey, pts] of groups) {
@@ -3025,6 +3213,7 @@ registerMark({
       args.yScale,
       args.theme,
       args.ctx,
+      resolveMissingPolicy(args.spec),
     );
   },
 });
@@ -3043,6 +3232,7 @@ registerMark({
       args.yScale,
       args.theme,
       args.ctx,
+      resolveMissingPolicy(args.spec),
     );
   },
 });
@@ -3076,6 +3266,7 @@ registerMark({
       args.yScale,
       args.theme,
       preserveOrder,
+      resolveMissingPolicy(args.spec),
     );
   },
 });
@@ -3106,6 +3297,7 @@ registerMark({
       args.yScale,
       args.theme,
       preserveOrder,
+      resolveMissingPolicy(args.spec),
     );
   },
 });

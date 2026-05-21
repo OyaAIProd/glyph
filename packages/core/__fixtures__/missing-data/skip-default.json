@@ -1,0 +1,14 @@
+{
+  "version": "glyph/0.1",
+  "data": { "source": "fixture.csv" },
+  "title": "Daily sales — three null rows",
+  "layers": [
+    {
+      "mark": "bar",
+      "encoding": {
+        "x": { "field": "day", "type": "ordinal" },
+        "y": { "field": "sales", "type": "quantitative", "scale": { "domain": [0, 100] } }
+      }
+    }
+  ]
+}

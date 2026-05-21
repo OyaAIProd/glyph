@@ -1,0 +1,14 @@
+{
+  "version": "glyph/0.1",
+  "data": { "source": "fixture.csv", "onMissing": "interpolate" },
+  "title": "Sensor stream — interpolated bridges",
+  "layers": [
+    {
+      "mark": "line",
+      "encoding": {
+        "x": { "field": "t", "type": "quantitative" },
+        "y": { "field": "value", "type": "quantitative", "scale": { "domain": [0, 100] } }
+      }
+    }
+  ]
+}

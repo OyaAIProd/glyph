@@ -83,10 +83,23 @@ function renderMark(m: SceneMark, interactive: boolean): string {
     case "rect": {
       const stroke = m.stroke ? ` stroke="${esc(m.stroke)}"` : "";
       const sw = m.strokeWidth !== undefined ? ` stroke-width="${m.strokeWidth}"` : "";
+      // Moat PR3 — dashed border for missing-data callout markers.
+      const dash =
+        m.strokeDasharray !== undefined ? ` stroke-dasharray="${esc(m.strokeDasharray)}"` : "";
       if (!interactive) {
+        // Moat PR3 — even in the non-interactive path, emit `<title>` when
+        // the mark carries one. Today only the missing-data callout marker
+        // sets `tooltip` outside interactive mode; every other path leaves
+        // it undefined and falls back to the byte-identical self-closing
+        // rect (existing snapshots stay green).
+        if (m.tooltip) {
+          return `<rect x="${m.x}" y="${m.y}" width="${m.width}" height="${m.height}" fill="${esc(
+            m.fill,
+          )}"${stroke}${sw}${dash}><title>${esc(m.tooltip)}</title></rect>`;
+        }
         return `<rect x="${m.x}" y="${m.y}" width="${m.width}" height="${m.height}" fill="${esc(
           m.fill,
-        )}"${stroke}${sw}/>`;
+        )}"${stroke}${sw}${dash}/>`;
       }
       const data = renderDataAttrs(m);
       const aria = ariaForMark(m);
@@ -94,11 +107,11 @@ function renderMark(m: SceneMark, interactive: boolean): string {
       if (tooltip) {
         return `<rect x="${m.x}" y="${m.y}" width="${m.width}" height="${m.height}" fill="${esc(
           m.fill,
-        )}"${stroke}${sw}${data}${aria}>${tooltip}</rect>`;
+        )}"${stroke}${sw}${dash}${data}${aria}>${tooltip}</rect>`;
       }
       return `<rect x="${m.x}" y="${m.y}" width="${m.width}" height="${m.height}" fill="${esc(
         m.fill,
-      )}"${stroke}${sw}${data}${aria}/>`;
+      )}"${stroke}${sw}${dash}${data}${aria}/>`;
     }
     case "circle": {
       const stroke = m.stroke ? ` stroke="${esc(m.stroke)}"` : "";
@@ -123,12 +136,29 @@ function renderMark(m: SceneMark, interactive: boolean): string {
       const stroke = m.stroke ? ` stroke="${esc(m.stroke)}"` : "";
       const sw = m.strokeWidth !== undefined ? ` stroke-width="${m.strokeWidth}"` : "";
       const op = m.opacity !== undefined ? ` opacity="${m.opacity}"` : "";
-      return `<path d="${m.d}" fill="${fill}"${stroke}${sw}${op}/>`;
+      // Moat PR3 — dashed stroke for the interpolated bridge segment that
+      // sits across a missing-data gap. Undefined on every other path so
+      // existing snapshots stay byte-identical.
+      const dash =
+        m.strokeDasharray !== undefined ? ` stroke-dasharray="${esc(m.strokeDasharray)}"` : "";
+      return `<path d="${m.d}" fill="${fill}"${stroke}${sw}${op}${dash}/>`;
     }
-    case "text":
+    case "text": {
+      // Moat PR3 — emit `<title>` when the text mark carries a tooltip
+      // (used by the line/point callout marker for "Missing value at
+      // x=<value>"). Plain text marks leave `tooltip` undefined and
+      // continue to render as the byte-identical self-closing form.
+      if (m.tooltip) {
+        return `<text x="${m.x}" y="${m.y}" font-size="${m.fontSize}" fill="${esc(
+          m.fill,
+        )}" text-anchor="${m.anchor}" dominant-baseline="${m.baseline}">${esc(
+          m.text,
+        )}<title>${esc(m.tooltip)}</title></text>`;
+      }
       return `<text x="${m.x}" y="${m.y}" font-size="${m.fontSize}" fill="${esc(
         m.fill,
       )}" text-anchor="${m.anchor}" dominant-baseline="${m.baseline}">${esc(m.text)}</text>`;
+    }
     case "arc": {
       // PR66 — pie / donut slice. Build the path inline so the renderer
       // has zero scenegraph→SVG transformation work other than emitting.
