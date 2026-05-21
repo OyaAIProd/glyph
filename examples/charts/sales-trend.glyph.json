@@ -1,0 +1,16 @@
+{
+  "title": "Daily sales trend",
+  "data": {
+    "source": "inline:examples-sales",
+    "transform": "SELECT day, SUM(amount) AS sales FROM sales GROUP BY day ORDER BY day"
+  },
+  "layers": [
+    {
+      "mark": "line",
+      "encoding": {
+        "x": { "field": "day", "type": "temporal" },
+        "y": { "field": "sales", "type": "quantitative" }
+      }
+    }
+  ]
+}

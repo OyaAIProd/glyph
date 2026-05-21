@@ -1,0 +1,20 @@
+{
+  "title": "Intentional: truncated y-axis (AUDIT-01 demo)",
+  "data": {
+    "source": "inline:examples-revenue",
+    "transform": "SELECT quarter, revenue FROM revenue ORDER BY quarter"
+  },
+  "layers": [
+    {
+      "mark": "bar",
+      "encoding": {
+        "x": { "field": "quarter", "type": "ordinal" },
+        "y": {
+          "field": "revenue",
+          "type": "quantitative",
+          "scale": { "domain": [100, 200] }
+        }
+      }
+    }
+  ]
+}

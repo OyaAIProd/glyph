@@ -1,0 +1,16 @@
+{
+  "title": "Rides by pickup hour",
+  "data": {
+    "source": "inline:examples-rides",
+    "transform": "SELECT pickup_hour, COUNT(*) AS rides FROM rides GROUP BY pickup_hour ORDER BY pickup_hour"
+  },
+  "layers": [
+    {
+      "mark": "bar",
+      "encoding": {
+        "x": { "field": "pickup_hour", "type": "ordinal" },
+        "y": { "field": "rides", "type": "quantitative" }
+      }
+    }
+  ]
+}

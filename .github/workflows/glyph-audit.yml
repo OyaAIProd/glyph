@@ -1,0 +1,39 @@
+# Dogfood workflow — this repo consumes its own glyph-audit-action.
+# Why: if a change to @glyph/core regresses an audit rule or breaks the
+# CLI's `glyph diff` output, the action's PR comment surfaces it before
+# the change merges. Also makes the README badge a meaningful signal.
+#
+# Scope: only specs under examples/charts/ are audited. Random fixture
+# JSON elsewhere in the tree (compiler tests, snapshot baselines) would
+# generate noisy findings the workflow can't act on.
+name: Glyph audit
+on: pull_request
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      # The action pushes rendered SVGs to an orphan `.glyph-audit`
+      # branch so the sticky comment can embed them inline — needs
+      # contents:write. pull-requests:write is for the comment itself.
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # Pin @glyph/cli to the 0.1 line so a future breaking change in
+      # the CLI doesn't silently flip the dogfood behavior. Bump
+      # deliberately in lockstep with the action version below.
+      - run: npm install -g @glyph/cli@0.1
+      - uses: seanhanca/glyph-audit-action@v1
+        with:
+          spec-pattern: "examples/charts/**/*.glyph.json"
+          # Label only — actual binary on PATH comes from the npm install
+          # above. Keep both in sync when bumping.
+          glyph-version: "0.1"
+          fail-on: error
+          comment-mode: sticky
