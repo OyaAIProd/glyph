@@ -448,6 +448,19 @@ function ySideOfLayer(enc: Encoding): YSide {
 }
 
 /**
+ * Math PR5 — Internal source marker indicating the materialized data
+ * came from a parametric `data.function` (with `parameter`+`xExpr`+`yExpr`).
+ * Read by `buildLines` / `buildAreas` to decide whether to sort points
+ * by x. Sorting parametric rows by x collapses closed curves like
+ * Lissajous into zigzags (the curve revisits the same x values).
+ *
+ * Public consumers should NOT key off this string — it's an internal
+ * compiler sentinel and may change. Use `spec.data.function.parameter`
+ * on the unmaterialized spec instead.
+ */
+const PARAMETRIC_FUNCTION_SOURCE = "<inline:function-parametric>";
+
+/**
  * Math PR1 — Materialize a `data.shape: "function"` spec into row +
  * schema form so the normal compile pipeline can render it. The
  * function shape is the math sibling of the inline hierarchy / graph
@@ -503,7 +516,13 @@ function materializeFunctionInput(input: CompileInput): CompileInput {
       // through to the normal tabular path. Substitute a stub `source`
       // so the spec still satisfies DataSourceSchema's refinement when
       // re-validated downstream.
-      data: { source: "<inline:function>" },
+      //
+      // Math PR5 — the source marker distinguishes scalar vs parametric
+      // function data downstream. Line + area marks check it to decide
+      // whether to sort points by x (scalar: yes; parametric: no — the
+      // sort collapses closed curves like Lissajous into zigzags). See
+      // PARAMETRIC_FUNCTION_SOURCE below.
+      data: { source: isParametric ? PARAMETRIC_FUNCTION_SOURCE : "<inline:function>" },
     },
     rows,
     schema,
@@ -1864,7 +1883,10 @@ function buildPoints(
  * Linear interpolation only; curve types (monotone, step) land in a
  * follow-up. When a color encoding is set, rows are grouped by color and
  * one `path` mark is emitted per group. Within each group, points are
- * sorted by x ascending so the path doesn't self-cross.
+ * sorted by x ascending so the path doesn't self-cross — UNLESS
+ * `preserveOrder=true`, in which case insertion order wins (Math PR5,
+ * for parametric curves like Lissajous where the curve legitimately
+ * revisits the same x values).
  *
  * The `path` mark carries an SVG-d string built deterministically:
  *   "M x0 y0 L x1 y1 L x2 y2 …"
@@ -1880,6 +1902,7 @@ function buildLines(
   xScale: ReturnType<typeof bandScale> | ReturnType<typeof linearScale>,
   yScale: ReturnType<typeof linearScale>,
   theme: Theme,
+  preserveOrder = false,
 ): void {
   const colorField = fieldOf(encoding.color);
   const colorDomain = colorField ? distinctOrdered(rows, schema, colorField) : [""];
@@ -1909,10 +1932,13 @@ function buildLines(
     pts.push({ x: roundPx(xpx), y: yScale.apply(yv) });
   }
 
-  // Emit one path per group, sorted by x for stable, non-crossing lines.
+  // Emit one path per group. Sorted by x for stable, non-crossing lines —
+  // EXCEPT when preserveOrder is set (parametric curves where the curve
+  // legitimately revisits the same x values, so sorting collapses the
+  // closed shape into a zigzag).
   for (const [groupKey, pts] of groups) {
     if (pts.length < 2) continue;
-    pts.sort((a, b) => a.x - b.x);
+    if (!preserveOrder) pts.sort((a, b) => a.x - b.x);
     let d = `M ${pts[0]?.x} ${pts[0]?.y}`;
     for (let i = 1; i < pts.length; i++) {
       const p = pts[i];
@@ -2831,6 +2857,16 @@ registerMark({
   type: "line",
   compile(args) {
     if (!args.yScale) return;
+    // Math PR5 — parametric function data preserves insertion order.
+    // `materializeFunctionInput` swaps `data.source` for our sentinel
+    // marker, which is the cheapest signal that survives the recursive
+    // compileSpec round-trip without expanding MarkCompileArgs.
+    const dataBlock = args.spec.data;
+    const dataSource =
+      typeof dataBlock === "object" && dataBlock !== null && "source" in dataBlock
+        ? (dataBlock as { source?: unknown }).source
+        : undefined;
+    const preserveOrder = dataSource === PARAMETRIC_FUNCTION_SOURCE;
     buildLines(
       args.out,
       args.rows,
@@ -2841,6 +2877,7 @@ registerMark({
       args.xScale,
       args.yScale,
       args.theme,
+      preserveOrder,
     );
   },
 });

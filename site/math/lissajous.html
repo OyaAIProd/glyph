@@ -71,7 +71,7 @@
   },
   <span class="str">"layers"</span>: [
     {
-      <span class="str">"mark"</span>: <span class="str">"point"</span>,
+      <span class="str">"mark"</span>: <span class="str">"line"</span>,
       <span class="str">"encoding"</span>: {
         <span class="str">"x"</span>: {
           <span class="str">"field"</span>: <span class="str">"x"</span>,
@@ -90,13 +90,16 @@
         </div>
 
         <div class="callout">
-          <strong>Why <code>mark: "point"</code> instead of
-          <code>"line"</code>?</strong> The line mark sorts samples by
-          <code>x</code> before stroking, which collapses a closed parametric
-          curve into a zigzag (the curve revisits the same x values). Points
-          dodge the bug; a one-line fix to <code>buildLines</code> is queued
-          as a follow-up. (Math PR2's <code>parameter</code> block ships today
-          regardless.)
+          <strong>Why this needs <code>mark: "line"</code> to work
+          properly:</strong> the default line builder sorts samples by
+          <code>x</code> before stroking, which would collapse a closed
+          parametric curve into a zigzag (the curve revisits the same x
+          values). Math PR5 added a <code>preserveOrder</code> flag that
+          <code>buildLines</code> reads when the data came from a parametric
+          <code>data.function</code> — insertion order wins, the curve traces
+          cleanly. Same fixture used to render as scattered points;
+          <code>git log</code> on this file shows the moment it became a
+          line.
         </div>
 
         <div class="cta-row">

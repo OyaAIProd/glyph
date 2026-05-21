@@ -10,7 +10,7 @@
   },
   "layers": [
     {
-      "mark": "point",
+      "mark": "line",
       "encoding": {
         "x": {
           "field": "x",
