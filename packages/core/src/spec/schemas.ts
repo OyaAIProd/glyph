@@ -383,6 +383,11 @@ export const MarkSchema = z.enum([
   // at grid points; streamlines integrate those arrows into
   // trajectories that reveal the GLOBAL flow structure.
   "streamline",
+  // A5 — bezier mark. Renders an N-degree Bezier curve from a list of
+  // control points, optionally with the control polygon and the
+  // per-level de Casteljau construction lines at a given parameter
+  // `t` — the canonical "show how the curve is built" picture.
+  "bezier",
 ]);
 
 /**
@@ -782,6 +787,59 @@ export const LayerSchema = z
       })
       .strict()
       .optional(),
+    // A5 — bezier mark
+    /**
+     * Math Phase 2 Track A PR A5 — config for `mark: "bezier"`. Required
+     * when `mark === "bezier"`; rejected on any other mark (mirrors the
+     * streamline / annotation / traveler validation pattern).
+     *
+     *   - `controlPoints`: 2+ `{x, y}` control points in data space.
+     *     Degree = N - 1 (3 points → quadratic, 4 → cubic, …).
+     *   - `samples`: number of polyline segments used to draw the
+     *     curve. Output has `samples + 1` vertices. Default 100.
+     *   - `showControls`: when true, overlay the control polygon
+     *     (dashed line through the control points) and a small circle
+     *     at each control point.
+     *   - `showConstruction`: when true (and `t` is set), overlay the
+     *     per-level de Casteljau construction polylines at parameter
+     *     `t`. Each level reduces the previous by one point; the
+     *     final two-point line's midpoint is the curve sample at
+     *     `t`. The compiler also drops a filled marker at that
+     *     sample. When `t` is unset, this flag is ignored.
+     *   - `t`: parameter in [0, 1] for the de Casteljau construction
+     *     overlay. Only meaningful when `showConstruction` is true.
+     *   - `stroke`, `strokeWidth`, `fill`: standard curve styling.
+     *     Default stroke is the first theme palette entry; default
+     *     fill is "none" (open curve, not a filled region).
+     *
+     * Determinism: same control points + same `t` produce
+     * byte-identical SVG output. de Casteljau is a pure linear
+     * interpolation tree; every projected pixel runs through
+     * `roundPx`.
+     */
+    bezier: z
+      .object({
+        controlPoints: z
+          .array(
+            z
+              .object({
+                x: z.number().refine(Number.isFinite, "controlPoint.x must be finite"),
+                y: z.number().refine(Number.isFinite, "controlPoint.y must be finite"),
+              })
+              .strict(),
+          )
+          .min(2)
+          .max(32),
+        samples: z.number().int().min(2).max(2000).default(100),
+        showControls: z.boolean().default(false),
+        showConstruction: z.boolean().default(false),
+        t: z.number().min(0).max(1).optional(),
+        stroke: z.string().min(1).optional(),
+        strokeWidth: z.number().positive().max(64).optional(),
+        fill: z.string().min(1).optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .refine((l) => l.mark !== "math-text" || (typeof l.expr === "string" && l.expr.length > 0), {
@@ -827,6 +885,20 @@ export const LayerSchema = z
   )
   .refine((l) => l.mark === "streamline" || l.streamline === undefined, {
     message: "Field 'streamline' is only valid when mark is 'streamline'.",
+  })
+  // A5 — bezier mark: require config when mark="bezier" AND reject
+  // the `bezier` config block on any other mark. Same gate shape as
+  // the streamline pattern above.
+  .refine(
+    (l) => l.mark !== "bezier" || (typeof l.bezier === "object" && l.bezier !== null),
+    {
+      message: "Layer with mark 'bezier' requires a 'bezier' config block.",
+      path: ["bezier"],
+    },
+  )
+  .refine((l) => l.mark === "bezier" || l.bezier === undefined, {
+    message: "Field 'bezier' is only valid when mark is 'bezier'.",
+    path: ["bezier"],
   })
   // Moat 3 review IMPORTANT-3 — layer-level `data.onMissing` is silently
   // ignored by the compiler (it only reads `spec.data.onMissing`). Reject

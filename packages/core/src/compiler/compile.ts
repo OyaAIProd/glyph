@@ -89,6 +89,10 @@ import "./marks/traveler.js";
 // Math Phase 2 Track A PR A3 — streamline registers `streamline` (RK4
 // integration of a 2D vector field into continuous flow lines).
 import "./marks/streamline.js";
+// Math Phase 2 Track A PR A5 — bezier registers `bezier` (N-degree
+// Bezier curve via de Casteljau with optional control polygon +
+// construction-line overlay at a given parameter t).
+import "./marks/bezier.js";
 import {
   angleScale,
   bandScale,
@@ -825,6 +829,10 @@ export function compileSpec(input: CompileInput): Scene {
       // field into continuous flow lines via RK4. Cartesian path with
       // linear x/y, same as vector-field.
       "streamline",
+      // Math Phase 2 Track A PR A5 — bezier renders a Bezier curve from
+      // control points (no row data; configuration lives in
+      // `layer.bezier`). Cartesian path with linear x/y.
+      "bezier",
     ];
     if (!allowedMarks.includes(l.mark)) {
       throw new Error(`Phase 1 supports marks ${allowedMarks.join("|")}; layer ${i} has ${l.mark}`);
@@ -949,6 +957,19 @@ export function compileSpec(input: CompileInput): Scene {
       const sc = (l as unknown as { streamline?: unknown }).streamline;
       if (typeof sc !== "object" || sc === null) {
         throw new Error(`Layer ${i} (streamline) requires a 'streamline' config block`);
+      }
+      continue;
+    }
+    // Math Phase 2 Track A PR A5 — bezier reads control points + flags
+    // from `layer.bezier`; rows are unused. Still needs x/y encoding so
+    // the resolved scales can project (x, y) control points to pixels.
+    if (l.mark === "bezier") {
+      if (fieldOf(l.encoding.x) === undefined || fieldOf(l.encoding.y) === undefined) {
+        throw new Error(`Layer ${i} (bezier) requires both x and y encodings`);
+      }
+      const bc = (l as unknown as { bezier?: unknown }).bezier;
+      if (typeof bc !== "object" || bc === null) {
+        throw new Error(`Layer ${i} (bezier) requires a 'bezier' config block`);
       }
       continue;
     }
