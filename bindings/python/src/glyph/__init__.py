@@ -212,6 +212,7 @@ def render(
         audit=findings,
         row_count=raw.get("row_count"),
         view_name=raw.get("view_name"),
+        raw=raw,
     )
 
 
@@ -275,11 +276,21 @@ def query(handle: str, where: str | None = None, *, limit: int | None = None) ->
     if limit is not None:
         args["limit_rows"] = limit
     raw = _expect_dict("glyph_query", call_verb("glyph_query", args))
+    truncated = bool(raw.get("truncated", False))
+    # `total` and `returned` are only emitted when the row cap fires (see the
+    # `glyph_query` handler in packages/mcp/src/server.ts). When they're
+    # absent, leave them as None so callers can distinguish "uncapped" from
+    # "capped at 0".
+    total = int(raw["total"]) if isinstance(raw.get("total"), int) else None
+    returned = int(raw["returned"]) if isinstance(raw.get("returned"), int) else None
     return QueryResult(
         columns=list(raw.get("columns", []) or []),
         rows=[list(r) for r in raw.get("rows", []) or []],
         row_count=int(raw.get("rowCount", 0) or 0),
-        truncated=bool(raw.get("truncated", False)),
+        truncated=truncated,
+        total=total,
+        returned=returned,
+        raw=raw,
     )
 
 
@@ -353,12 +364,15 @@ def anomaly(
     if limit is not None:
         args["limit"] = limit
     raw = _expect_dict("glyph_anomaly", call_verb("glyph_anomaly", args))
+    # `raw["segments"]` carries per-bucket mean/std stats; we don't model it
+    # as a typed field yet, but it stays reachable via `result.raw`.
     return AnomalyResult(
         handle=raw.get("handle_id", ""),
         threshold=float(raw.get("threshold", 0.0) or 0.0),
         columns=list(raw.get("columns", []) or []),
         rows=[list(r) for r in raw.get("rows", []) or []],
         explanation=str(raw.get("explanation", "") or ""),
+        raw=raw,
     )
 
 
@@ -394,6 +408,7 @@ def decompose(
         columns=list(raw.get("columns", []) or []),
         rows=[list(r) for r in raw.get("rows", []) or []],
         explanation=str(raw.get("explanation", "") or ""),
+        raw=raw,
     )
 
 
@@ -428,6 +443,7 @@ def forecast(
         columns=list(raw.get("columns", []) or []),
         rows=[list(r) for r in raw.get("rows", []) or []],
         explanation=str(raw.get("explanation", "") or ""),
+        raw=raw,
     )
 
 
@@ -461,6 +477,7 @@ def explain(
         headline=str(raw.get("headline", "") or ""),
         highlights=[str(h) for h in raw.get("highlights", []) or []],
         questions=[str(q) for q in raw.get("questions", []) or []],
+        raw=raw,
     )
 
 
@@ -498,11 +515,21 @@ def drill(
     if in_ is not None:
         args["in"] = list(in_)
     raw = _expect_dict("glyph_drill", call_verb("glyph_drill", args))
+    # `glyph_drill` doesn't currently emit a `truncated` flag (unlike
+    # `glyph_query`), but we read it defensively so a future server-side
+    # truncation knob doesn't make this wrapper silently lie. Same for
+    # `total` / `returned`.
+    truncated = bool(raw.get("truncated", False))
+    total = int(raw["total"]) if isinstance(raw.get("total"), int) else None
+    returned = int(raw["returned"]) if isinstance(raw.get("returned"), int) else None
     return QueryResult(
         columns=list(raw.get("columns", []) or []),
         rows=[list(r) for r in raw.get("rows", []) or []],
         row_count=int(raw.get("rowCount", 0) or 0),
-        truncated=False,
+        truncated=truncated,
+        total=total,
+        returned=returned,
+        raw=raw,
     )
 
 
@@ -544,6 +571,7 @@ def spec_diff(spec_a: Mapping[str, Any], spec_b: Mapping[str, Any]) -> SpecDiff:
         removed=removed,
         changed=changed,
         summary=str(raw.get("summary", "") or ""),
+        raw=raw,
     )
 
 
@@ -571,6 +599,7 @@ def spec_patch(handle: str, patches: Sequence[Mapping[str, Any]]) -> SpecPatchRe
         svg=str(raw.get("svg", "") or ""),
         row_count=raw.get("row_count"),
         view_name=raw.get("view_name"),
+        raw=raw,
     )
 
 
@@ -606,13 +635,22 @@ def story_plan(
         for n in raw.get("nodes", []) or []
         if isinstance(n, dict)
     ]
+    # `clarification_questions` is whatever the wire emitted (camelCase or
+    # snake_case depending on planner version) — flatten the list-of-dicts
+    # but keep individual entries as raw dicts so callers can adapt to shape
+    # drift without us forcing a typed schema we don't yet have confidence in.
+    cq_raw: list[Any] = list(
+        raw.get("clarificationQuestions", raw.get("clarification_questions", [])) or []
+    )
+    clarification_questions: list[dict[str, Any]] = [q for q in cq_raw if isinstance(q, dict)]
     return StoryPlan(
         plan_id=str(raw.get("plan_id", raw.get("id", "")) or ""),
         intent=str(raw.get("intent", "") or ""),
         status=str(raw.get("status", "") or ""),
         nodes=nodes,
         domain=raw.get("domain"),
-        clarification_questions=list(raw.get("clarification_questions", []) or []),
+        clarification_questions=clarification_questions,
+        raw=raw,
     )
 
 

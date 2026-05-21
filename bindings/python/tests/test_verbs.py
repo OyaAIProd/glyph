@@ -17,6 +17,8 @@ from pathlib import Path
 import pytest
 
 import glyph
+from collections.abc import Iterator
+
 from glyph._runtime import shutdown_runtime
 from glyph.exceptions import SpecValidationError
 
@@ -31,8 +33,13 @@ def _ensure_dev_mcp_bin() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_runtime() -> None:
-    """Tear down the singleton between tests so handles / spec state don't leak."""
+def _isolate_runtime() -> Iterator[None]:
+    """Tear down the singleton between tests so handles / spec state don't leak.
+
+    The ``Iterator[None]`` return type (not ``None``) satisfies mypy --strict:
+    a generator fixture's yields-then-cleans-up shape can't be expressed as
+    ``-> None``.
+    """
     yield
     shutdown_runtime()
 

@@ -38,7 +38,9 @@ class RenderResult:
     ``svg`` is the byte-stable compiled chart. ``handle`` is the local handle
     id (NOT a ``gdf://`` URI — call :func:`glyph.publish` to promote it).
     ``audit`` is populated when ``audit=True`` was passed to ``render``;
-    otherwise it's an empty list.
+    otherwise it's an empty list. ``raw`` preserves the full wire envelope
+    so callers can introspect fields we haven't surfaced yet (forward-compat
+    parity with :class:`Capabilities`).
     """
 
     svg: str
@@ -46,6 +48,7 @@ class RenderResult:
     audit: list[AuditFinding] = field(default_factory=list)
     row_count: int | None = None
     view_name: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
 
     def _repr_svg_(self) -> str:
         """IPython display hook — renders the SVG inline in Jupyter.
@@ -87,16 +90,25 @@ class RenderResult:
 class QueryResult:
     """Result of :func:`glyph.query` / :func:`glyph.drill`.
 
-    Maps the wire ``{columns, rows, rowCount, truncated}`` envelope onto a
-    Pythonic shape. ``rows`` is the row-of-arrays form straight from the
-    server (cheap; no allocation). Iterate via :meth:`dicts` for a per-row
-    dict view when callers want named field access.
+    Maps the wire ``{columns, rows, rowCount, truncated, total?, returned?}``
+    envelope onto a Pythonic shape. ``rows`` is the row-of-arrays form
+    straight from the server (cheap; no allocation). Iterate via
+    :meth:`dicts` for a per-row dict view when callers want named field
+    access.
+
+    ``total`` and ``returned`` are populated only when ``truncated=True`` —
+    the server emits them on the truncation envelope (``packages/mcp``
+    ``glyph_query`` handler) so callers can distinguish "the engine returned
+    N rows, all shown" from "the engine returned N rows, only M shown".
     """
 
     columns: list[str]
     rows: list[list[Any]]
     row_count: int
     truncated: bool = False
+    total: int | None = None
+    returned: int | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
 
     def dicts(self) -> list[dict[str, Any]]:
         """Zip ``rows`` against ``columns`` into a list of dicts.
@@ -138,6 +150,7 @@ class SpecDiff:
     removed: list[SpecDiffEntry] = field(default_factory=list)
     changed: list[SpecDiffChange] = field(default_factory=list)
     summary: str = ""
+    raw: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -147,6 +160,9 @@ class AnomalyResult:
     ``rows`` is the row-of-arrays form aligned to ``columns`` (the original
     schema plus a trailing ``_z`` column carrying the z-score). The derived
     ``handle`` is queryable like any other gdf:// handle.
+
+    ``raw`` preserves the full wire envelope including per-segment mean/std
+    stats (``raw["segments"]``) which we don't yet model as a typed field.
     """
 
     handle: str
@@ -154,6 +170,7 @@ class AnomalyResult:
     columns: list[str]
     rows: list[list[Any]]
     explanation: str = ""
+    raw: dict[str, Any] = field(default_factory=dict)
 
     def dicts(self) -> list[dict[str, Any]]:
         cols = self.columns
@@ -170,6 +187,7 @@ class DecomposeResult:
     columns: list[str]
     rows: list[list[Any]]
     explanation: str = ""
+    raw: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -182,6 +200,7 @@ class ForecastResult:
     columns: list[str]
     rows: list[list[Any]]
     explanation: str = ""
+    raw: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -191,6 +210,7 @@ class ExplainResult:
     headline: str
     highlights: list[str] = field(default_factory=list)
     questions: list[str] = field(default_factory=list)
+    raw: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -201,6 +221,7 @@ class SpecPatchResult:
     svg: str
     row_count: int | None = None
     view_name: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -216,14 +237,21 @@ class StoryPlanNode:
 
 @dataclass(frozen=True)
 class StoryPlan:
-    """Result of :func:`glyph.story_plan` — a planned analytic storyboard."""
+    """Result of :func:`glyph.story_plan` — a planned analytic storyboard.
+
+    The clarification-question wire shape is fluid across the 0.x line so
+    ``clarification_questions`` is left as ``list[dict[str, Any]]`` — the
+    closest thing to "structured but unmodeled". Callers prepared to depend
+    on a specific shape can read ``raw["clarificationQuestions"]`` instead.
+    """
 
     plan_id: str
     intent: str
     status: str
     nodes: list[StoryPlanNode] = field(default_factory=list)
     domain: str | None = None
-    clarification_questions: list[Any] = field(default_factory=list)
+    clarification_questions: list[dict[str, Any]] = field(default_factory=list)
+    raw: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
