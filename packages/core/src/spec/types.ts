@@ -130,6 +130,14 @@ export type Stat = z.infer<typeof StatSchema>;
 /** Opt-in interactivity config (see InteractiveSchema for details). */
 export type InteractiveConfig = z.infer<typeof InteractiveSchema>;
 
+/**
+ * Moat 5/5 — declarative crossfilter config. Resolved sub-shape of
+ * `InteractiveConfig.crossfilter`. Two charts that share `group`
+ * participate in the same crossfilter group; the renderer emits
+ * `data-crossfilter-group` + `data-crossfilter-key` on each mark.
+ */
+export type CrossfilterConfig = NonNullable<InteractiveConfig["crossfilter"]>;
+
 /** Moat PR1 — cryptographic provenance seal config (see ProvenanceConfigSchema). */
 export type ProvenanceConfig = z.infer<typeof ProvenanceConfigSchema>;
 

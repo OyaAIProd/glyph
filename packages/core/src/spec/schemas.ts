@@ -913,6 +913,50 @@ export const InteractiveSchema = z
      * scatter plots where tiny circles are hard to hit.
      */
     voronoi: z.boolean().optional(),
+    /**
+     * Moat 5/5 — declarative crossfilter. The first single-spec-field
+     * primitive for "small multiples that talk" since crossfilter.js
+     * shipped in 2012 (and died in 2017). Two charts that share
+     * `crossfilter.group` participate in the same crossfilter group:
+     * hovering or clicking a mark in one highlights matching marks in
+     * the others.
+     *
+     * Static-SVG path: every mark gains
+     *   `data-crossfilter-group="<group>"` and
+     *   `data-crossfilter-key="<key-value>"`
+     * plus a small `<style>` block driving same-chart hover highlight
+     * via CSS attribute selectors (zero JS).
+     *
+     * Live-SVG path: `@glyph/live` reads the same data-attrs and
+     * broadcasts hover events across all charts subscribed to the
+     * group. The browser-side hydration extension is out of scope for
+     * the moat PR; the static contract is the durable surface.
+     */
+    crossfilter: z
+      .object({
+        /**
+         * Cross-chart group id. Two charts that share this id
+         * participate in the same crossfilter group: hovering or
+         * clicking a mark in one filters / highlights matching marks
+         * in the others. Required when `crossfilter` is set.
+         */
+        group: z.string().min(1).max(64),
+        /**
+         * Which field's value is the crossfilter key. Defaults to the
+         * `encoding.color` field; falls back to `encoding.x` if no
+         * color is encoded. Marks with the same key in two charts of
+         * the same group are "matching."
+         */
+        key: z.string().min(1).optional(),
+        /**
+         * Default interaction. `"hover"` highlights on mouseover;
+         * `"click"` toggles persistent selection. `"both"` enables
+         * hover preview + click commit.
+         */
+        mode: z.enum(["hover", "click", "both"]).default("hover"),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 

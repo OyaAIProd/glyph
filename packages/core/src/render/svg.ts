@@ -36,6 +36,26 @@ const HOVER_STYLE =
   "<style>.glyph-marks &gt; *{transition:filter .12s ease-out}.glyph-marks &gt; *:hover{filter:brightness(1.08);outline:1px solid #00000033;outline-offset:1px;cursor:pointer}</style>";
 
 /**
+ * Moat 5/5 — declarative crossfilter CSS. Same-chart hover highlight:
+ *   1. The directly-hovered mark gets a bright outline (yellow by
+ *      default; overridable via the `--crossfilter-highlight` CSS
+ *      variable a brand theme can set).
+ *   2. The `:hover` pseudo on a sibling propagates via the
+ *      `:has()`-aware rule on the marks group: when ANY child is
+ *      hovered, the chart enters "filter mode" and matching siblings
+ *      with the same `data-crossfilter-key` light up too.
+ *
+ * Cross-chart linkage requires JS — `@glyph/live` reads the same
+ * data-attrs and broadcasts hover events keyed by group. This CSS is
+ * the zero-JS baseline.
+ *
+ * Emitted only when `scene.schema.crossfilterGroup` is set, so
+ * existing snapshots stay byte-identical.
+ */
+const CROSSFILTER_STYLE =
+  "<style>[data-crossfilter-group] [data-crossfilter-key]:hover{outline:2px solid var(--crossfilter-highlight,#fbbf24);outline-offset:2px;cursor:pointer}.glyph-marks:has([data-crossfilter-key]:hover) [data-crossfilter-key]:not(:hover){opacity:.35;transition:opacity .12s ease-out}</style>";
+
+/**
  * Escape user-derived text for inclusion in SVG. Covers the five XML chars
  * plus stripping control characters (which are illegal in XML 1.0).
  */
@@ -479,6 +499,14 @@ function renderSceneAttrs(scene: Scene): string {
   if (s.zoomable === true) out += ` data-glyph-zoom="true"`;
   if (s.lassoable === true) out += ` data-glyph-lasso="true"`;
   if (s.voronoiHover === true) out += ` data-glyph-voronoi="true"`;
+  // Moat 5/5 — declarative crossfilter group. `@glyph/live` reads this
+  // attribute at the SVG root and subscribes the chart to the shared
+  // event bus keyed by group id. Static path: the per-mark
+  // `data-crossfilter-key` plus `CROSSFILTER_STYLE` drive same-chart
+  // hover highlight with zero JS.
+  if (s.crossfilterGroup !== undefined) {
+    out += ` data-crossfilter-group="${esc(s.crossfilterGroup)}"`;
+  }
   return out;
 }
 
@@ -529,6 +557,9 @@ export function renderSvg(scene: Scene): string {
       )}</text>`
     : "";
   const hoverStyle = interactive ? HOVER_STYLE : "";
+  // Moat 5/5 — emit the crossfilter CSS only when the scene actually
+  // opts in. Keeps non-crossfilter snapshots byte-identical.
+  const crossfilterStyle = scene.schema?.crossfilterGroup ? CROSSFILTER_STYLE : "";
   // PR43 + PR45: opt-in animation. Three CSS-driven kinds (stage,
   // stage-stagger) and two SMIL-driven kinds (race, scrub).
   const animationStyle = buildAnimationStyle(scene);
@@ -542,7 +573,7 @@ export function renderSvg(scene: Scene): string {
   // unused (panels carry their own).
   if (scene.panels && scene.panels.length > 0) {
     const panelStrs = scene.panels.map((p) => renderPanel(p, interactive)).join("");
-    return `${head}${desc}${provenance}${hoverStyle}${uncertaintyStyle}${bg}${title}${panelStrs}${uncertaintyOverlay}${legends}</svg>\n`;
+    return `${head}${desc}${provenance}${hoverStyle}${crossfilterStyle}${uncertaintyStyle}${bg}${title}${panelStrs}${uncertaintyOverlay}${legends}</svg>\n`;
   }
 
   // Grid sits behind marks; axes + legends in front.
@@ -579,7 +610,7 @@ export function renderSvg(scene: Scene): string {
   // SceneMark is present. Returns "" for scenes with no arrows so
   // existing snapshots stay byte-identical.
   const arrowDefs = renderArrowDefs(scene);
-  return `${head}${desc}${provenance}${hoverStyle}${animationStyle}${uncertaintyStyle}${arrowDefs}${bg}${title}${grid}${marks}${axes}${uncertaintyOverlay}${legends}</svg>\n`;
+  return `${head}${desc}${provenance}${hoverStyle}${crossfilterStyle}${animationStyle}${uncertaintyStyle}${arrowDefs}${bg}${title}${grid}${marks}${axes}${uncertaintyOverlay}${legends}</svg>\n`;
 }
 
 /**

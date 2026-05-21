@@ -1,0 +1,27 @@
+{
+  "version": "glyph/0.1",
+  "title": "Rides by weekday (crossfilter: demo)",
+  "data": {
+    "function": {
+      "shape": "function",
+      "x": { "min": 0, "max": 6.283185307179586, "samples": 7 },
+      "expr": "10 + 5 * sin(x)"
+    }
+  },
+  "layers": [
+    {
+      "mark": "bar",
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "scale": { "domain": [0, 20] }
+        }
+      }
+    }
+  ],
+  "interactive": {
+    "crossfilter": { "group": "demo", "mode": "hover" }
+  }
+}

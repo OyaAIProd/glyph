@@ -180,6 +180,22 @@ function buildTooltipText(
   return oneChannel(tt);
 }
 
+/**
+ * Moat 5/5 — resolve the crossfilter key-field for a spec. Precedence:
+ *   1. Explicit `interactive.crossfilter.key` (caller knows best).
+ *   2. The `encoding.color` field — the most common "shared dimension"
+ *      across small multiples (a category that exists in every panel).
+ *   3. Fallback to `encoding.x` — guarantees a key for every chart.
+ * Returns `undefined` only when no crossfilter is configured.
+ */
+function resolveCrossfilterKeyField(ctx: MarkCtx): string | undefined {
+  const xf = ctx.interactive?.crossfilter;
+  if (!xf) return undefined;
+  if (xf.key) return xf.key;
+  if (ctx.colorField) return ctx.colorField;
+  return ctx.xField;
+}
+
 /** Build optional MarkData for a row. Returns an empty object when off. */
 function markDataFor(
   ctx: MarkCtx,
@@ -202,6 +218,19 @@ function markDataFor(
   }
   const keyField = ctx.interactive.key;
   const key = keyField ? attrValue(valueAt(row, schema, keyField)) : String(rowIndex);
+
+  // Moat 5/5 — emit `data-crossfilter-key` (and group, surfaced at the
+  // scene root) whenever interactive.crossfilter is configured. Precedence
+  // for the key field: explicit `crossfilter.key` → encoding.color →
+  // encoding.x. Renderer wires the matching `data-crossfilter-group`
+  // attribute on every mark via `renderDataAttrs`.
+  if (ctx.interactive.crossfilter) {
+    const xfKeyField = resolveCrossfilterKeyField(ctx);
+    if (xfKeyField) {
+      dataAttrs["crossfilter-key"] = attrValue(valueAt(row, schema, xfKeyField));
+    }
+    dataAttrs["crossfilter-group"] = ctx.interactive.crossfilter.group;
+  }
 
   const tooltip = buildTooltipText(ctx, row, schema, xVal, yVal, colorVal);
   return { key, dataAttrs, tooltip };
@@ -1309,6 +1338,12 @@ export function compileSpec(input: CompileInput): Scene {
       ...(spec.interactive.zoomable === true ? { zoomable: true } : {}),
       ...(spec.interactive.lassoable === true ? { lassoable: true } : {}),
       ...(spec.interactive.voronoi === true ? { voronoiHover: true } : {}),
+      // Moat 5/5 — surface the crossfilter group at the scene root so
+      // the renderer emits `data-crossfilter-group="<id>"` on the SVG
+      // element plus the same-chart hover CSS rule.
+      ...(spec.interactive.crossfilter
+        ? { crossfilterGroup: spec.interactive.crossfilter.group }
+        : {}),
     };
   }
 

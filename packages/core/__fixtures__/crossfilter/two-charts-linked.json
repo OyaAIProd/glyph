@@ -1,0 +1,22 @@
+{
+  "version": "glyph/0.1",
+  "_comment": "Documentary fixture: two-charts-linked.test.ts inlines the two specs (one for chart A, one for chart B) so the same Glyph schema flow proves the cross-chart contract. This file mirrors chart A's spec for human reference; the snapshot at ./two-charts-linked.svg is the concatenation of chart A + chart B (separated by a newline).",
+  "title": "Rides — chart A",
+  "data": { "source": "ridesA" },
+  "layers": [
+    {
+      "mark": "bar",
+      "encoding": {
+        "x": { "field": "hour", "type": "quantitative" },
+        "y": {
+          "field": "rides",
+          "type": "quantitative",
+          "scale": { "domain": [0, 30] }
+        }
+      }
+    }
+  ],
+  "interactive": {
+    "crossfilter": { "group": "linked", "key": "hour", "mode": "both" }
+  }
+}

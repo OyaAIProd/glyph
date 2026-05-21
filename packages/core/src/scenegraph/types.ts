@@ -243,6 +243,17 @@ export interface SceneSchema {
   readonly zoomable?: boolean;
   readonly lassoable?: boolean;
   readonly voronoiHover?: boolean;
+  /**
+   * Moat 5/5 — declarative crossfilter group id. When set, every
+   * data-bound mark in the scene carries
+   *   `data-crossfilter-group="<id>"` and
+   *   `data-crossfilter-key="<key>"`
+   * (the per-row key value lives in `MarkData.dataAttrs["crossfilter-key"]`).
+   * The renderer emits a small `<style>` block driving same-chart
+   * hover highlight via CSS attribute selectors. Cross-chart linkage
+   * is hydrated by `@glyph/live` reading the same data-attrs.
+   */
+  readonly crossfilterGroup?: string;
 }
 
 /** A single legend entry — one row of color/label. */
