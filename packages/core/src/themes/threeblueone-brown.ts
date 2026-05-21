@@ -18,7 +18,15 @@ import type { BrandKit } from "../spec/types.js";
 export const THREEBLUEONE_BROWN_BRAND: BrandKit = {
   format: "glyph-brand/1",
   palette: {
-    categorical: ["#3b6fb8", "#facc15", "#fb7185", "#34d399", "#a78bfa"],
+    // E4 review IMPORTANT-2 fix — the original palette's `#fb7185`
+    // pink vs `#34d399` green pair sat 29.05 units apart under
+    // Machado-2009 deuteranopia (threshold 25), only 4 units of
+    // headroom. Swapped the green to `#10b981` (a darker emerald)
+    // which widens the min-pair distance to ~38, giving 13 units
+    // of headroom. Palette pair invariant locked by the AUDIT-11
+    // test in presets.test.ts; this widening just gives the agent
+    // room to tweak without instantly breaking the gate.
+    categorical: ["#3b6fb8", "#facc15", "#fb7185", "#10b981", "#a78bfa"],
     surface: {
       bg: "#1c2638", // chalkboard
       fg: "#e8e6df", // chalk white

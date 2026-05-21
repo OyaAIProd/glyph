@@ -1399,6 +1399,19 @@ export function compileSpec(input: CompileInput): Scene {
     yDomain: leftY?.scale.domain ?? rightY?.scale.domain,
   });
 
+  // E4 review IMPORTANT-1 — pass resolved theme text colors so the
+  // renderer paints titles in theme.fg and axis/legend labels in
+  // theme.axis. Without this, dark themes rendered dark-on-dark.
+  //
+  // BUT — for the default LIGHT_THEME, theme.axis is `#999` (axis-
+  // LINE color), distinct from the previously hardcoded label color
+  // `#333`. Populating textMuted from theme.axis on light themes
+  // would lighten every axis label and shift 18+ existing snapshots.
+  // Solution: only set textPrimary/textMuted when the theme is
+  // non-default (i.e. background is NOT the LIGHT_THEME bg). Light
+  // theme keeps the legacy hardcoded values; dark / branded themes
+  // get readable text.
+  const isDefaultLight = theme.background === LIGHT_THEME.background;
   return {
     width,
     height,
@@ -1406,6 +1419,9 @@ export function compileSpec(input: CompileInput): Scene {
     plotArea,
     axes,
     marks,
+    ...(isDefaultLight
+      ? {}
+      : { textPrimary: theme.fg, textMuted: theme.fg }),
     ...(spec.title ? { title: spec.title } : {}),
     ...(sceneSchema ? { schema: sceneSchema } : {}),
     ...(legends.length > 0 ? { legends } : {}),

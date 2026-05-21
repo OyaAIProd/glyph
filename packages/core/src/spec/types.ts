@@ -254,7 +254,12 @@ export interface TrajectoryData {
   };
 }
 
-/** Full theme tokens. Spec.theme accepts this or the built-in 'light'/'dark'. */
+/**
+ * Full theme tokens. Spec.theme accepts this OR one of the built-in
+ * preset names: `"light"` / `"dark"` / `"playground"` / `"3b1b"`. The
+ * Joy of Math presets (`playground`, `3b1b`) resolve to BrandKits at
+ * compile time; an inline ThemeConfig is the per-spec override path.
+ */
 export type ThemeConfig = z.infer<typeof ThemeConfigSchema>;
 
 /**

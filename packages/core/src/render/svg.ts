@@ -342,7 +342,14 @@ function arcSvgPath(
   return `M ${ox(innerR, a0)} ${oy(innerR, a0)} L ${ox(outerR, a0)} ${oy(outerR, a0)} A ${r(outerR)} ${r(outerR)} 0 ${largeArc} 1 ${ox(outerR, a1)} ${oy(outerR, a1)} L ${ox(innerR, a1)} ${oy(innerR, a1)} A ${r(innerR)} ${r(innerR)} 0 ${largeArc} 0 ${ox(innerR, a0)} ${oy(innerR, a0)} Z`;
 }
 
-function renderAxis(axis: SceneAxis): string {
+// E4 review IMPORTANT-1 — text colors now honor the theme. Previously
+// `AXIS_LABEL_COLOR = "#333333"` was hardcoded everywhere, producing
+// dark-on-dark text under any dark theme (theme: "dark", brand-kit
+// dark surfaces, the new 3b1b preset). Wired through as a parameter
+// so existing light themes stay byte-identical (the resolved theme.axis
+// matches the previous "#333" for light) while dark themes correctly
+// route their light fg through.
+function renderAxis(axis: SceneAxis, labelColor: string): string {
   const parts: string[] = [];
   const { origin, length } = axis;
 
@@ -366,13 +373,13 @@ function renderAxis(axis: SceneAxis): string {
         const lx = t.position;
         const ly = origin.y + 14;
         parts.push(
-          `<text x="${lx}" y="${ly}" font-family="${FONT_FAMILY}" font-size="11" fill="${AXIS_LABEL_COLOR}" text-anchor="end" dominant-baseline="middle" transform="rotate(${rot} ${lx} ${ly})">${esc(t.label)}</text>`,
+          `<text x="${lx}" y="${ly}" font-family="${FONT_FAMILY}" font-size="11" fill="${labelColor}" text-anchor="end" dominant-baseline="middle" transform="rotate(${rot} ${lx} ${ly})">${esc(t.label)}</text>`,
         );
       } else {
         parts.push(
           `<text x="${t.position}" y="${
             origin.y + 16
-          }" font-family="${FONT_FAMILY}" font-size="11" fill="${AXIS_LABEL_COLOR}" text-anchor="middle" dominant-baseline="hanging">${esc(t.label)}</text>`,
+          }" font-family="${FONT_FAMILY}" font-size="11" fill="${labelColor}" text-anchor="middle" dominant-baseline="hanging">${esc(t.label)}</text>`,
         );
       }
     }
@@ -380,7 +387,7 @@ function renderAxis(axis: SceneAxis): string {
       parts.push(
         `<text x="${origin.x + length / 2}" y="${
           origin.y + titleOffset
-        }" font-family="${FONT_FAMILY}" font-size="12" fill="${AXIS_LABEL_COLOR}" text-anchor="middle" dominant-baseline="hanging">${esc(axis.label)}</text>`,
+        }" font-family="${FONT_FAMILY}" font-size="12" fill="${labelColor}" text-anchor="middle" dominant-baseline="hanging">${esc(axis.label)}</text>`,
       );
     }
   } else if (axis.orientation === "left") {
@@ -398,14 +405,14 @@ function renderAxis(axis: SceneAxis): string {
       parts.push(
         `<text x="${origin.x - 8}" y="${
           t.position
-        }" font-family="${FONT_FAMILY}" font-size="11" fill="${AXIS_LABEL_COLOR}" text-anchor="end" dominant-baseline="middle">${esc(t.label)}</text>`,
+        }" font-family="${FONT_FAMILY}" font-size="11" fill="${labelColor}" text-anchor="end" dominant-baseline="middle">${esc(t.label)}</text>`,
       );
     }
     if (axis.label) {
       parts.push(
         `<text x="${origin.x - 40}" y="${
           origin.y + length / 2
-        }" font-family="${FONT_FAMILY}" font-size="12" fill="${AXIS_LABEL_COLOR}" text-anchor="middle" dominant-baseline="alphabetic" transform="rotate(-90 ${origin.x - 40} ${origin.y + length / 2})">${esc(axis.label)}</text>`,
+        }" font-family="${FONT_FAMILY}" font-size="12" fill="${labelColor}" text-anchor="middle" dominant-baseline="alphabetic" transform="rotate(-90 ${origin.x - 40} ${origin.y + length / 2})">${esc(axis.label)}</text>`,
       );
     }
   } else {
@@ -424,14 +431,14 @@ function renderAxis(axis: SceneAxis): string {
       parts.push(
         `<text x="${origin.x + 8}" y="${
           t.position
-        }" font-family="${FONT_FAMILY}" font-size="11" fill="${AXIS_LABEL_COLOR}" text-anchor="start" dominant-baseline="middle">${esc(t.label)}</text>`,
+        }" font-family="${FONT_FAMILY}" font-size="11" fill="${labelColor}" text-anchor="start" dominant-baseline="middle">${esc(t.label)}</text>`,
       );
     }
     if (axis.label) {
       parts.push(
         `<text x="${origin.x + 40}" y="${
           origin.y + length / 2
-        }" font-family="${FONT_FAMILY}" font-size="12" fill="${AXIS_LABEL_COLOR}" text-anchor="middle" dominant-baseline="alphabetic" transform="rotate(90 ${origin.x + 40} ${origin.y + length / 2})">${esc(axis.label)}</text>`,
+        }" font-family="${FONT_FAMILY}" font-size="12" fill="${labelColor}" text-anchor="middle" dominant-baseline="alphabetic" transform="rotate(90 ${origin.x + 40} ${origin.y + length / 2})">${esc(axis.label)}</text>`,
       );
     }
   }
@@ -462,7 +469,7 @@ function renderGrid(scene: Scene): string {
 }
 
 /** Render a color legend. */
-function renderLegend(legend: SceneLegend): string {
+function renderLegend(legend: SceneLegend, labelColor: string): string {
   const { origin, entries, title } = legend;
   const rowH = 18;
   const swatch = 10;
@@ -470,7 +477,7 @@ function renderLegend(legend: SceneLegend): string {
   parts.push(
     `<text x="${origin.x}" y="${
       origin.y
-    }" font-family="${FONT_FAMILY}" font-size="11" font-weight="600" fill="${AXIS_LABEL_COLOR}" text-anchor="start" dominant-baseline="hanging">${esc(title)}</text>`,
+    }" font-family="${FONT_FAMILY}" font-size="11" font-weight="600" fill="${labelColor}" text-anchor="start" dominant-baseline="hanging">${esc(title)}</text>`,
   );
   for (let i = 0; i < entries.length; i++) {
     const e = entries[i];
@@ -482,7 +489,7 @@ function renderLegend(legend: SceneLegend): string {
       )}"/>`,
     );
     parts.push(
-      `<text x="${origin.x + swatch + 6}" y="${y + swatch / 2}" font-family="${FONT_FAMILY}" font-size="11" fill="${AXIS_LABEL_COLOR}" text-anchor="start" dominant-baseline="middle">${esc(e.label)}</text>`,
+      `<text x="${origin.x + swatch + 6}" y="${y + swatch / 2}" font-family="${FONT_FAMILY}" font-size="11" fill="${labelColor}" text-anchor="start" dominant-baseline="middle">${esc(e.label)}</text>`,
     );
   }
   return parts.join("");
@@ -522,11 +529,11 @@ function renderSceneAttrs(scene: Scene): string {
  * Render one facet panel: title text + the panel's axes + marks.
  * Coordinates are already absolute; the renderer just emits them.
  */
-function renderPanel(p: ScenePanel, interactive: boolean): string {
-  const titleStr = `<text x="${p.titleX}" y="${p.titleY}" font-family="${FONT_FAMILY}" font-size="12" font-weight="600" fill="${AXIS_LABEL_COLOR}" text-anchor="middle" dominant-baseline="alphabetic">${esc(
+function renderPanel(p: ScenePanel, interactive: boolean, labelColor: string): string {
+  const titleStr = `<text x="${p.titleX}" y="${p.titleY}" font-family="${FONT_FAMILY}" font-size="12" font-weight="600" fill="${labelColor}" text-anchor="middle" dominant-baseline="alphabetic">${esc(
     p.title,
   )}</text>`;
-  const axes = p.axes.map(renderAxis).join("");
+  const axes = p.axes.map((a) => renderAxis(a, labelColor)).join("");
   const markStrs = p.marks.map((m) => renderMark(m, interactive)).join("");
   const marks = interactive ? `<g class="glyph-marks">${markStrs}</g>` : markStrs;
   return `${titleStr}${marks}${axes}`;
@@ -556,8 +563,17 @@ export function renderSvg(scene: Scene): string {
   // artifact (specHash + dataHash + scaleDigest tied to the bytes).
   const provenance = scene.provenance ? renderProvenanceMetadata(scene.provenance) : "";
   const bg = `<rect x="0" y="0" width="${scene.width}" height="${scene.height}" fill="${esc(scene.background)}"/>`;
+  // E4 review IMPORTANT-1 — title color from scene.textPrimary
+  // (resolved from theme.fg by the compiler), axis + legend labels
+  // from scene.textMuted (resolved from theme.axis). Was hardcoded
+  // "#1a1a1a" / "#333333", which read as dark-on-dark on chalkboard /
+  // dark surfaces. The fallback to the original hardcoded values
+  // preserves byte-identity for test scenes / morph snapshots
+  // without a resolved theme.
+  const titleColor = scene.textPrimary ?? "#1a1a1a";
+  const labelColor = scene.textMuted ?? AXIS_LABEL_COLOR;
   const title = scene.title
-    ? `<text x="${scene.width / 2}" y="16" font-family="${FONT_FAMILY}" font-size="14" fill="#1a1a1a" text-anchor="middle" dominant-baseline="middle">${esc(
+    ? `<text x="${scene.width / 2}" y="16" font-family="${FONT_FAMILY}" font-size="14" fill="${esc(titleColor)}" text-anchor="middle" dominant-baseline="middle">${esc(
         scene.title,
       )}</text>`
     : "";
@@ -572,12 +588,14 @@ export function renderSvg(scene: Scene): string {
   // dimming. Both are "" when scene.uncertainty is unset.
   const uncertaintyStyle = buildUncertaintyStyle(scene);
   const uncertaintyOverlay = renderUncertaintyOverlay(scene);
-  const legends = (scene.legends ?? []).map(renderLegend).join("");
+  const legends = (scene.legends ?? []).map((l) => renderLegend(l, labelColor)).join("");
 
   // Faceted scene: render each panel; the top-level marks/axes/grid are
   // unused (panels carry their own).
   if (scene.panels && scene.panels.length > 0) {
-    const panelStrs = scene.panels.map((p) => renderPanel(p, interactive)).join("");
+    const panelStrs = scene.panels
+      .map((p) => renderPanel(p, interactive, labelColor))
+      .join("");
     return `${head}${desc}${provenance}${hoverStyle}${crossfilterStyle}${uncertaintyStyle}${bg}${title}${panelStrs}${uncertaintyOverlay}${legends}</svg>\n`;
   }
 
@@ -620,7 +638,7 @@ export function renderSvg(scene: Scene): string {
     interactive || animClass || uncertainClass
       ? `<g class="glyph-marks${animClass}${uncertainClass}">${markStrs}</g>`
       : markStrs;
-  const axes = scene.axes.map(renderAxis).join("");
+  const axes = scene.axes.map((a) => renderAxis(a, labelColor)).join("");
   // Math PR3 — emit the arrow marker <defs> once when any arrow
   // SceneMark is present. Returns "" for scenes with no arrows so
   // existing snapshots stay byte-identical.

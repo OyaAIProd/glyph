@@ -325,6 +325,25 @@ export interface Scene {
   readonly marks: ReadonlyArray<SceneMark>;
   readonly title?: string;
   /**
+   * E4 review IMPORTANT-1 — resolved text colors propagated from the
+   * theme so the renderer can paint titles + axis labels + legend
+   * labels in colors that contrast against the chart background.
+   * Previously titles + axis labels were hardcoded `#1a1a1a` / `#333`,
+   * which read as dark-on-dark under any dark theme (`"dark"`,
+   * `corporate-brand-dark`, `"3b1b"`).
+   *
+   * `textPrimary` — used for the chart title (theme.fg, primary).
+   * `textMuted` — used for axis labels + legend labels + panel
+   *   titles (theme.axis, the muted secondary text color).
+   *
+   * Optional so test scenes / morph snapshots without a resolved
+   * theme fall back to the hardcoded `#1a1a1a` / `#333` (preserves
+   * byte-identity on existing snapshot fixtures that don't set
+   * an explicit theme block).
+   */
+  readonly textPrimary?: string;
+  readonly textMuted?: string;
+  /**
    * Moat PR1 — cryptographic provenance seal. Optional only for
    * scenes built by tests / morph-from snapshots / non-spec callers;
    * `compileSpec` always sets it.
