@@ -1,0 +1,38 @@
+{
+  "version": "glyph/0.1",
+  "title": "Sine traveler — kid-delight dot",
+  "data": {
+    "function": {
+      "shape": "function",
+      "x": { "min": -6.28, "max": 6.28, "samples": 100 },
+      "expr": "sin(x)"
+    }
+  },
+  "layers": [
+    {
+      "id": "sine-curve",
+      "mark": "line",
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "scale": { "domain": [-1.2, 1.2] }
+        }
+      }
+    },
+    {
+      "mark": "traveler",
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": { "field": "y", "type": "quantitative" }
+      },
+      "traveler": {
+        "follow": { "layerId": "sine-curve" },
+        "duration_ms": 4000,
+        "radius": 5,
+        "trail": { "length": 0.2, "fade": true }
+      }
+    }
+  ]
+}

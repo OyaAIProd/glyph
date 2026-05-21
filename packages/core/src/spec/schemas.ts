@@ -373,6 +373,10 @@ export const MarkSchema = z.enum([
   // OR to a fixed data-space coord, then emits an auto-positioned arrow,
   // text bubble, and optional highlight ring.
   "annotation",
+  // E2 — traveler mark. A dot that traces a sibling layer's polyline
+  // (or its own) over time via SMIL `<animateMotion>`. Kid-delight
+  // unlock — the moving dot is the star, not the curve.
+  "traveler",
 ]);
 
 /**
@@ -645,6 +649,65 @@ export const LayerSchema = z
       })
       .strict()
       .optional(),
+    /**
+     * E2 — optional stable id so other layers (today: `traveler.follow`)
+     * can reference this one. When unset, the compiler may generate a
+     * synthetic id of the form `layer-N`. Kept short + unconstrained so
+     * future layer-cross-reference uses (E3 scene wiring) compose
+     * without a schema rev.
+     */
+    id: z.string().min(1).optional(),
+    /**
+     * E2 — `mark: "traveler"` configuration. A dot that traces a path
+     * mark over time via SMIL `<animateMotion>`. See the field-level
+     * docs below. Required when `mark === "traveler"`; rejected on
+     * other marks via the refine gate below (mirrors the math-text /
+     * annotation pattern).
+     */
+    traveler: z
+      .object({
+        /**
+         * Which polyline the traveler follows.
+         *   - `"self"` — the traveler's own layer data (rare; usually
+         *     the traveler reuses a sibling line layer's path).
+         *   - `{ layerId }` — refers to a sibling layer by its `id`.
+         */
+        follow: z.union([
+          z.literal("self"),
+          z.object({ layerId: z.string().min(1) }).strict(),
+        ]),
+        /**
+         * Animation duration in milliseconds. Falls back to
+         * `spec.animation.duration_ms` when omitted (or 4000 ms when
+         * neither is set).
+         */
+        duration_ms: z.number().int().min(100).max(60_000).optional(),
+        /** Optional trailing tail behind the head. */
+        trail: z
+          .object({
+            /** Length as a fraction of the path. Default 0.15. */
+            length: z.number().min(0).max(1).default(0.15),
+            /** Fade opacity from tail (0.1) → head (0.7). Default true. */
+            fade: z.boolean().default(true),
+          })
+          .strict()
+          .optional(),
+        /** Head circle radius in pixels. Default 4. */
+        radius: z.number().positive().max(64).default(4),
+        /**
+         * Head color override. Defaults to the first theme palette
+         * entry when unset.
+         */
+        color: z.string().min(1).optional(),
+        /**
+         * Layer id for the traveler itself. Convenience alias of the
+         * top-level `layer.id` for callers who'd rather keep all the
+         * traveler config inside the `traveler:` block.
+         */
+        id: z.string().min(1).optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .refine((l) => l.mark !== "math-text" || (typeof l.expr === "string" && l.expr.length > 0), {
@@ -664,6 +727,17 @@ export const LayerSchema = z
   .refine((l) => l.mark === "annotation" || l.annotation === undefined, {
     message: "Field 'annotation' is only valid when mark is 'annotation'.",
     path: ["annotation"],
+  })
+  // E2 — traveler mark requires the `traveler` config block; rejected
+  // when set on other marks. Mirrors the math-text expr gate above so
+  // agents see a fast, specific error.
+  .refine((l) => l.mark !== "traveler" || l.traveler !== undefined, {
+    message: "Layer with mark 'traveler' requires a 'traveler' config block.",
+    path: ["traveler"],
+  })
+  .refine((l) => l.mark === "traveler" || l.traveler === undefined, {
+    message: "The 'traveler' config is only valid when mark is 'traveler'.",
+    path: ["traveler"],
   })
   // Moat 3 review IMPORTANT-3 — layer-level `data.onMissing` is silently
   // ignored by the compiler (it only reads `spec.data.onMissing`). Reject

@@ -60,6 +60,24 @@ export type MissingPolicy = "skip" | "callout" | "interpolate";
 /** One drawing layer: mark + encoding (+ optional stat/position). */
 export type Layer = z.infer<typeof LayerSchema>;
 
+/**
+ * E2 — `traveler` layer config. A dot that traces a sibling's polyline
+ * (or its own) via SMIL `<animateMotion>`. Mirrors the Zod shape in
+ * `./schemas.ts`; surfaced here so the compiler can import a named
+ * type rather than infer it ad-hoc at every use site.
+ */
+export interface TravelerConfig {
+  readonly follow: "self" | { readonly layerId: string };
+  readonly duration_ms?: number;
+  readonly trail?: {
+    readonly length: number;
+    readonly fade: boolean;
+  };
+  readonly radius: number;
+  readonly color?: string;
+  readonly id?: string;
+}
+
 /** The mark type — what shape gets drawn for each row. */
 export type Mark = z.infer<typeof MarkSchema>;
 

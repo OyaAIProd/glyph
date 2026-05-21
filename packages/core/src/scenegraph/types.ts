@@ -66,6 +66,24 @@ export type SceneMark =
       readonly fill: string;
       readonly stroke?: string;
       readonly strokeWidth?: number;
+      /**
+       * E2 — optional opacity override (used by traveler trail circles
+       * to fade from tail to head). Other circle marks leave this
+       * undefined so existing snapshots stay byte-identical.
+       */
+      readonly opacity?: number;
+      /**
+       * E2 — when set, the SVG renderer emits an `<animateMotion>`
+       * child that drives this circle along a referenced `<path>`
+       * (matched by `pathId`). `durationMs` is the loop period;
+       * optional `beginMs` shifts the start (used by trail offsets so
+       * the tail trails behind the head).
+       */
+      readonly motion?: {
+        readonly pathId: string;
+        readonly durationMs: number;
+        readonly beginMs?: number;
+      };
     } & MarkData)
   | {
       readonly type: "text";
@@ -113,6 +131,13 @@ export type SceneMark =
        * across a missing-data gap is visually distinct from solid data.
        */
       readonly strokeDasharray?: string;
+      /**
+       * E2 — when set, the SVG renderer emits `id="<id>"` on the path
+       * element so other marks (today: a traveler `<animateMotion>`
+       * with `<mpath xlink:href="#id"/>`) can reference it. Undefined
+       * on every existing path so snapshots stay byte-identical.
+       */
+      readonly id?: string;
     }
   | ({
       /**

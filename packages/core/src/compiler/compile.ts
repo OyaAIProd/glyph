@@ -82,6 +82,9 @@ import "./marks/math-text.js";
 // = arrow + bubble + optional highlight ring; reuses the glyph-arrow
 // <marker> defined by the vector-field mark).
 import "./marks/annotation.js";
+// Joy of Math E2 — traveler registers `traveler` (SMIL <animateMotion> dot
+// that traces a sibling layer's polyline).
+import "./marks/traveler.js";
 import {
   angleScale,
   bandScale,
@@ -764,6 +767,9 @@ export function compileSpec(input: CompileInput): Scene {
       // Joy of Math PR E1 — annotation callouts with auto-positioned
       // arrow + text bubble.
       "annotation",
+      // Joy of Math E2 — traveler rides the cartesian path; the leaf
+      // mark compiler builds its polyline from the followed sibling.
+      "traveler",
     ];
     if (!allowedMarks.includes(l.mark)) {
       throw new Error(`Phase 1 supports marks ${allowedMarks.join("|")}; layer ${i} has ${l.mark}`);
@@ -858,6 +864,22 @@ export function compileSpec(input: CompileInput): Scene {
       }
       if (fieldOf(l.encoding.x) === undefined || fieldOf(l.encoding.y) === undefined) {
         throw new Error(`Layer ${i} (annotation) requires both x and y encodings`);
+      }
+      continue;
+    }
+    // Joy of Math E2 — traveler needs an x and y encoding (the traveler
+    // projects the followed layer through the shared scales) and a
+    // `traveler:` config block (the schema's refine gate enforces
+    // this too, but a runtime check here surfaces a friendlier message
+    // when the compiler is reached via a non-zod path — e.g. a
+    // pre-validated cached spec).
+    if (l.mark === "traveler") {
+      if (fieldOf(l.encoding.x) === undefined || fieldOf(l.encoding.y) === undefined) {
+        throw new Error(`Layer ${i} (traveler) requires both x and y encodings`);
+      }
+      const t = (l as { traveler?: unknown }).traveler;
+      if (typeof t !== "object" || t === null) {
+        throw new Error(`Layer ${i} (traveler) requires a 'traveler' config block`);
       }
       continue;
     }

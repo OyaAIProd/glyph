@@ -120,16 +120,51 @@ function renderMark(m: SceneMark, interactive: boolean): string {
     case "circle": {
       const stroke = m.stroke ? ` stroke="${esc(m.stroke)}"` : "";
       const sw = m.strokeWidth !== undefined ? ` stroke-width="${m.strokeWidth}"` : "";
+      // E2 — optional opacity (traveler trail circles use this for the
+      // tail→head fade). Undefined elsewhere keeps snapshots stable.
+      const op = m.opacity !== undefined ? ` opacity="${m.opacity}"` : "";
+      // E2 — when motion is set, render the circle as an opening tag
+      // wrapping an <animateMotion> child so SMIL can drive it along
+      // the referenced path. Branches out early before the interactive /
+      // tooltip fast paths because the motion child is required to live
+      // inside the element, not on it.
+      if (m.motion) {
+        const pathRef = `#${m.motion.pathId}`;
+        const dur = `${m.motion.durationMs}ms`;
+        const begin =
+          m.motion.beginMs !== undefined && m.motion.beginMs !== 0
+            ? ` begin="${m.motion.beginMs}ms"`
+            : "";
+        // `repeatCount="indefinite"` matches the kid-delight "loop forever"
+        // intent of the traveler mark. `rotate="auto"` keeps the dot's
+        // local frame aligned to the path tangent — invisible for a
+        // symmetric circle but lets future arrow-shaped travelers
+        // orient correctly.
+        //
+        // Both `href` (SVG 2) and `xlink:href` (SVG 1.1) are emitted so the
+        // motion reference resolves in every browser that ever shipped
+        // SMIL. xlink:href is the historical form (still required by
+        // Safari < 14 / older WebKit-based viewers) and href is the
+        // forward-compatible replacement. Including both is the
+        // belt-and-suspenders pattern recommended by MDN's SMIL docs.
+        const animateMotion =
+          `<animateMotion dur="${dur}"${begin} repeatCount="indefinite" rotate="auto">` +
+          `<mpath href="${pathRef}" xlink:href="${pathRef}"/></animateMotion>`;
+        return `<circle cx="${m.cx}" cy="${m.cy}" r="${m.r}" fill="${esc(m.fill)}"${stroke}${sw}${op}>${animateMotion}</circle>`;
+      }
       if (!interactive) {
+        if (op) {
+          return `<circle cx="${m.cx}" cy="${m.cy}" r="${m.r}" fill="${esc(m.fill)}"${stroke}${sw}${op}/>`;
+        }
         return `<circle cx="${m.cx}" cy="${m.cy}" r="${m.r}" fill="${esc(m.fill)}"${stroke}${sw}/>`;
       }
       const data = renderDataAttrs(m);
       const aria = ariaForMark(m);
       const tooltip = m.tooltip ? `<title>${esc(m.tooltip)}</title>` : "";
       if (tooltip) {
-        return `<circle cx="${m.cx}" cy="${m.cy}" r="${m.r}" fill="${esc(m.fill)}"${stroke}${sw}${data}${aria}>${tooltip}</circle>`;
+        return `<circle cx="${m.cx}" cy="${m.cy}" r="${m.r}" fill="${esc(m.fill)}"${stroke}${sw}${op}${data}${aria}>${tooltip}</circle>`;
       }
-      return `<circle cx="${m.cx}" cy="${m.cy}" r="${m.r}" fill="${esc(m.fill)}"${stroke}${sw}${data}${aria}/>`;
+      return `<circle cx="${m.cx}" cy="${m.cy}" r="${m.r}" fill="${esc(m.fill)}"${stroke}${sw}${op}${data}${aria}/>`;
     }
     case "line":
       return `<line x1="${m.x1}" y1="${m.y1}" x2="${m.x2}" y2="${m.y2}" stroke="${esc(
@@ -145,7 +180,11 @@ function renderMark(m: SceneMark, interactive: boolean): string {
       // existing snapshots stay byte-identical.
       const dash =
         m.strokeDasharray !== undefined ? ` stroke-dasharray="${esc(m.strokeDasharray)}"` : "";
-      return `<path d="${m.d}" fill="${fill}"${stroke}${sw}${op}${dash}/>`;
+      // E2 — id is emitted FIRST (before d) so `<mpath xlink:href="#id">`
+      // can resolve it. Undefined on every existing path so byte output
+      // is unchanged for the snapshot corpus.
+      const id = m.id !== undefined ? ` id="${esc(m.id)}"` : "";
+      return `<path${id} d="${m.d}" fill="${fill}"${stroke}${sw}${op}${dash}/>`;
     }
     case "text": {
       // Moat PR3 — emit `<title>` when the text mark carries a tooltip
@@ -218,6 +257,27 @@ function renderArrowDefs(scene: Scene): string {
     }
   }
   return "";
+}
+
+/**
+ * E2 — true iff the scene contains any SMIL `<animateMotion>` reference
+ * that needs the xlink namespace declared on the root SVG. Today only
+ * the `traveler` mark emits circle marks with `motion`; this check
+ * keeps the namespace OFF for every other scene so existing snapshots
+ * stay byte-identical.
+ */
+function sceneNeedsXlinkNs(scene: Scene): boolean {
+  for (const m of scene.marks) {
+    if (m.type === "circle" && m.motion) return true;
+  }
+  if (scene.panels) {
+    for (const p of scene.panels) {
+      for (const m of p.marks) {
+        if (m.type === "circle" && m.motion) return true;
+      }
+    }
+  }
+  return false;
 }
 
 /**
@@ -448,7 +508,14 @@ export function renderSvg(scene: Scene): string {
   const ariaLabel = scene.title ? ` aria-label="${esc(scene.title)}"` : ` aria-label="Glyph chart"`;
   const ariaRole = ` role="img"`;
   const ariaDesribedBy = ` aria-describedby="glyph-desc"`;
-  const head = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${scene.width} ${scene.height}" width="${scene.width}" height="${scene.height}"${ariaRole}${ariaLabel}${ariaDesribedBy}${rootAttrs}>`;
+  // E2 — declare the xlink namespace when the scene contains any
+  // `<animateMotion>`-driven traveler. Detection scans `scene.marks` AND
+  // every panel's marks (faceted scenes) for a circle carrying `motion`.
+  // Without the namespace, the `xlink:href` attribute on `<mpath>` won't
+  // resolve in strict XML parsers. Returns "" for every existing scene
+  // so byte snapshots stay identical.
+  const xlinkNs = sceneNeedsXlinkNs(scene) ? ' xmlns:xlink="http://www.w3.org/1999/xlink"' : "";
+  const head = `<svg xmlns="http://www.w3.org/2000/svg"${xlinkNs} viewBox="0 0 ${scene.width} ${scene.height}" width="${scene.width}" height="${scene.height}"${ariaRole}${ariaLabel}${ariaDesribedBy}${rootAttrs}>`;
   // Hidden <desc> for screen-reader-only description.
   const desc = `<desc id="glyph-desc">${esc(scene.title ?? "Glyph chart")}</desc>`;
   // Moat PR1 — cryptographic provenance seal. Always emitted when the
