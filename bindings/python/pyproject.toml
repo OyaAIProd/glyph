@@ -49,6 +49,13 @@ Issues = "https://github.com/seanhanca/glyph/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/glyph"]
+# Hatchling normally bundles every non-`.py` file inside `packages`, but
+# `py.typed` (PEP 561 marker — must ship inside the wheel for downstream
+# mypy/pyright to honor the package's type info) is load-bearing enough
+# that we list it explicitly so a future `.gitignore` / build-include
+# tweak can't accidentally drop it.
+[tool.hatch.build.targets.wheel.force-include]
+"src/glyph/py.typed" = "glyph/py.typed"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
