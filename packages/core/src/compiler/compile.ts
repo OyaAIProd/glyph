@@ -59,6 +59,9 @@ import { getMarkCompiler, registerMark } from "./mark-registry.js";
 // at module-load. The vector-field mark is the first PR3 user; future
 // math marks (math-text, streamline, ...) plug in the same way.
 import "./marks/vector-field.js";
+// Math PR4 — math-text registers `math-text` (KaTeX → MathML → positioned
+// <text>/<path> SceneMarks).
+import "./marks/math-text.js";
 import {
   angleScale,
   bandScale,
@@ -591,6 +594,8 @@ export function compileSpec(input: CompileInput): Scene {
       "text",
       // Math PR3 — vector-field rides the cartesian path with linear x/y.
       "vector-field",
+      // Math PR4 — math-text renders LaTeX glyphs at (x, y) positions.
+      "math-text",
     ];
     if (!allowedMarks.includes(l.mark)) {
       throw new Error(`Phase 1 supports marks ${allowedMarks.join("|")}; layer ${i} has ${l.mark}`);
@@ -647,6 +652,25 @@ export function compileSpec(input: CompileInput): Scene {
       }
       if (fieldOf(l.encoding.text) === undefined) {
         throw new Error(`Layer ${i} (text) requires encoding.text`);
+      }
+      continue;
+    }
+    // Math PR4 — math-text requires `expr` (the LaTeX source). Either
+    // (a) `at: { x, y }` for fixed annotations / titles, OR
+    // (b) `encoding.x` + `encoding.y` to render at the first row's (x, y).
+    // The shared x/y scales must be linear (numeric coords); band scales
+    // mean categorical data, which math-text cannot meaningfully anchor.
+    if (l.mark === "math-text") {
+      const expr = (l as unknown as { expr?: unknown }).expr;
+      if (typeof expr !== "string" || expr.length === 0) {
+        throw new Error(`Layer ${i} (math-text) requires a non-empty 'expr' field`);
+      }
+      const hasAt = (l as unknown as { at?: { x: unknown; y: unknown } }).at !== undefined;
+      const hasEnc = fieldOf(l.encoding.x) !== undefined && fieldOf(l.encoding.y) !== undefined;
+      if (!hasAt && !hasEnc) {
+        throw new Error(
+          `Layer ${i} (math-text) requires either 'at: { x, y }' or both x and y encodings`,
+        );
       }
       continue;
     }
@@ -809,6 +833,30 @@ export function compileSpec(input: CompileInput): Scene {
     if (layer.mark === "heatmap") {
       // Heatmap bypasses the y-quantitative requirement of the regular path.
       getMarkCompiler("heatmap").compile({
+        layer,
+        spec,
+        rows,
+        schema,
+        theme,
+        xScale,
+        yScale,
+        xField: xField ?? "",
+        yField: yField ?? "",
+        ctx: undefined,
+        plotArea,
+        out: marks,
+      });
+      continue;
+    }
+    if (layer.mark === "math-text") {
+      // Math PR4 — math-text doesn't consume `ctx` (no tooltips on glyph
+      // shards) so dispatch explicitly with ctx: undefined. The registry's
+      // compiler reads layer.expr / fontSize / color / align / at off the
+      // layer record directly. Dispatched BEFORE the xField/yField gate
+      // because math-text supports an explicit `at: { x, y }` anchor that
+      // makes the encoding-x/y fields optional (use case: chart titles).
+      if (!yScale) continue;
+      getMarkCompiler("math-text").compile({
         layer,
         spec,
         rows,

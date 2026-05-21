@@ -286,6 +286,11 @@ export const MarkSchema = z.enum([
   // function-data extension). Compiler emits one `arrow` SceneMark per
   // row; SVG renderer emits a `<line>` with `marker-end="url(#glyph-arrow)"`.
   "vector-field",
+  // Math PR4 — LaTeX-rendered glyph group positioned at each row's
+  // (x, y). The layer's `expr` field carries the LaTeX source; KaTeX
+  // parses it to MathML and a deterministic layout pass emits one
+  // `<text>` SceneMark per glyph (plus `<path>` rules for fractions).
+  "math-text",
 ]);
 
 /**
@@ -472,8 +477,44 @@ export const LayerSchema = z
     encoding: EncodingSchema,
     stat: StatSchema.optional(),
     position: PositionSchema.optional(),
+    /**
+     * Math PR4 — LaTeX source for `mark: "math-text"`. Required when
+     * `mark === "math-text"`; the compiler enforces this via a
+     * layer-validation gate so the error fires at compile-time, not at
+     * render-time. Other marks ignore this field. Capped to a generous
+     * 4 KB to keep KaTeX parse cost predictable.
+     */
+    expr: z.string().min(1).max(4096).optional(),
+    /** Math PR4 — pixel font size for math-text glyphs. Default 14. */
+    fontSize: z.number().positive().max(512).optional(),
+    /** Math PR4 — fill color override for math-text glyphs (defaults to theme.fg). */
+    color: z.string().min(1).optional(),
+    /**
+     * Math PR4 — horizontal alignment of the math-text bounding box at
+     * (x, y). "start" anchors the left edge, "middle" the center,
+     * "end" the right edge. Default "middle".
+     */
+    align: z.enum(["start", "middle", "end"]).optional(),
+    /**
+     * Math PR4 — explicit data-space anchor `{ x, y }` for math-text.
+     * When set, the math-text layer ignores rows and renders the
+     * expression at this (x, y) (data coordinates, passed through the
+     * chart's shared scales). Use this for titles / fixed annotations
+     * that don't correspond to any particular data row. When unset,
+     * math-text renders at the first row's (encoding.x, encoding.y).
+     */
+    at: z
+      .object({
+        x: z.number().refine(Number.isFinite, "at.x must be finite"),
+        y: z.number().refine(Number.isFinite, "at.y must be finite"),
+      })
+      .strict()
+      .optional(),
   })
-  .strict();
+  .strict()
+  .refine((l) => l.mark !== "math-text" || (typeof l.expr === "string" && l.expr.length > 0), {
+    message: "Layer with mark 'math-text' requires a non-empty 'expr' field.",
+  });
 
 // ---------------------------------------------------------------------------
 // Top-level Glyph spec
