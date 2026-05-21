@@ -25,8 +25,9 @@
  *    parses the LaTeX subset KaTeX supports and emits well-formed MathML.
  *    Compared to the HTML output, MathML is dramatically easier to consume
  *    from Node: it's a small set of elements (`mi`, `mo`, `mn`, `msup`,
- *    `msub`, `msubsup`, `mfrac`, `mrow`) and ships no CSS or font
- *    assumptions.
+ *    `msub`, `msubsup`, `mfrac`, `mrow`, plus PR6 — `msqrt`, `mroot`,
+ *    `mover`, `munder`, `munderover`, `mtable`, `mtr`, `mtd`) and ships
+ *    no CSS or font assumptions.
  * 2. A minimal recursive-descent walker over the MathML tokens produces
  *    a `MathBox` tree. Each box knows its (width, ascent, descent) in
  *    pixels AND its child positions. Layout uses a fixed-metrics table
@@ -56,14 +57,16 @@
  * --- Known limitations (v0) ---
  *   - Supported MathML elements: mi, mo, mn, mtext, mspace, msup, msub,
  *     msubsup, mfrac, mrow, semantics (the `<annotation>` child is
- *     ignored — it's the round-trip TeX source).
- *   - Unsupported: matrices, radicals (`\sqrt`), big operators with
- *     vertical limits (`\sum_{...}^{...}` lays out inline, not stacked),
- *     accents (`\hat`, `\bar`).
+ *     ignored — it's the round-trip TeX source). Math PR6 adds: msqrt,
+ *     mroot, mover, munder, munderover, mtable, mtr, mtd.
  *   - Glyph advance widths are a coarse "narrow / wide / extra-wide"
  *     trichotomy, not real font metrics — readable but not typography.
  *   - The `align` knob anchors the whole expression's bounding box at
  *     the (x, y) pixel position. Within-box layout is always LTR.
+ *   - The `√` glyph and matrix fence brackets `(`, `[`, `|` render at
+ *     fixed em size — they do NOT stretch to match the radicand or
+ *     matrix height. Stretching needs a multi-glyph stretchy-bracket
+ *     font that's outside our deterministic-fallback scope.
  */
 import katex from "katex";
 import type { SceneMark } from "../../scenegraph/types.js";
@@ -196,9 +199,84 @@ type MNode =
       readonly sup: MNode;
     }
   /** Fraction: numerator over denominator with a rule line. */
-  | { readonly kind: "frac"; readonly num: MNode; readonly den: MNode };
+  | { readonly kind: "frac"; readonly num: MNode; readonly den: MNode }
+  /**
+   * Square root or nth root.
+   * `index` is `undefined` for plain `\sqrt{...}` (msqrt) and present for
+   * `\sqrt[n]{...}` (mroot). Renders as a `√` glyph + horizontal overbar
+   * spanning the radicand, with the optional small index above-left.
+   */
+  | {
+      readonly kind: "sqrt";
+      readonly radicand: MNode;
+      readonly index: MNode | undefined;
+    }
+  /**
+   * Accent (`<mover accent="true">`): small mark centered above the base
+   * — `\hat`, `\bar`, `\vec`. Distinguished from stacked-limit `<mover>`
+   * by the `accent="true"` attribute KaTeX sets.
+   */
+  | { readonly kind: "accent"; readonly base: MNode; readonly accent: MNode }
+  /**
+   * Stacked-limit `<munder>` / `<mover>` / `<munderover>` (non-accent).
+   * `sub`/`sup` are `undefined` when the source element didn't supply
+   * that slot. The base operator gets the limits stacked vertically
+   * (sub below, sup above) and centered horizontally.
+   */
+  | {
+      readonly kind: "limits";
+      readonly base: MNode;
+      readonly sub: MNode | undefined;
+      readonly sup: MNode | undefined;
+    }
+  /**
+   * Matrix table: a rectangular grid of cells. Cell widths are sized by
+   * the max width within each column; row heights by the max
+   * (ascent + descent) within each row. v0 does not stretch the
+   * surrounding fence brackets to match the matrix height.
+   */
+  | { readonly kind: "table"; readonly rows: ReadonlyArray<ReadonlyArray<MNode>> };
 
 const EMPTY_ROW: MNode = { kind: "row", children: [] };
+
+/** Glyphs that should trigger STACKED (rather than side-set) sub/super layout
+ * when used as the base of `<msub>`/`<msup>`/`<msubsup>`. KaTeX emits these
+ * in inline mode for `\sum_{i=1}^n`, `\lim_{x \to 0}`, etc. — even though
+ * the visually-correct rendering is `<munderover>`-style stacking. We
+ * detect the operator glyph and stack it ourselves. */
+const STACKED_OP_GLYPHS = new Set([
+  "∑",
+  "∏",
+  "∫",
+  "∮",
+  "∐",
+  "⋃",
+  "⋂",
+  "⨁",
+  "⨂",
+  "⨄",
+  "⨆",
+  "lim",
+  "max",
+  "min",
+  "sup",
+  "inf",
+  "det",
+  "arg",
+  "gcd",
+  "liminf",
+  "limsup",
+]);
+
+/** True iff `node` is a single glyph (or singleton row) whose text is a stacked-op. */
+function isStackedOpBase(node: MNode): boolean {
+  if (node.kind === "glyph") return STACKED_OP_GLYPHS.has(node.text);
+  if (node.kind === "row" && node.children.length === 1) {
+    const c = node.children[0];
+    if (c) return isStackedOpBase(c);
+  }
+  return false;
+}
 
 /**
  * MathML elements we render with dedicated layout. Anything outside this set
@@ -221,6 +299,18 @@ const SUPPORTED_MATHML = new Set([
   "semantics",
   "annotation",
   "mspace",
+  // Math PR6 — radicals, accents, stacked limits, matrices.
+  "msqrt",
+  "mroot",
+  "mover",
+  "munder",
+  "munderover",
+  "mtable",
+  "mtr",
+  "mtd",
+  // KaTeX wraps matrix cell content in <mstyle scriptlevel="0" displaystyle="false">
+  // — semantically transparent to layout, so we treat it as a passthrough row.
+  "mstyle",
 ]);
 
 /**
@@ -237,7 +327,7 @@ function warnUnknownMathmlOnce(name: string): void {
     `[glyph] math-text: MathML element <${name}> is not yet rendered with dedicated layout. ` +
       `Its child content will appear inline. ` +
       `Supported: ${[...SUPPORTED_MATHML].join(", ")}. ` +
-      `If you need <${name}> (likely from \\sqrt, \\hat, \\sum, matrices, accents), please file an issue.`,
+      `If you need <${name}>, please file an issue.`,
   );
 }
 
@@ -348,6 +438,84 @@ class MParser {
         this.expectClose(name);
         return { kind: "frac", num: a, den: b };
       }
+      case "msqrt": {
+        // `<msqrt>` is a sequence of children that form the radicand.
+        const radicand = this.parseSequence(name);
+        return { kind: "sqrt", radicand, index: undefined };
+      }
+      case "mroot": {
+        // `<mroot>` has exactly two children: radicand FIRST, index SECOND.
+        const radicand = this.takeArg();
+        const index = this.takeArg();
+        this.expectClose(name);
+        return { kind: "sqrt", radicand, index };
+      }
+      case "mover": {
+        // accent="true" → small mark centered above the base. Otherwise
+        // → stacked limit (mover on a big-op base in display style).
+        const base = this.takeArg();
+        const upper = this.takeArg();
+        this.expectClose(name);
+        if (t.attrs.accent === "true") {
+          return { kind: "accent", base, accent: upper };
+        }
+        return { kind: "limits", base, sub: undefined, sup: upper };
+      }
+      case "munder": {
+        const base = this.takeArg();
+        const lower = this.takeArg();
+        this.expectClose(name);
+        // KaTeX sets accentunder="true" for underline-style accents; we
+        // treat those identically to overaccents for v0 (rare in practice).
+        if (t.attrs.accent === "true" || t.attrs.accentunder === "true") {
+          return { kind: "accent", base, accent: lower };
+        }
+        return { kind: "limits", base, sub: lower, sup: undefined };
+      }
+      case "munderover": {
+        const base = this.takeArg();
+        const lower = this.takeArg();
+        const upper = this.takeArg();
+        this.expectClose(name);
+        return { kind: "limits", base, sub: lower, sup: upper };
+      }
+      case "mtable": {
+        // Parse rows. A direct child <mtr> is one row of cells.
+        const rows: Array<ReadonlyArray<MNode>> = [];
+        while (this.i < this.tokens.length) {
+          const c = this.tokens[this.i];
+          if (!c) break;
+          if (c.kind === "close" && c.name === name) {
+            this.i++;
+            break;
+          }
+          if (c.kind === "open" && c.name === "mtr") {
+            this.i++;
+            const cells: MNode[] = [];
+            while (this.i < this.tokens.length) {
+              const cc = this.tokens[this.i];
+              if (!cc) break;
+              if (cc.kind === "close" && cc.name === "mtr") {
+                this.i++;
+                break;
+              }
+              if (cc.kind === "open" && cc.name === "mtd") {
+                this.i++;
+                cells.push(this.parseSequence("mtd"));
+                continue;
+              }
+              // Stray content inside <mtr> — skip.
+              this.i++;
+            }
+            rows.push(cells);
+            continue;
+          }
+          // Stray content directly inside <mtable> — skip.
+          this.i++;
+        }
+        return { kind: "table", rows };
+      }
+      case "mstyle":
       case "mrow":
       case "math":
       case "semantics": {
@@ -448,6 +616,23 @@ const SUB_DROP = 0.2; // em
 const FRAC_GAP = 0.15; // em above/below the rule line
 const RULE_THICKNESS = 0.06; // em
 
+// --- Math PR6 — new layout constants ---
+//
+// All values are em-relative, hand-tuned for visual balance at 22px (the
+// default fixture font size). The exact constants are part of the
+// determinism contract: changing one shifts every snapshot.
+const SQRT_GAP = 0.1; // gap between √ glyph and overbar / radicand
+const SQRT_BAR_THICKNESS = 0.06; // overbar stroke width as em fraction
+const SQRT_PADDING = 0.1; // horizontal padding inside radical
+const ROOT_INDEX_SCALE = 0.55; // size of the nth-root index (slightly smaller than sup)
+const ROOT_INDEX_RAISE = 0.6; // em — how high above baseline the index sits
+const ACCENT_SCALE = 0.7; // accent glyph scaling
+const ACCENT_RAISE = 0.6; // em — accent vertical offset above base ascent
+const LIMITS_SCALE = 0.7; // stacked sub/sup scaling
+const LIMITS_GAP = 0.1; // em — vertical gap between operator and limit
+const TABLE_COL_GAP = 0.6; // em — column-to-column spacing
+const TABLE_ROW_GAP = 0.3; // em — extra padding between rows
+
 /** Layout one MathML AST node at the given pixel em size. */
 function layoutNode(node: MNode, em: number): MathBox {
   switch (node.kind) {
@@ -478,6 +663,12 @@ function layoutNode(node: MNode, em: number): MathBox {
       return { width: x, ascent, descent, glyphs, rules };
     }
     case "sup": {
+      // PR6 — for big operators (∑, ∏, ∫, lim, …) KaTeX emits <msup> but
+      // the visually-correct layout is stacked (sup above the operator).
+      // Detect and reroute to the limits layout.
+      if (isStackedOpBase(node.base)) {
+        return layoutLimits(node.base, undefined, node.sup, em);
+      }
       const base = layoutNode(node.base, em);
       const sup = layoutNode(node.sup, em * SUP_SCALE);
       const supX = base.width;
@@ -495,6 +686,11 @@ function layoutNode(node: MNode, em: number): MathBox {
       return { width, ascent, descent: base.descent, glyphs, rules };
     }
     case "sub": {
+      // PR6 — same big-op reroute as sup. Notably, `\lim_{x \to 0}` lowers
+      // to <msub> in inline mode and should still stack the limit below.
+      if (isStackedOpBase(node.base)) {
+        return layoutLimits(node.base, node.sub, undefined, em);
+      }
       const base = layoutNode(node.base, em);
       const sub = layoutNode(node.sub, em * SUB_SCALE);
       const subX = base.width;
@@ -512,6 +708,10 @@ function layoutNode(node: MNode, em: number): MathBox {
       return { width, ascent: base.ascent, descent, glyphs, rules };
     }
     case "subsup": {
+      // PR6 — same big-op reroute.
+      if (isStackedOpBase(node.base)) {
+        return layoutLimits(node.base, node.sub, node.sup, em);
+      }
       const base = layoutNode(node.base, em);
       const sub = layoutNode(node.sub, em * SUB_SCALE);
       const sup = layoutNode(node.sup, em * SUP_SCALE);
@@ -556,7 +756,229 @@ function layoutNode(node: MNode, em: number): MathBox {
       const descent = denY + den.descent;
       return { width, ascent, descent, glyphs, rules };
     }
+    case "sqrt":
+      return layoutSqrt(node.radicand, node.index, em);
+    case "accent":
+      return layoutAccent(node.base, node.accent, em);
+    case "limits":
+      return layoutLimits(node.base, node.sub, node.sup, em);
+    case "table":
+      return layoutTable(node.rows, em);
   }
+}
+
+// --- Math PR6 — extracted layout helpers ---
+
+/**
+ * Square root (`<msqrt>`) and nth root (`<mroot>`).
+ *
+ * Geometry:
+ * ```
+ *      ____________
+ *  ³√  x² + 1
+ *  ^   ^^^^^^^^^^^
+ *  |   radicand (laid out at full em)
+ *  └── √ glyph (height = radicand ascent + descent + gap), with the
+ *      index "³" raised above-left
+ * ```
+ * The overbar is a horizontal rule line at `-(radicand.ascent + gap)`.
+ * The `√` glyph sits at the baseline as a normal text glyph; we don't
+ * stretch it to match the radicand height (would need a stretchy-glyph
+ * font, not available in our deterministic-fallback world).
+ */
+function layoutSqrt(radicand: MNode, index: MNode | undefined, em: number): MathBox {
+  const rad = layoutNode(radicand, em);
+  const gap = em * SQRT_GAP;
+  const pad = em * SQRT_PADDING;
+  const radicalText = "√";
+  const radicalW = stringWidthEm(radicalText) * em;
+  const barThickness = Math.max(1, em * SQRT_BAR_THICKNESS);
+
+  // Lay out the index (if any) first so we know how far right the radical
+  // shifts. The index sits at x ∈ [0, idx.width) and y above baseline.
+  const idxBox = index === undefined ? undefined : layoutNode(index, em * ROOT_INDEX_SCALE);
+  const indexY = -em * ROOT_INDEX_RAISE;
+  const indexOff = idxBox === undefined ? 0 : idxBox.width;
+
+  // Radical glyph at (indexOff, 0). Overbar starts where the radical ends,
+  // spans the full padded radicand. Radicand at (indexOff + radicalW + pad/2).
+  const radicalX = indexOff;
+  const barX = indexOff + radicalW;
+  const barWidth = rad.width + pad;
+  const barY = -(rad.ascent + gap);
+  const radX = indexOff + radicalW + pad / 2;
+
+  const glyphs: GlyphPos[] = [];
+  const rules: RulePos[] = [];
+  if (idxBox !== undefined) {
+    for (const g of idxBox.glyphs) glyphs.push({ ...g, x: g.x, y: g.y + indexY });
+    for (const r of idxBox.rules) rules.push({ ...r, x: r.x, y: r.y + indexY });
+  }
+  glyphs.push({ x: radicalX, y: 0, text: radicalText, fontSize: em });
+  for (const g of rad.glyphs) glyphs.push({ ...g, x: g.x + radX, y: g.y });
+  for (const r of rad.rules) rules.push({ ...r, x: r.x + radX, y: r.y });
+  rules.push({ x: barX, y: barY, width: barWidth });
+
+  const width = indexOff + radicalW + rad.width + pad;
+  const indexAscent = idxBox === undefined ? 0 : -indexY + idxBox.ascent;
+  const ascent = Math.max(rad.ascent + gap + barThickness, indexAscent);
+  const descent = rad.descent;
+  return { width, ascent, descent, glyphs, rules };
+}
+
+/**
+ * Accent (`<mover accent="true">`): `\hat`, `\bar`, `\vec`, `\tilde`, …
+ *
+ * The accent glyph is centered horizontally over the base and raised
+ * by `ACCENT_RAISE` em above the baseline (independent of base height
+ * — accents are typographic marks, not stacked content).
+ */
+function layoutAccent(base: MNode, accent: MNode, em: number): MathBox {
+  const baseBox = layoutNode(base, em);
+  const accentBox = layoutNode(accent, em * ACCENT_SCALE);
+  // Center the accent over the base by (baseWidth - accentWidth) / 2.
+  const accentX = (baseBox.width - accentBox.width) / 2;
+  const accentY = -em * ACCENT_RAISE;
+  const glyphs: GlyphPos[] = [
+    ...baseBox.glyphs,
+    ...accentBox.glyphs.map((g) => ({ ...g, x: g.x + accentX, y: g.y + accentY })),
+  ];
+  const rules: RulePos[] = [
+    ...baseBox.rules,
+    ...accentBox.rules.map((r) => ({ ...r, x: r.x + accentX, y: r.y + accentY })),
+  ];
+  const ascent = Math.max(baseBox.ascent, -accentY + accentBox.ascent);
+  return { width: baseBox.width, ascent, descent: baseBox.descent, glyphs, rules };
+}
+
+/**
+ * Stacked limits: sub (optional) below the base, sup (optional) above.
+ * Used by `<munder>`, `<mover>`, `<munderover>`, AND by `<msub>`/
+ * `<msup>`/`<msubsup>` when the base is a recognized big operator
+ * (sum, prod, int, lim, max, min, …).
+ *
+ * Layout:
+ * ```
+ *       n
+ *       ∑      (base centered in the wider of sup/sub)
+ *      i=1
+ * ```
+ * The widest of `{base, sub, sup}` determines the total width;
+ * each row is then centered horizontally within that width.
+ */
+function layoutLimits(
+  base: MNode,
+  sub: MNode | undefined,
+  sup: MNode | undefined,
+  em: number,
+): MathBox {
+  const baseBox = layoutNode(base, em);
+  const subBox = sub === undefined ? undefined : layoutNode(sub, em * LIMITS_SCALE);
+  const supBox = sup === undefined ? undefined : layoutNode(sup, em * LIMITS_SCALE);
+  const width = Math.max(
+    baseBox.width,
+    subBox === undefined ? 0 : subBox.width,
+    supBox === undefined ? 0 : supBox.width,
+  );
+  const gap = em * LIMITS_GAP;
+  const baseX = (width - baseBox.width) / 2;
+  const glyphs: GlyphPos[] = baseBox.glyphs.map((g) => ({ ...g, x: g.x + baseX }));
+  const rules: RulePos[] = baseBox.rules.map((r) => ({ ...r, x: r.x + baseX }));
+  let ascent = baseBox.ascent;
+  let descent = baseBox.descent;
+  if (supBox !== undefined) {
+    const supX = (width - supBox.width) / 2;
+    const supY = -(baseBox.ascent + gap + supBox.descent);
+    for (const g of supBox.glyphs) glyphs.push({ ...g, x: g.x + supX, y: g.y + supY });
+    for (const r of supBox.rules) rules.push({ ...r, x: r.x + supX, y: r.y + supY });
+    ascent = Math.max(ascent, -supY + supBox.ascent);
+  }
+  if (subBox !== undefined) {
+    const subX = (width - subBox.width) / 2;
+    const subY = baseBox.descent + gap + subBox.ascent;
+    for (const g of subBox.glyphs) glyphs.push({ ...g, x: g.x + subX, y: g.y + subY });
+    for (const r of subBox.rules) rules.push({ ...r, x: r.x + subX, y: r.y + subY });
+    descent = Math.max(descent, subY + subBox.descent);
+  }
+  return { width, ascent, descent, glyphs, rules };
+}
+
+/**
+ * Matrix table (`<mtable>` rows of `<mtr>` of `<mtd>`).
+ *
+ * - Column widths sized to widest cell in each column (after layout).
+ * - Row heights uniform-per-row: max of (ascent + descent) across cells.
+ * - Each cell centered horizontally within its column; vertically
+ *   anchored at row baseline.
+ * - Column gap `TABLE_COL_GAP`, row gap `TABLE_ROW_GAP` (em).
+ *
+ * v0 does NOT stretch the surrounding fence brackets `(...)` / `[...]`
+ * to match the matrix height — they render at their normal size and
+ * sit at the matrix baseline. See class doc-comment for the rationale
+ * (no stretchy-glyph font in our deterministic fallback).
+ */
+function layoutTable(rows: ReadonlyArray<ReadonlyArray<MNode>>, em: number): MathBox {
+  if (rows.length === 0) {
+    return { width: 0, ascent: em * 0.75, descent: em * 0.25, glyphs: [], rules: [] };
+  }
+  // Lay out every cell once so we know widths/heights.
+  const ncols = Math.max(0, ...rows.map((r) => r.length));
+  const cellBoxes: MathBox[][] = rows.map((r) =>
+    r
+      .map((c) => layoutNode(c, em))
+      .concat(
+        // Pad short rows with empty boxes so columns still align.
+        Array.from({ length: ncols - r.length }, () => layoutNode(EMPTY_ROW, em)),
+      ),
+  );
+  // Column widths = max cell width per column.
+  const colWidths: number[] = [];
+  for (let c = 0; c < ncols; c++) {
+    let w = 0;
+    for (let r = 0; r < cellBoxes.length; r++) {
+      const cell = cellBoxes[r]?.[c];
+      if (cell && cell.width > w) w = cell.width;
+    }
+    colWidths.push(w);
+  }
+  // Row heights = max (ascent + descent) per row.
+  const rowHeights: number[] = cellBoxes.map((row) =>
+    row.reduce((max, cell) => Math.max(max, cell.ascent + cell.descent), 0),
+  );
+  const colGap = em * TABLE_COL_GAP;
+  const rowGap = em * TABLE_ROW_GAP;
+  // Total width = sum of col widths + (ncols-1) gaps.
+  const totalWidth = colWidths.reduce((s, w) => s + w, 0) + colGap * Math.max(0, ncols - 1);
+  // Total height = sum of row heights + (nrows-1) row gaps.
+  const totalHeight = rowHeights.reduce((s, h) => s + h, 0) + rowGap * Math.max(0, rows.length - 1);
+  // Anchor: center the matrix vertically on the math axis. Ascent = top
+  // half above baseline, descent = bottom half below.
+  const ascent = totalHeight / 2;
+  const descent = totalHeight / 2;
+  const glyphs: GlyphPos[] = [];
+  const rules: RulePos[] = [];
+  // Top of the matrix relative to baseline:
+  let yCursor = -ascent;
+  for (let r = 0; r < cellBoxes.length; r++) {
+    const row = cellBoxes[r];
+    const rowH = rowHeights[r] ?? 0;
+    let xCursor = 0;
+    for (let c = 0; c < ncols; c++) {
+      const cell = row?.[c];
+      const colW = colWidths[c] ?? 0;
+      if (cell) {
+        const dx = xCursor + (colW - cell.width) / 2;
+        // Vertically center the cell within its row band.
+        const cellTotalH = cell.ascent + cell.descent;
+        const dy = yCursor + (rowH - cellTotalH) / 2 + cell.ascent;
+        for (const g of cell.glyphs) glyphs.push({ ...g, x: g.x + dx, y: g.y + dy });
+        for (const rl of cell.rules) rules.push({ ...rl, x: rl.x + dx, y: rl.y + dy });
+      }
+      xCursor += colW + colGap;
+    }
+    yCursor += rowH + rowGap;
+  }
+  return { width: totalWidth, ascent, descent, glyphs, rules };
 }
 
 // ---------------------------------------------------------------------------

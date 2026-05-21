@@ -1,0 +1,41 @@
+{
+  "version": "glyph/0.1",
+  "title": "math-text — stacked sum operator (Math PR6)",
+  "width": 640,
+  "height": 320,
+  "data": {
+    "function": {
+      "shape": "function",
+      "x": { "min": 1, "max": 10, "samples": 10 },
+      "expr": "x*x"
+    }
+  },
+  "layers": [
+    {
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "x",
+          "type": "quantitative",
+          "scale": { "domain": [0, 11] }
+        },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "scale": { "domain": [0, 110] }
+        }
+      }
+    },
+    {
+      "mark": "math-text",
+      "expr": "\\sum_{i=1}^{n} i^2",
+      "fontSize": 28,
+      "align": "middle",
+      "at": { "x": 3.5, "y": 90 },
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": { "field": "y", "type": "quantitative" }
+      }
+    }
+  ]
+}

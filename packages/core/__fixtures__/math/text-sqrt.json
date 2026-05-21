@@ -1,0 +1,41 @@
+{
+  "version": "glyph/0.1",
+  "title": "math-text — square-root annotation (Math PR6)",
+  "width": 640,
+  "height": 320,
+  "data": {
+    "function": {
+      "shape": "function",
+      "x": { "min": -3, "max": 3, "samples": 80 },
+      "expr": "sqrt(x*x + 1)"
+    }
+  },
+  "layers": [
+    {
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "x",
+          "type": "quantitative",
+          "scale": { "domain": [-3, 3] }
+        },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "scale": { "domain": [0, 3.5] }
+        }
+      }
+    },
+    {
+      "mark": "math-text",
+      "expr": "y = \\sqrt{x^2 + 1}",
+      "fontSize": 22,
+      "align": "middle",
+      "at": { "x": 0, "y": 2.7 },
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": { "field": "y", "type": "quantitative" }
+      }
+    }
+  ]
+}

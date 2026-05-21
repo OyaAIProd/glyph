@@ -1,0 +1,41 @@
+{
+  "version": "glyph/0.1",
+  "title": "math-text — 2x2 matrix annotation (Math PR6)",
+  "width": 640,
+  "height": 320,
+  "data": {
+    "function": {
+      "shape": "function",
+      "x": { "min": -3, "max": 3, "samples": 60 },
+      "expr": "x"
+    }
+  },
+  "layers": [
+    {
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "x",
+          "type": "quantitative",
+          "scale": { "domain": [-3, 3] }
+        },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "scale": { "domain": [-3, 3] }
+        }
+      }
+    },
+    {
+      "mark": "math-text",
+      "expr": "A = \\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}",
+      "fontSize": 24,
+      "align": "middle",
+      "at": { "x": -1.0, "y": 2.0 },
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": { "field": "y", "type": "quantitative" }
+      }
+    }
+  ]
+}

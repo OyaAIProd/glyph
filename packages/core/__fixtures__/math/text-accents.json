@@ -1,0 +1,63 @@
+{
+  "version": "glyph/0.1",
+  "title": "math-text — accents (hat, bar, vec) over function curve (Math PR6)",
+  "width": 640,
+  "height": 320,
+  "data": {
+    "function": {
+      "shape": "function",
+      "x": { "min": -3.14159, "max": 3.14159, "samples": 100 },
+      "expr": "cos(x)"
+    }
+  },
+  "layers": [
+    {
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "x",
+          "type": "quantitative",
+          "scale": { "domain": [-3.14159, 3.14159] }
+        },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "scale": { "domain": [-1.3, 1.5] }
+        }
+      }
+    },
+    {
+      "mark": "math-text",
+      "expr": "\\hat{x}",
+      "fontSize": 26,
+      "align": "middle",
+      "at": { "x": -2.0, "y": 0.7 },
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": { "field": "y", "type": "quantitative" }
+      }
+    },
+    {
+      "mark": "math-text",
+      "expr": "\\vec{v}",
+      "fontSize": 26,
+      "align": "middle",
+      "at": { "x": 0, "y": 0.7 },
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": { "field": "y", "type": "quantitative" }
+      }
+    },
+    {
+      "mark": "math-text",
+      "expr": "\\bar{y}",
+      "fontSize": 26,
+      "align": "middle",
+      "at": { "x": 2.0, "y": 0.7 },
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": { "field": "y", "type": "quantitative" }
+      }
+    }
+  ]
+}
