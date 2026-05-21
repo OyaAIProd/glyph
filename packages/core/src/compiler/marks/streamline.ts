@@ -219,16 +219,35 @@ function integrateDirection(
 ): State[] {
   const out: State[] = [seed];
   const h = cfg.step * sign;
-  // Loop-detection: bucket each visited point into an integer cell of
-  // size `step`. Re-entering a cell terminates the direction.
-  const visited = new Set<string>();
-  const cellSize = cfg.step * LOOP_CELL_SCALE;
+  // A3 review BLOCKER B1 — loop detection needs to handle slow regions
+  // of the field. Previous version used cellSize = step (cellSize 0.05
+  // when step=0.05), so for the rotation field's interior where
+  // |f| < 1, consecutive states stay in the SAME cell across many
+  // steps, and a "revisited cell" check triggers FALSE positives after
+  // ~10-20 steps — orbits truncate prematurely.
+  //
+  // Fix has two parts:
+  //   (1) cellSize is sized to a multi-step displacement, not a single
+  //       step. We pick `max(step, plotDiagonal × 0.01)` — at least a
+  //       small fraction of the integration domain — so a slow-moving
+  //       trajectory crosses cell boundaries on the same step count
+  //       regardless of field magnitude.
+  //   (2) "Loop detected" requires the trajectory to have EXITED the
+  //       cell before re-entry. Tracked via `lastCell`. Consecutive
+  //       same-cell steps no longer trigger; only a true return to a
+  //       cell after a detour does.
+  const xSpan = domain.x[1] - domain.x[0];
+  const ySpan = domain.y[1] - domain.y[0];
+  const domainDiag = Math.sqrt(xSpan * xSpan + ySpan * ySpan);
+  const cellSize = Math.max(cfg.step * LOOP_CELL_SCALE, domainDiag * 0.02);
   const cellKey = (s: State): string => {
     const cx = Math.floor((s.x - domain.x[0]) / cellSize);
     const cy = Math.floor((s.y - domain.y[0]) / cellSize);
     return `${cx},${cy}`;
   };
-  visited.add(cellKey(seed));
+  const visited = new Set<string>();
+  let lastCell = cellKey(seed);
+  visited.add(lastCell);
   let cur = seed;
   for (let i = 0; i < cfg.maxSteps; i++) {
     const next = rk4Step(evaluator, cfg.dxdt, cfg.dydt, cur, h);
@@ -242,12 +261,13 @@ function integrateDirection(
       break;
     }
     const key = cellKey(next);
-    if (visited.has(key) && i > 2) {
-      // i > 2 lets us escape the seed cell before counting revisits;
-      // otherwise tiny initial steps would falsely trigger.
-      break;
+    if (key !== lastCell) {
+      // Transitioned to a new cell. If we've been in this cell before,
+      // the trajectory is closing back on itself — loop detected.
+      if (visited.has(key)) break;
+      visited.add(key);
+      lastCell = key;
     }
-    visited.add(key);
     out.push(next);
     cur = next;
   }
@@ -316,6 +336,25 @@ export const streamlineMarkCompiler: MarkCompiler = {
     const evaluator: Evaluator = defaultEvaluator;
     const seeds = generateSeeds(cfg, domain);
 
+    // A3 review IMPORTANT-1 — preflight the evaluator on the first
+    // seed so an unparseable expression (e.g. dxdt: "xyz(") or an
+    // unbound identifier surfaces as a fatal error with location,
+    // not as a silent empty-SVG. After this check the integration
+    // loop can keep its NaN-on-failure swallowing behavior (which
+    // is the right policy mid-trajectory for divergent ODEs).
+    if (seeds.length > 0) {
+      const probe = seeds[0]!;
+      try {
+        evaluator(cfg.dxdt, { x: probe.x, y: probe.y });
+        evaluator(cfg.dydt, { x: probe.x, y: probe.y });
+      } catch (e) {
+        if (e instanceof EvaluationError) {
+          throw new Error(`streamline data: derivative failed to evaluate — ${e.message}`);
+        }
+        throw e;
+      }
+    }
+
     for (const seed of seeds) {
       // Backward (sign=-1) + forward (sign=+1); reverse the backward
       // result so the path reads from "past" through "seed" to "future".
@@ -329,16 +368,27 @@ export const streamlineMarkCompiler: MarkCompiler = {
       // Build the SVG path's `d` attribute. Each (x, y) maps through
       // the resolved scale then `roundPx` for byte stability.
       let d = "";
+      // A3 review BLOCKER B2 — a seed at a fixed point of the field
+      // (e.g. (0, 0) for dx/dt=-y, dy/dt=x) produces tiny non-zero
+      // RK4 wobble in data space, which roundPx collapses to the
+      // SAME pixel. The polyline survives the `length < 2` check
+      // because it has many states, but renders zero ink and bloats
+      // the SVG with `M 336 192 L 336 192 L 336 192 ...`. Track
+      // unique rounded points; skip the path when all rounded coords
+      // collapse to a single point.
+      const uniquePixels = new Set<string>();
       for (let i = 0; i < polyline.length; i++) {
         const p = polyline[i];
         if (!p) continue;
         const px = roundPx(xScale.apply(p.x));
         const py = roundPx(yScale.apply(p.y));
         if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
+        uniquePixels.add(`${px},${py}`);
         d += `${i === 0 ? "M" : "L"} ${px} ${py} `;
       }
       const dTrim = d.trim();
       if (dTrim.length === 0) continue;
+      if (uniquePixels.size < 2) continue; // degenerate (fixed-point seed)
 
       const path: SceneMark = {
         type: "path",
