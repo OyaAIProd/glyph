@@ -24,6 +24,7 @@ import type {
   SceneMark,
   ScenePanel,
 } from "../scenegraph/types.js";
+import { roundPx } from "../compiler/scales.js";
 import { polylineLength } from "./path-length.js";
 import { renderProvenanceMetadata } from "./provenance.js";
 
@@ -680,8 +681,14 @@ function buildTimelineCaptions(scene: Scene): string {
     .map((s, i) => ({ s, i }))
     .filter((e): e is { s: typeof e.s & { caption: string }; i: number } => e.s.caption !== undefined);
   if (captioned.length === 0) return "";
-  const cx = scene.plotArea.x + scene.plotArea.width / 2;
-  const cy = scene.plotArea.y + scene.plotArea.height + 32;
+  // E3 review IMPORTANT-1 fix: previous offset (+32) collided with the
+  // x-axis title which also sits at `plotArea.y + plotArea.height + 32`
+  // (svg.ts:357 + titleOffset=32). Bumped to +56 so captions clear the
+  // axis title; matches the rotated-tick offset (60) but pulled in 4
+  // for snug vertical centering. Caption coords now also pass through
+  // `roundPx` for byte-stability under future float plotArea (NIT-4).
+  const cx = roundPx(scene.plotArea.x + scene.plotArea.width / 2);
+  const cy = roundPx(scene.plotArea.y + scene.plotArea.height + 56);
   const parts: string[] = [];
   for (let k = 0; k < captioned.length; k++) {
     const cur = captioned[k];

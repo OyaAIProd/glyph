@@ -1363,6 +1363,23 @@ export const GlyphSpecSchema = z
         // `begin_ms`, so per-layer animations start at the scene beat rather
         // than at chart start. Capped at 20 scenes — beyond that, the agent
         // should emit multiple story-page charts instead of one mega-spec.
+        //
+        // Caption cross-fade contract (E3 review IMPORTANT-3): captioned
+        // scenes use a hard-coded 200ms cross-fade — caption N fades out
+        // over 200ms starting at scene N+1's `begin_ms`, while caption N+1
+        // fades in over its own `duration_ms` starting at that same moment.
+        // The two captions overlap visually for those 200ms. When successive
+        // scenes are less than 200ms apart the fade-out leaks past the next
+        // scene's caption fade-in window; keep `begin_ms` deltas ≥ 300ms
+        // between captioned scenes to avoid visual stutter. Final scene's
+        // caption never fades out.
+        //
+        // Layer-membership contract (E3 review IMPORTANT-2): each layer
+        // index can appear in AT MOST ONE scene's `layers` array. Duplicate
+        // indices within a single scene OR across scenes throw at compile
+        // time. Layers that should persist across scenes belong outside
+        // any scene's `layers` — those marks render without a scene wrapper
+        // (always visible, no fade-in).
         z
           .object({
             kind: z.literal("timeline"),

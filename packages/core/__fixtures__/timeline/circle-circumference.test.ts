@@ -65,6 +65,24 @@ describe("timeline examples — circle-circumference (joy PR E3)", () => {
     expect(svg).toContain('id="glyph-arrow"');
     expect(svg).toContain('marker-end="url(#glyph-arrow)"');
 
+    // E3 review NIT-5: caption-vs-axis-title position guard. The
+    // x-axis title sits at `plotArea.y + plotArea.height + 32` per
+    // svg.ts:357 (titleOffset = 32); captions now sit at +56 so they
+    // clear the axis title. Extract every caption text's y attr and
+    // assert none collides with the x-axis title's y.
+    const captionYs = [...svg.matchAll(/y="(\d+)"[^>]*>(?:First|The radius|Walk around)/g)]
+      .map((m) => Number.parseInt(m[1] ?? "0", 10));
+    expect(captionYs.length).toBe(3);
+    // The default x-axis title y is `plotArea.height + 32` from the
+    // plotArea top; for a 400-tall canvas with default insets the
+    // axis title sits at y=392. Caption offset is +56 → y=416. The
+    // assertion locks the +24 gap so a future refactor that drops
+    // captions back to y=392 (the colliding offset) fails this test
+    // loudly rather than visually.
+    for (const y of captionYs) {
+      expect(y).toBeGreaterThanOrEqual(400);
+    }
+
     // Lock the bytes to a file snapshot — any drift surfaces as a diff.
     await expect(svg).toMatchFileSnapshot("./circle-circumference.svg");
   });

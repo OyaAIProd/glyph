@@ -2033,14 +2033,35 @@ function buildSceneAnimation(
       layerOffsets.push(acc);
       acc += n;
     }
-    const resolvedScenes = anim.scenes.map((s) => {
+    // E3 review IMPORTANT-2 — `scene.layers` is a user-supplied number[].
+    // Duplicate indices ([0, 0, 1]) used to silently double-render the
+    // layer's marks inside the scene's <g>; same problem if layer 1
+    // appeared in two scenes' layers arrays — its marks would render
+    // twice. Track every layer index claimed across the WHOLE timeline,
+    // throw on cross-scene duplicates, and dedupe within a single scene's
+    // layers array with a clear error message.
+    const claimedLayers = new Set<number>();
+    const resolvedScenes = anim.scenes.map((s, sceneIdx) => {
+      const sceneLayers = new Set<number>();
       const indices: number[] = [];
       for (const li of s.layers) {
         if (li >= layerMarkCounts.length) {
           throw new Error(
-            `animation.scenes: layer index ${li} out of range (spec has ${layerMarkCounts.length} layers)`,
+            `animation.scenes[${sceneIdx}]: layer index ${li} out of range (spec has ${layerMarkCounts.length} layers)`,
           );
         }
+        if (sceneLayers.has(li)) {
+          throw new Error(
+            `animation.scenes[${sceneIdx}].layers contains duplicate index ${li}. Each layer can appear at most once per scene; deduplicate the array.`,
+          );
+        }
+        if (claimedLayers.has(li)) {
+          throw new Error(
+            `animation.scenes[${sceneIdx}].layers: layer ${li} is already claimed by an earlier scene. Each layer can appear in at most one scene; a layer that should persist across scenes belongs outside the scenes arrays (it will render without a scene wrapper).`,
+          );
+        }
+        sceneLayers.add(li);
+        claimedLayers.add(li);
         const offset = layerOffsets[li] ?? 0;
         const count = layerMarkCounts[li] ?? 0;
         for (let k = 0; k < count; k++) indices.push(offset + k);
