@@ -522,6 +522,11 @@ function materializeFunctionInput(input: CompileInput): CompileInput {
       // whether to sort points by x (scalar: yes; parametric: no — the
       // sort collapses closed curves like Lissajous into zigzags). See
       // PARAMETRIC_FUNCTION_SOURCE below.
+      //
+      // DO NOT pattern-match this source string in user code. It's an
+      // internal compiler sentinel and the value may change without
+      // notice. Check `spec.data.function.parameter` on the
+      // unmaterialized spec instead.
       data: { source: isParametric ? PARAMETRIC_FUNCTION_SOURCE : "<inline:function>" },
     },
     rows,
@@ -1981,6 +1986,7 @@ function buildAreas(
   xScale: ReturnType<typeof bandScale> | ReturnType<typeof linearScale>,
   yScale: ReturnType<typeof linearScale>,
   theme: Theme,
+  preserveOrder = false,
 ): void {
   const colorField = fieldOf(encoding.color);
   const colorDomain = colorField ? distinctOrdered(rows, schema, colorField) : [""];
@@ -2012,7 +2018,9 @@ function buildAreas(
 
   for (const [groupKey, pts] of groups) {
     if (pts.length < 2) continue;
-    pts.sort((a, b) => a.x - b.x);
+    // Math PR5 — same parametric carve-out as buildLines: closed regions
+    // traced by parametric curves shouldn't be x-sorted (would zigzag).
+    if (!preserveOrder) pts.sort((a, b) => a.x - b.x);
     let d = `M ${pts[0]?.x} ${pts[0]?.y}`;
     for (let i = 1; i < pts.length; i++) {
       const p = pts[i];
@@ -2885,6 +2893,14 @@ registerMark({
   type: "area",
   compile(args) {
     if (!args.yScale) return;
+    // Math PR5 — match the line mark's parametric handling so closed
+    // regions traced by parametric curves don't get x-sorted.
+    const dataBlock = args.spec.data;
+    const dataSource =
+      typeof dataBlock === "object" && dataBlock !== null && "source" in dataBlock
+        ? (dataBlock as { source?: unknown }).source
+        : undefined;
+    const preserveOrder = dataSource === PARAMETRIC_FUNCTION_SOURCE;
     buildAreas(
       args.out,
       args.rows,
@@ -2895,6 +2911,7 @@ registerMark({
       args.xScale,
       args.yScale,
       args.theme,
+      preserveOrder,
     );
   },
 });
