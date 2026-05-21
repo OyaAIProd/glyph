@@ -1,0 +1,30 @@
+{
+  "version": "glyph/0.1",
+  "title": "Archimedean spiral — pen-draw",
+  "data": {
+    "function": {
+      "shape": "function",
+      "parameter": { "name": "t", "min": 0, "max": 25, "samples": 200 },
+      "xExpr": "t*cos(t)/8",
+      "yExpr": "t*sin(t)/8"
+    }
+  },
+  "layers": [
+    {
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "x",
+          "type": "quantitative",
+          "scale": { "domain": [-3.5, 3.5] }
+        },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "scale": { "domain": [-3.5, 3.5] }
+        }
+      }
+    }
+  ],
+  "animation": { "kind": "draw-in", "duration_ms": 3000, "easing": "ease-in-out" }
+}

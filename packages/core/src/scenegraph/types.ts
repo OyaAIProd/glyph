@@ -325,5 +325,17 @@ export interface Scene {
          * in the compiler module.
          */
         readonly fromMarks: ReadonlyArray<SceneMark>;
+      }
+    | {
+        /**
+         * Math Phase 2 / Track A2 — pen-draw effect for path marks. The
+         * renderer computes each path's polyline length, sets
+         * `stroke-dasharray` + `stroke-dashoffset` to that length, and
+         * emits a SMIL `<animate>` driving the offset to zero over
+         * `duration_ms`. The line traces itself from start to end.
+         */
+        readonly kind: "draw-in";
+        readonly duration_ms: number;
+        readonly easing?: "linear" | "ease-in-out";
       };
 }

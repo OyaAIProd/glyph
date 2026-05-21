@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pen-draw animation · Glyph math examples</title>
+    <meta
+      name="description"
+      content="A parametric Archimedean spiral that draws itself, traced via SMIL stroke-dashoffset over 3 seconds. The new animation.kind: \"draw-in\" composes on top of any line/path mark — no compiler changes."
+    />
+    <link rel="stylesheet" href="./_shared.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='2' y='9' width='2' height='5' fill='%234c78a8'/%3E%3Crect x='6' y='5' width='2' height='9' fill='%234c78a8'/%3E%3Crect x='10' y='2' width='2' height='12' fill='%234c78a8'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <header>
+      <div class="wrap nav">
+        <div class="logo">
+          <svg width="22" height="22" viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="2" y="9" width="2" height="5" fill="#4c78a8" />
+            <rect x="6" y="5" width="2" height="9" fill="#4c78a8" />
+            <rect x="10" y="2" width="2" height="12" fill="#4c78a8" />
+          </svg>
+          <a href="../">Glyph</a>
+          <span class="crumb"><a href="./">Math</a></span>
+          <span class="crumb">Pen-draw</span>
+        </div>
+        <nav class="nav-links">
+          <a href="./">All examples</a>
+          <a href="../play/">Playground</a>
+          <a href="https://github.com/seanhanca/glyph">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="demo-hero wrap">
+        <span class="eyebrow">Animation · pen-draw</span>
+        <h1>Draw-in animation</h1>
+        <p class="lede">
+          A parametric Archimedean spiral
+          <code>(t·cos(t)/8, t·sin(t)/8)</code> that traces itself over 3
+          seconds. The new <code>animation.kind: "draw-in"</code> emits a
+          SMIL <code>&lt;animate&gt;</code> on
+          <code>stroke-dashoffset</code> — no JavaScript, no extra files. Drop
+          it onto any line, area, or contour mark.
+        </p>
+      </section>
+
+      <section class="wrap">
+        <div class="chart-card">
+          <img
+            src="./draw-in.svg"
+            alt="Archimedean spiral traced via stroke-dashoffset animation over 3 seconds."
+          />
+        </div>
+
+        <h3>Spec</h3>
+        <div class="spec-block">
+          <button class="copy-btn" data-target="spec-draw-in">Copy</button>
+          <pre id="spec-draw-in">{
+  <span class="str">"version"</span>: <span class="str">"glyph/0.1"</span>,
+  <span class="str">"title"</span>: <span class="str">"Archimedean spiral — pen-draw"</span>,
+  <span class="str">"data"</span>: {
+    <span class="str">"function"</span>: {
+      <span class="str">"shape"</span>: <span class="str">"function"</span>,
+      <span class="str">"parameter"</span>: { <span class="str">"name"</span>: <span class="str">"t"</span>, <span class="str">"min"</span>: <span class="num">0</span>, <span class="str">"max"</span>: <span class="num">25</span>, <span class="str">"samples"</span>: <span class="num">200</span> },
+      <span class="str">"xExpr"</span>: <span class="str">"t*cos(t)/8"</span>,
+      <span class="str">"yExpr"</span>: <span class="str">"t*sin(t)/8"</span>
+    }
+  },
+  <span class="str">"layers"</span>: [
+    {
+      <span class="str">"mark"</span>: <span class="str">"line"</span>,
+      <span class="str">"encoding"</span>: {
+        <span class="str">"x"</span>: { <span class="str">"field"</span>: <span class="str">"x"</span>, <span class="str">"type"</span>: <span class="str">"quantitative"</span>,
+              <span class="str">"scale"</span>: { <span class="str">"domain"</span>: [-<span class="num">3.5</span>, <span class="num">3.5</span>] } },
+        <span class="str">"y"</span>: { <span class="str">"field"</span>: <span class="str">"y"</span>, <span class="str">"type"</span>: <span class="str">"quantitative"</span>,
+              <span class="str">"scale"</span>: { <span class="str">"domain"</span>: [-<span class="num">3.5</span>, <span class="num">3.5</span>] } }
+      }
+    }
+  ],
+  <span class="str">"animation"</span>: { <span class="str">"kind"</span>: <span class="str">"draw-in"</span>, <span class="str">"duration_ms"</span>: <span class="num">3000</span>, <span class="str">"easing"</span>: <span class="str">"ease-in-out"</span> }
+}</pre>
+        </div>
+
+        <div class="callout">
+          <strong>What's new:</strong>
+          <code>animation.kind: "draw-in"</code> shipped in
+          <strong>Math Phase 2 / Track A2</strong>. The renderer computes each
+          path's polyline length with a pure, deterministic helper (rounded
+          to 8 decimals via <code>roundPx</code>) and emits a SMIL
+          <code>&lt;animate&gt;</code> on
+          <code>stroke-dashoffset</code> from <code>length</code> →
+          <code>0</code>, frozen at the endpoint. Composes with any line /
+          area / contour mark.
+        </div>
+
+        <div class="cta-row">
+          <a class="cta" href="../play/">Try it in the playground</a>
+          <a
+            class="cta cta-ghost"
+            href="https://github.com/seanhanca/glyph/blob/main/packages/core/__fixtures__/math/draw-in-spiral.json"
+            >View the fixture on GitHub</a
+          >
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <p>
+          <a href="./">← All math examples</a> &nbsp;·&nbsp;
+          <a href="./animated-trajectory.html">Next: Animated trajectory →</a>
+        </p>
+      </div>
+    </footer>
+
+    <script>
+      // Strip our <span> highlighter tags before copying so users paste plain
+      // JSON, not the colored HTML. textContent already does this — wrapping
+      // navigator.clipboard call in a try/catch keeps the page usable on
+      // older browsers where the API isn't available (will still 'copy' the
+      // 'Copy' button label flash, just without actual clipboard access).
+      for (const btn of document.querySelectorAll(".copy-btn")) {
+        btn.addEventListener("click", async () => {
+          const el = document.getElementById(btn.dataset.target);
+          if (!el) return;
+          const text = el.textContent;
+          try {
+            await navigator.clipboard.writeText(text);
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(() => {
+              btn.textContent = "Copy";
+              btn.classList.remove("copied");
+            }, 1400);
+          } catch (e) {
+            btn.textContent = "Press Ctrl+C";
+            setTimeout(() => (btn.textContent = "Copy"), 1400);
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

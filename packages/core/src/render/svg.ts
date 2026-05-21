@@ -24,6 +24,7 @@ import type {
   SceneMark,
   ScenePanel,
 } from "../scenegraph/types.js";
+import { polylineLength } from "./path-length.js";
 import { renderProvenanceMetadata } from "./provenance.js";
 
 const AXIS_COLOR = "#999999";
@@ -463,7 +464,9 @@ export function renderSvg(scene: Scene): string {
         ? " glyph-stage-stagger"
         : animKind === "race" || animKind === "scrub"
           ? " glyph-race"
-          : "";
+          : animKind === "draw-in"
+            ? " glyph-draw-in"
+            : "";
   // PR61 — append a `glyph-uncertain` marker class when dimPoints fires.
   const uncertainClass = scene.uncertainty?.dimPoints ? " glyph-uncertain" : "";
   const marks =
@@ -658,6 +661,39 @@ function decorateMarkForAnimation(
       return injectChild("line", anims);
     }
     return svgFragment;
+  }
+  if (a.kind === "draw-in") {
+    // Math Phase 2 / Track A2 — pen-draw effect. Only path marks
+    // participate; everything else is rendered statically. We compute
+    // the path's geometric length, then inject stroke-dasharray +
+    // stroke-dashoffset attrs plus a SMIL `<animate>` child that drives
+    // the offset from `len` → 0 over `duration_ms` with `fill="freeze"`
+    // so the line stays drawn at the end.
+    const m = scene.marks[index];
+    if (!m || m.type !== "path") return svgFragment;
+    const len = polylineLength(m.d);
+    if (len <= 0) return svgFragment; // graceful no-op for zero-length / unsupported `d`
+    const dur = a.duration_ms;
+    const easing = a.easing ?? "linear";
+    // SMIL easing: linear is the default; "ease-in-out" emits keyTimes +
+    // keySplines to slow the trace at both endpoints (cubic Bézier
+    // approximating the CSS ease-in-out curve).
+    const easeAttrs =
+      easing === "ease-in-out"
+        ? ' calcMode="spline" keyTimes="0;1" keySplines="0.42 0 0.58 1"'
+        : "";
+    const animate = `<animate attributeName="stroke-dashoffset" from="${len}" to="0" dur="${dur}ms" begin="0s" fill="freeze"${easeAttrs}/>`;
+    const dashAttrs = ` stroke-dasharray="${len}" stroke-dashoffset="${len}"`;
+    // Inject dash attrs before the closing `/>` AND replace `/>` with
+    // `>…</path>` so the <animate> child lives inside the path. Handles
+    // both self-closing and explicit-close forms (the latter only
+    // happens for arc marks today, which draw-in skips above).
+    const selfClose = /<path\b([^>]*?)\/>/;
+    if (selfClose.test(svgFragment)) {
+      return svgFragment.replace(selfClose, `<path$1${dashAttrs}>${animate}</path>`);
+    }
+    const open = /<path\b([^>]*)>/;
+    return svgFragment.replace(open, `<path$1${dashAttrs}>${animate}`);
   }
   return svgFragment;
 }

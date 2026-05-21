@@ -1848,6 +1848,17 @@ function buildSceneAnimation(
           : {}),
     };
   }
+  if (anim.kind === "draw-in") {
+    // Math Phase 2 / Track A2 — pen-draw effect. The renderer reads each
+    // path mark's `d` attribute, computes the polyline length, and emits
+    // a SMIL <animate> on stroke-dashoffset. No frame plumbing needed
+    // here — the animation is purely geometric and lives in the renderer.
+    return {
+      kind: "draw-in",
+      duration_ms: anim.duration_ms ?? 2000,
+      ...(anim.easing !== undefined ? { easing: anim.easing } : {}),
+    };
+  }
   // race / scrub — bucket rows by frame_field, derive a per-row series.
   // For v0 we drive bar widths (the most common race chart). The renderer
   // detects rect marks and animates their width attribute through the

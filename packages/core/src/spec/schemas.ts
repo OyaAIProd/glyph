@@ -840,7 +840,7 @@ export const GlyphSpecSchema = z
      */
     link_group: z.string().min(1).optional(),
     /**
-     * Data-driven animation (PR43 + PR45). Four kinds:
+     * Data-driven animation (PR43 + PR45 + Math Phase 2 / Track A2). Five kinds:
      *   - "stage"          — chart-wide entrance fade (PR43)
      *   - "stage-stagger"  — per-mark entrance with row-index delay (PR45)
      *   - "race"           — bar-race / scatter-race driven by `frame_field`;
@@ -848,6 +848,10 @@ export const GlyphSpecSchema = z
      *   - "scrub"          — temporal slider that re-aggregates per frame
      *                        (PR45 ships the spec contract; the UI lives in
      *                        @glyph/preview-server / @glyph/live in PR46+)
+     *   - "draw-in"        — pen-draw effect: line/path marks trace themselves
+     *                        via SMIL `<animate>` on `stroke-dashoffset`. Use
+     *                        to reveal the construction order of a parametric
+     *                        curve / function plot / ODE trajectory (Track A2).
      */
     animation: z
       .union([
@@ -872,6 +876,18 @@ export const GlyphSpecSchema = z
             kind: z.literal("scrub"),
             frame_field: z.string().min(1),
             duration_ms: z.number().int().min(100).max(120_000).optional(),
+          })
+          .strict(),
+        z
+          .object({
+            kind: z.literal("draw-in"),
+            duration_ms: z.number().int().min(100).max(60_000).default(2000),
+            /**
+             * Optional easing curve for the dashoffset animation. SMIL
+             * natively supports linear and discrete; "ease-in-out" emits
+             * keyTimes + keySplines so the trace starts and ends slowly.
+             */
+            easing: z.enum(["linear", "ease-in-out"]).optional(),
           })
           .strict(),
       ])
