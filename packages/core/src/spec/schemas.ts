@@ -368,6 +368,11 @@ export const MarkSchema = z.enum([
   // parses it to MathML and a deterministic layout pass emits one
   // `<text>` SceneMark per glyph (plus `<path>` rules for fractions).
   "math-text",
+  // E1 — annotation mark
+  // Joy of Math PR E1 — labeled callout. Anchors to a data row by index
+  // OR to a fixed data-space coord, then emits an auto-positioned arrow,
+  // text bubble, and optional highlight ring.
+  "annotation",
 ]);
 
 /**
@@ -587,10 +592,65 @@ export const LayerSchema = z
       })
       .strict()
       .optional(),
+    // E1 — annotation mark
+    /**
+     * Joy of Math PR E1 — labeled callout config. Required when
+     * `mark === "annotation"`; rejected otherwise. The anchor is a
+     * discriminated union: either a row in the chart's data (`kind:
+     * "data"`, `rowIndex` selects the row) or a fixed data-space coord
+     * (`kind: "coord"`, `x` + `y` projected through the chart scales).
+     * The "auto" arrow picks an offset quadrant based on which edge of
+     * the plot area the anchor sits closest to; an explicit
+     * `{dx, dy}` is interpreted in PIXELS (bubble layout is a pure-
+     * pixel concern, so mixing it with data units would surprise the
+     * caller).
+     */
+    annotation: z
+      .object({
+        anchor: z.discriminatedUnion("kind", [
+          z
+            .object({ kind: z.literal("data"), rowIndex: z.number().int().nonnegative() })
+            .strict(),
+          z
+            .object({
+              kind: z.literal("coord"),
+              x: z.number().refine(Number.isFinite),
+              y: z.number().refine(Number.isFinite),
+            })
+            .strict(),
+        ]),
+        text: z.string().min(1).max(200),
+        arrow: z
+          .union([
+            z.literal("auto"),
+            z.object({ dx: z.number(), dy: z.number() }).strict(),
+          ])
+          .default("auto"),
+        fontSize: z.number().positive().max(64).default(14),
+        color: z.string().min(1).optional(),
+        highlight: z.boolean().default(true),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .refine((l) => l.mark !== "math-text" || (typeof l.expr === "string" && l.expr.length > 0), {
     message: "Layer with mark 'math-text' requires a non-empty 'expr' field.",
+  })
+  // E1 — annotation mark: require `annotation` when mark === "annotation".
+  .refine(
+    (l) => l.mark !== "annotation" || l.annotation !== undefined,
+    {
+      message: "Layer with mark 'annotation' requires an 'annotation' object.",
+      path: ["annotation"],
+    },
+  )
+  // E1 — annotation mark: reject `annotation` on non-annotation marks so a
+  // misplaced field doesn't silently get dropped by the bar / line / point
+  // compilers (same footgun the math-text refine guards against).
+  .refine((l) => l.mark === "annotation" || l.annotation === undefined, {
+    message: "Field 'annotation' is only valid when mark is 'annotation'.",
+    path: ["annotation"],
   })
   // Moat 3 review IMPORTANT-3 — layer-level `data.onMissing` is silently
   // ignored by the compiler (it only reads `spec.data.onMissing`). Reject

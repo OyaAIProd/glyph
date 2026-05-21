@@ -63,6 +63,15 @@ export type Layer = z.infer<typeof LayerSchema>;
 /** The mark type — what shape gets drawn for each row. */
 export type Mark = z.infer<typeof MarkSchema>;
 
+/**
+ * Joy of Math PR E1 — annotation callout config. The shape inferred from
+ * `LayerSchema.annotation` (a labeled callout anchored to a row index or
+ * a fixed data-space coord). Surfaced as a named type so the compiler /
+ * tests can import a stable symbol rather than re-deriving it from the
+ * layer shape.
+ */
+export type Annotation = NonNullable<Layer["annotation"]>;
+
 /** The encoding maps fields to visual channels. */
 export type Encoding = z.infer<typeof EncodingSchema>;
 

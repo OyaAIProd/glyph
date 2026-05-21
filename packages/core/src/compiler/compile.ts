@@ -77,6 +77,11 @@ import "./marks/vector-field.js";
 // Math PR4 — math-text registers `math-text` (KaTeX → MathML → positioned
 // <text>/<path> SceneMarks).
 import "./marks/math-text.js";
+// E1 — annotation mark
+// Joy of Math PR E1 — annotation registers `annotation` (labeled callout
+// = arrow + bubble + optional highlight ring; reuses the glyph-arrow
+// <marker> defined by the vector-field mark).
+import "./marks/annotation.js";
 import {
   angleScale,
   bandScale,
@@ -755,6 +760,10 @@ export function compileSpec(input: CompileInput): Scene {
       "vector-field",
       // Math PR4 — math-text renders LaTeX glyphs at (x, y) positions.
       "math-text",
+      // E1 — annotation mark
+      // Joy of Math PR E1 — annotation callouts with auto-positioned
+      // arrow + text bubble.
+      "annotation",
     ];
     if (!allowedMarks.includes(l.mark)) {
       throw new Error(`Phase 1 supports marks ${allowedMarks.join("|")}; layer ${i} has ${l.mark}`);
@@ -830,6 +839,25 @@ export function compileSpec(input: CompileInput): Scene {
         throw new Error(
           `Layer ${i} (math-text) requires either 'at: { x, y }' or both x and y encodings`,
         );
+      }
+      continue;
+    }
+    // E1 — annotation mark
+    // Joy of Math PR E1 — annotation needs `annotation` block (LayerSchema
+    // already enforces this via refine, but re-assert here so the
+    // diagnostic surfaces from the compiler rather than from the runtime
+    // mark code if the schema is bypassed). The anchor's `kind: "coord"`
+    // mode doesn't need encoding.x/y to resolve the anchor — but the
+    // shared chart scales still need to come from somewhere, so the
+    // encoding fields are required (matches how math-text routes with
+    // shared x/y scales).
+    if (l.mark === "annotation") {
+      const ann = (l as unknown as { annotation?: unknown }).annotation;
+      if (ann === undefined) {
+        throw new Error(`Layer ${i} (annotation) requires an 'annotation' object`);
+      }
+      if (fieldOf(l.encoding.x) === undefined || fieldOf(l.encoding.y) === undefined) {
+        throw new Error(`Layer ${i} (annotation) requires both x and y encodings`);
       }
       continue;
     }
