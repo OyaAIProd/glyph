@@ -870,6 +870,45 @@ describe("Glyph MCP server", () => {
       expect(r.isError).toBe(true);
       expect(r.text).toContain("Unknown handle_id");
     });
+
+    // ---- Moat PR 2: structured envelope -----------------------------------
+    it("format='structured' returns the typed Explanation/1 envelope", async () => {
+      const handle_id = await renderTaxi();
+      const r = await callText(client, "glyph_explain", {
+        handle_id,
+        format: "structured",
+      });
+      expect(r.isError).toBe(false);
+      const exp = JSON.parse(r.text);
+      expect(exp.format).toBe("glyph-explanation/1");
+      expect(typeof exp.headline).toBe("string");
+      expect(Array.isArray(exp.keyInsights)).toBe(true);
+      expect(exp.keyInsights.length).toBeGreaterThanOrEqual(1);
+      expect(Array.isArray(exp.potentialMisreadings)).toBe(true);
+      expect(Array.isArray(exp.dataSources)).toBe(true);
+      expect(exp.chartTypeRationale.chartType).toBe("bar");
+      expect(Array.isArray(exp.suggestedFollowups)).toBe(true);
+      expect(exp.suggestedFollowups.length).toBeGreaterThan(0);
+      // The bar mark should suggest glyph_decompose as a follow-up.
+      const verbs = exp.suggestedFollowups.map((f: { suggestedVerb?: string }) => f.suggestedVerb);
+      expect(verbs).toContain("glyph_decompose");
+    });
+
+    it("format defaults to legacy for back-compat (omit + explicit both work)", async () => {
+      const handle_id = await renderTaxi();
+      const omitted = await callText(client, "glyph_explain", { handle_id });
+      const explicit = await callText(client, "glyph_explain", {
+        handle_id,
+        format: "legacy",
+      });
+      const o = JSON.parse(omitted.text);
+      const e = JSON.parse(explicit.text);
+      // Legacy envelope keys: { headline, highlights, questions } — no format tag.
+      expect(o).toHaveProperty("highlights");
+      expect(o).toHaveProperty("questions");
+      expect(o.format).toBeUndefined();
+      expect(e).toEqual(o);
+    });
   });
 
   // ---- Phase 3 §3: diagnostic primitives (PR36) --------------------------

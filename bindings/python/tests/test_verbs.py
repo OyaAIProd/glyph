@@ -323,6 +323,38 @@ def test_explain_with_hints_nests_them(rides_csv_path: Path) -> None:
     assert result.headline
 
 
+def test_explain_structured_returns_typed_envelope(rides_csv_path: Path) -> None:
+    """Moat PR 2 — format='structured' returns a typed StructuredExplanation.
+
+    Pins the agent-consumable contract: format tag is glyph-explanation/1,
+    keyInsights is non-empty, chart_type_rationale.chart_type matches the
+    rendered mark, and at least one suggested followup carries a
+    suggested_verb the agent can chain to.
+    """
+    r = _render_rides(rides_csv_path)
+    result = glyph.explain(r.handle, format="structured")
+    assert isinstance(result, glyph.StructuredExplanation)
+    assert result.format == "glyph-explanation/1"
+    assert result.headline
+    # Bar chart over taxi data — expect key insights about peak/trough.
+    assert len(result.key_insights) >= 1
+    for k in result.key_insights:
+        assert isinstance(k, glyph.KeyInsight)
+        assert k.insight
+        assert k.confidence in {"high", "medium", "low"}
+    # The rendered spec is a bar — chartTypeRationale matches.
+    assert result.chart_type_rationale.chart_type == "bar"
+    assert result.chart_type_rationale.rationale
+    # Followups are non-empty + at least one is an executable suggestion.
+    assert len(result.suggested_followups) > 0
+    verbs = {f.suggested_verb for f in result.suggested_followups if f.suggested_verb}
+    assert verbs  # at least one followup carries a verb
+    # potentialMisreadings entries (if any) are PotentialMisreading instances.
+    for m in result.potential_misreadings:
+        assert isinstance(m, glyph.PotentialMisreading)
+        assert m.severity in {"low", "medium", "high"}
+
+
 # ---------------------------------------------------------------------------
 # spec_diff() — structural diff between two specs
 # ---------------------------------------------------------------------------

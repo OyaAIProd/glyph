@@ -16,9 +16,14 @@ from glyph.types import (
     AnomalyResult,
     AuditFinding,
     Capabilities,
+    ChartTypeAlternative,
+    ChartTypeRationale,
+    DataSourceRef,
     DecomposeResult,
     ExplainResult,
     ForecastResult,
+    KeyInsight,
+    PotentialMisreading,
     QueryResult,
     RenderResult,
     SpecDiff,
@@ -27,6 +32,8 @@ from glyph.types import (
     SpecPatchResult,
     StoryPlan,
     StoryPlanNode,
+    StructuredExplanation,
+    SuggestedFollowup,
 )
 
 __version__ = "0.1.0a1"
@@ -35,12 +42,17 @@ __all__ = [
     "AnomalyResult",
     "AuditFinding",
     "Capabilities",
+    "ChartTypeAlternative",
+    "ChartTypeRationale",
+    "DataSourceRef",
     "DecomposeResult",
     "ExplainResult",
     "ForecastResult",
     "GlyphError",
+    "KeyInsight",
     "McpProtocolError",
     "NodeNotFoundError",
+    "PotentialMisreading",
     "QueryResult",
     "RenderResult",
     "SpecDiff",
@@ -50,6 +62,8 @@ __all__ = [
     "SpecValidationError",
     "StoryPlan",
     "StoryPlanNode",
+    "StructuredExplanation",
+    "SuggestedFollowup",
     "__version__",
     "anomaly",
     "audit_spec",
@@ -453,14 +467,22 @@ def explain(
     x_field: str | None = None,
     y_field: str | None = None,
     group_field: str | None = None,
-) -> ExplainResult:
-    """Deterministic plain-English explanation of a chart.
+    format: Literal["legacy", "structured"] = "legacy",
+) -> ExplainResult | StructuredExplanation:
+    """Deterministic explanation of a chart.
 
     Maps to the ``glyph_explain`` MCP verb. The role hints are nested
     under ``hints`` on the wire — this wrapper lifts them to top-level
     kwargs so callers don't have to build a nested dict. The verb only
     accepts ``xField``/``yField``/``groupField`` hints (no audience /
     depth / focus).
+
+    Moat PR 2 — pass ``format="structured"`` to get back a typed
+    :class:`StructuredExplanation` envelope instead of the legacy
+    :class:`ExplainResult`. The structured envelope is agent-consumable
+    end-to-end: ``suggested_followups[].suggested_verb`` +
+    ``suggested_args`` can be passed straight into another ``glyph.*``
+    wrapper. Default stays ``"legacy"`` for back-compat.
     """
     args: dict[str, Any] = {"handle_id": handle}
     hints: dict[str, str] = {}
@@ -472,11 +494,98 @@ def explain(
         hints["groupField"] = group_field
     if hints:
         args["hints"] = hints
+    if format != "legacy":
+        args["format"] = format
     raw = _expect_dict("glyph_explain", call_verb("glyph_explain", args))
+
+    if format == "structured":
+        return _parse_structured_explanation(raw)
+
     return ExplainResult(
         headline=str(raw.get("headline", "") or ""),
         highlights=[str(h) for h in raw.get("highlights", []) or []],
         questions=[str(q) for q in raw.get("questions", []) or []],
+        raw=raw,
+    )
+
+
+def _parse_structured_explanation(raw: dict[str, Any]) -> StructuredExplanation:
+    """Translate the on-wire camelCase Explanation/1 envelope into the
+    snake_case Python dataclass tree. Lenient on missing fields — same
+    wire envelope evolves additively across 0.x.
+    """
+    insights = []
+    for k in raw.get("keyInsights", []) or []:
+        if not isinstance(k, dict):
+            continue
+        insights.append(
+            KeyInsight(
+                insight=str(k.get("insight", "") or ""),
+                confidence=str(k.get("confidence", "medium") or "medium"),  # type: ignore[arg-type]
+                path=k.get("path"),
+            )
+        )
+
+    misreadings = []
+    for m in raw.get("potentialMisreadings", []) or []:
+        if not isinstance(m, dict):
+            continue
+        misreadings.append(
+            PotentialMisreading(
+                description=str(m.get("description", "") or ""),
+                severity=str(m.get("severity", "low") or "low"),  # type: ignore[arg-type]
+                audit_rule_id=m.get("auditRuleId"),
+            )
+        )
+
+    sources = []
+    for s in raw.get("dataSources", []) or []:
+        if not isinstance(s, dict):
+            continue
+        sources.append(
+            DataSourceRef(
+                field=str(s.get("field", "") or ""),
+                value=str(s.get("value", "") or ""),
+            )
+        )
+
+    rationale_raw = raw.get("chartTypeRationale", {}) or {}
+    alternatives = []
+    for a in rationale_raw.get("alternatives", []) or []:
+        if not isinstance(a, dict):
+            continue
+        alternatives.append(
+            ChartTypeAlternative(
+                chart_type=str(a.get("chartType", "") or ""),
+                tradeoff=str(a.get("tradeoff", "") or ""),
+            )
+        )
+    rationale = ChartTypeRationale(
+        chart_type=str(rationale_raw.get("chartType", "") or ""),
+        rationale=str(rationale_raw.get("rationale", "") or ""),
+        alternatives=alternatives,
+    )
+
+    followups = []
+    for fu in raw.get("suggestedFollowups", []) or []:
+        if not isinstance(fu, dict):
+            continue
+        followups.append(
+            SuggestedFollowup(
+                question=str(fu.get("question", "") or ""),
+                suggested_verb=fu.get("suggestedVerb"),
+                suggested_args=dict(fu.get("suggestedArgs", {}) or {}),
+            )
+        )
+
+    return StructuredExplanation(
+        headline=str(raw.get("headline", "") or ""),
+        key_insights=insights,
+        potential_misreadings=misreadings,
+        data_sources=sources,
+        chart_type_rationale=rationale,
+        suggested_followups=followups,
+        format=str(raw.get("format", "glyph-explanation/1") or "glyph-explanation/1"),
         raw=raw,
     )
 

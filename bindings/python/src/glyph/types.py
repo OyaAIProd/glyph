@@ -213,6 +213,98 @@ class ExplainResult:
     raw: dict[str, Any] = field(default_factory=dict)
 
 
+# -- Moat PR 2 — structured explanation envelope ----------------------------
+# These dataclasses mirror the TypeScript ``Explanation`` interface in
+# ``packages/core/src/diagnostics/structured-explain.ts``. Field names match
+# the on-wire shape (camelCase from the MCP envelope is translated below in
+# ``__init__.explain``). The Python side stays snake_case.
+
+
+InsightConfidence = Literal["high", "medium", "low"]
+MisreadingSeverity = Literal["low", "medium", "high"]
+
+
+@dataclass(frozen=True)
+class KeyInsight:
+    """One data-grounded observation in :class:`StructuredExplanation`."""
+
+    insight: str
+    confidence: InsightConfidence
+    path: str | None = None
+
+
+@dataclass(frozen=True)
+class PotentialMisreading:
+    """A common misreading the chart's encoding might invite.
+
+    Sourced from the audit-rule pass (AUDIT-01..09). ``audit_rule_id``
+    points to the rule that produced this misreading; callers can filter
+    on rule id the same way ``glyph_audit_spec`` consumers do.
+    """
+
+    description: str
+    severity: MisreadingSeverity
+    audit_rule_id: str | None = None
+
+
+@dataclass(frozen=True)
+class DataSourceRef:
+    """A pointer to where a value in the chart came from."""
+
+    field: str
+    value: str
+
+
+@dataclass(frozen=True)
+class ChartTypeAlternative:
+    """One alternative chart type with its trade-off note."""
+
+    chart_type: str
+    tradeoff: str
+
+
+@dataclass(frozen=True)
+class ChartTypeRationale:
+    """Why this chart type was the right (or wrong) choice."""
+
+    chart_type: str
+    rationale: str
+    alternatives: list[ChartTypeAlternative] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class SuggestedFollowup:
+    """A follow-up question + the MCP verb an agent should run to answer it.
+
+    The ``suggested_verb`` + ``suggested_args`` fields let the agent chain
+    a follow-up call deterministically — pass them straight into the named
+    Glyph wrapper (e.g. ``glyph.forecast(handle, **fc.suggested_args)``).
+    """
+
+    question: str
+    suggested_verb: str | None = None
+    suggested_args: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class StructuredExplanation:
+    """Result of :func:`glyph.explain` when ``format="structured"``.
+
+    Mirrors the TypeScript ``Explanation`` interface (Moat PR 2). The
+    ``format`` field is the schema tag — pin to ``"glyph-explanation/1"``
+    when version-gating.
+    """
+
+    headline: str
+    key_insights: list[KeyInsight]
+    potential_misreadings: list[PotentialMisreading]
+    data_sources: list[DataSourceRef]
+    chart_type_rationale: ChartTypeRationale
+    suggested_followups: list[SuggestedFollowup]
+    format: str = "glyph-explanation/1"
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
 @dataclass(frozen=True)
 class SpecPatchResult:
     """Result of :func:`glyph.spec_patch` — patched + re-rendered spec."""

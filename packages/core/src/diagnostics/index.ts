@@ -21,6 +21,20 @@
 
 import type { ExplainColumn, ExplainResult } from "../explain/index.js";
 
+// Moat PR 2 — structured explanation envelope (agent-consumable).
+export {
+  buildStructuredExplanation,
+  type ChartTypeRationale,
+  type DataSourceRef,
+  type Explanation,
+  type InsightConfidence,
+  type KeyInsight,
+  type MisreadingSeverity,
+  type PotentialMisreading,
+  type StructuredExplainInput,
+  type SuggestedFollowup,
+} from "./structured-explain.js";
+
 // ---------------------------------------------------------------------------
 // Small shared helpers
 // ---------------------------------------------------------------------------

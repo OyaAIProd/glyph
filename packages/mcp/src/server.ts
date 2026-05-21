@@ -59,6 +59,7 @@ import {
   attributeDrift,
   auditSpec,
   buildCausalGraph,
+  buildStructuredExplanation,
   compileSpec,
   decomposeVariance,
   detectAnomalies,
@@ -1031,18 +1032,24 @@ export function createServer(state: ServerState = new ServerState()): {
     },
   );
 
-  // ----- glyph_explain (PR35 / Phase 3 §2) --------------------------------
+  // ----- glyph_explain (PR35 / Phase 3 §2; Moat PR 2) ---------------------
   // Self-explaining charts. Runs a deterministic four-stage pipeline
   // (top-line / compositional / anomaly / temporal) against the rows that
   // back a rendered chart and returns { headline, highlights, questions }.
-  // The `questions` array is the next prompt a downstream diagnostician
-  // agent picks up.
+  //
+  // Moat PR 2 — opt-in `format: "structured"` swaps the flat prose envelope
+  // for a typed Explanation object: { headline, keyInsights[],
+  // potentialMisreadings[], dataSources[], chartTypeRationale,
+  // suggestedFollowups[], format: "glyph-explanation/1" }. The
+  // `suggestedFollowups[].suggestedVerb` + `suggestedArgs` fields let an
+  // agent chain to a follow-up MCP call without re-parsing prose. Default
+  // stays "legacy" for back-compat.
   server.registerTool(
     "glyph_explain",
     {
-      title: "Generate a deterministic plain-English explanation of a chart",
+      title: "Generate a deterministic explanation of a chart",
       description:
-        "Run the explain pipeline against a previously rendered chart. Returns { headline, highlights[], questions[] } as JSON. The output is deterministic — same chart + same Glyph version always yields the same explanation. Use this instead of asking an LLM to read the SVG.",
+        "Run the explain pipeline against a previously rendered chart. By default returns the legacy `{ headline, highlights[], questions[] }` envelope. Pass `format: 'structured'` for a typed `Explanation/1` envelope (agent-consumable, includes keyInsights, potentialMisreadings sourced from the audit pass, dataSources, chartTypeRationale, and suggestedFollowups[].suggestedVerb/suggestedArgs you can call directly). Output is deterministic — same chart + same Glyph version always yields the same explanation.",
       inputSchema: {
         handle_id: z.string().describe("The handle_id returned by glyph_render."),
         hints: z
@@ -1056,9 +1063,15 @@ export function createServer(state: ServerState = new ServerState()): {
           .describe(
             "Optional manual role hints. Without hints the pipeline picks x = first temporal-or-categorical column, y = first quantitative column, group = next categorical column.",
           ),
+        format: z
+          .enum(["legacy", "structured"])
+          .optional()
+          .describe(
+            "Output envelope. Default 'legacy' for back-compat ({ headline, highlights[], questions[] }); 'structured' returns the typed Explanation/1 object — see glyph_explain description for the schema.",
+          ),
       },
     },
-    async ({ handle_id, hints }) =>
+    async ({ handle_id, hints, format }) =>
       state.serial(async () => {
         const handle = state.getHandle(handle_id);
         if (!handle) {
@@ -1069,6 +1082,51 @@ export function createServer(state: ServerState = new ServerState()): {
         }
         const engine = await state.getEngine();
         const result = await engine.queryHandle(handle);
+
+        if (format === "structured") {
+          // Reach for the spec we remembered at glyph_render time. If the
+          // handle was produced by a verb that didn't store a spec (chained
+          // diagnostic), we synthesize a minimal spec from the schema so
+          // the structured envelope can still be built.
+          const storedSpec = state.getSpec(handle_id);
+          const parsed = storedSpec ? safeParseSpec(storedSpec) : undefined;
+          let spec: import("@glyph/core").GlyphSpec;
+          if (parsed?.ok) {
+            spec = parsed.spec;
+          } else {
+            // Best-effort synthetic spec — a single bar layer over the first
+            // two schema columns is enough for chartTypeRationale to land
+            // somewhere reasonable.
+            const cols = handle.schema;
+            const x = cols[0]?.name;
+            const y = cols[1]?.name ?? cols[0]?.name;
+            spec = {
+              layers: [
+                {
+                  mark: "bar",
+                  ...(x && y ? { encoding: { x: { field: x }, y: { field: y } } } : {}),
+                },
+              ],
+            } as unknown as import("@glyph/core").GlyphSpec;
+          }
+          const auditFindings = auditSpec({ spec, rowCount: result.rows.length });
+          const structured = buildStructuredExplanation({
+            spec,
+            rows: result.rows,
+            schema: handle.schema.map((c) => ({ name: c.name, type: c.type })),
+            auditFindings,
+            ...(hints ? { hints } : {}),
+          });
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(jsonSafe(structured), null, 2),
+              },
+            ],
+          };
+        }
+
         const explanation = explainHandle({
           schema: handle.schema,
           rows: result.rows,
