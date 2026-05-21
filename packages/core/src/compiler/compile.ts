@@ -1041,7 +1041,27 @@ export function compileSpec(input: CompileInput): Scene {
   const firstLayer = spec.layers[0];
   if (!firstLayer) throw new Error("Spec has no layers");
 
-  for (const layer of spec.layers) {
+  // E3 — track how many marks each layer emitted (so timeline scenes
+  // can resolve `layers: number[]` → concrete `markIndices: number[]`).
+  // Length === spec.layers.length; entry `i` is the count of marks
+  // contributed by layer `i`. Layers that emit zero marks (e.g. due to
+  // a missing scale) keep a 0 entry so downstream indexing stays
+  // aligned with `spec.layers`.
+  const layerMarkCounts: number[] = [];
+
+  for (let __li = 0; __li < spec.layers.length; __li++) {
+    const layer = spec.layers[__li];
+    if (!layer) {
+      layerMarkCounts.push(0);
+      continue;
+    }
+    const __layerStart = marks.length;
+    // The original per-layer body emits via `marks.push(…)` / mark
+    // compilers' `out: marks` and uses `continue` to early-exit. We
+    // wrap the body in an IIFE so those `continue`s become `return`s,
+    // letting us record the per-layer count after the body runs
+    // (regardless of which branch took the early exit).
+    ((): void => {
     const enc = layer.encoding;
     const xField = fieldOf(enc.x);
     const yField = fieldOf(enc.y);
@@ -1070,7 +1090,7 @@ export function compileSpec(input: CompileInput): Scene {
         plotArea,
         out: marks,
       });
-      continue;
+      return;
     }
     if (layer.mark === "geo-region") {
       getMarkCompiler("geo-region").compile({
@@ -1087,7 +1107,7 @@ export function compileSpec(input: CompileInput): Scene {
         plotArea,
         out: marks,
       });
-      continue;
+      return;
     }
     if (layer.mark === "heatmap") {
       // Heatmap bypasses the y-quantitative requirement of the regular path.
@@ -1105,7 +1125,7 @@ export function compileSpec(input: CompileInput): Scene {
         plotArea,
         out: marks,
       });
-      continue;
+      return;
     }
     if (layer.mark === "math-text") {
       // Math PR4 — math-text doesn't consume `ctx` (no tooltips on glyph
@@ -1114,7 +1134,7 @@ export function compileSpec(input: CompileInput): Scene {
       // layer record directly. Dispatched BEFORE the xField/yField gate
       // because math-text supports an explicit `at: { x, y }` anchor that
       // makes the encoding-x/y fields optional (use case: chart titles).
-      if (!yScale) continue;
+      if (!yScale) return;
       getMarkCompiler("math-text").compile({
         layer,
         spec,
@@ -1129,9 +1149,9 @@ export function compileSpec(input: CompileInput): Scene {
         plotArea,
         out: marks,
       });
-      continue;
+      return;
     }
-    if (!yScale || !xField || !yField) continue;
+    if (!yScale || !xField || !yField) return;
     if (layer.mark === "boxplot") {
       if (xScale.type !== "band") {
         throw new Error("boxplot mark requires a band x scale");
@@ -1150,7 +1170,7 @@ export function compileSpec(input: CompileInput): Scene {
         plotArea,
         out: marks,
       });
-      continue;
+      return;
     }
     if (layer.mark === "text") {
       getMarkCompiler("text").compile({
@@ -1167,7 +1187,7 @@ export function compileSpec(input: CompileInput): Scene {
         plotArea,
         out: marks,
       });
-      continue;
+      return;
     }
     if (layer.mark === "bar" && xScale.type !== "band") {
       throw new Error("bar mark requires a band x scale");
@@ -1194,6 +1214,8 @@ export function compileSpec(input: CompileInput): Scene {
       plotArea,
       out: marks,
     });
+    })();
+    layerMarkCounts.push(marks.length - __layerStart);
   }
 
   // ---- Axes ------------------------------------------------------------
@@ -1369,7 +1391,9 @@ export function compileSpec(input: CompileInput): Scene {
     ...(sceneSchema ? { schema: sceneSchema } : {}),
     ...(legends.length > 0 ? { legends } : {}),
     ...(uncertainty ? { uncertainty } : {}),
-    ...(spec.animation ? { animation: buildSceneAnimation(spec, rows, schema, marks) } : {}),
+    ...(spec.animation
+      ? { animation: buildSceneAnimation(spec, rows, schema, marks, layerMarkCounts) }
+      : {}),
     provenance: scenePr,
   };
 }
@@ -1972,6 +1996,7 @@ function buildSceneAnimation(
   rows: ReadonlyArray<ReadonlyArray<unknown>>,
   schema: ReadonlyArray<CompileFieldInfo>,
   marks: ReadonlyArray<SceneMark>,
+  layerMarkCounts: ReadonlyArray<number>,
 ): NonNullable<Scene["animation"]> {
   const anim = spec.animation;
   if (!anim) throw new Error("buildSceneAnimation called without spec.animation");
@@ -1996,6 +2021,39 @@ function buildSceneAnimation(
       duration_ms: anim.duration_ms ?? 2000,
       ...(anim.easing !== undefined ? { easing: anim.easing } : {}),
     };
+  }
+  // E3 — timeline animation. Resolve each spec-scene's `layers: number[]`
+  // to the concrete `markIndices: number[]` of the scene's marks in
+  // `Scene.marks`. Layer-i contributes marks at positions
+  // [sum(counts[0..i-1]) .. sum(counts[0..i])-1].
+  if (anim.kind === "timeline") {
+    const layerOffsets: number[] = [];
+    let acc = 0;
+    for (const n of layerMarkCounts) {
+      layerOffsets.push(acc);
+      acc += n;
+    }
+    const resolvedScenes = anim.scenes.map((s) => {
+      const indices: number[] = [];
+      for (const li of s.layers) {
+        if (li >= layerMarkCounts.length) {
+          throw new Error(
+            `animation.scenes: layer index ${li} out of range (spec has ${layerMarkCounts.length} layers)`,
+          );
+        }
+        const offset = layerOffsets[li] ?? 0;
+        const count = layerMarkCounts[li] ?? 0;
+        for (let k = 0; k < count; k++) indices.push(offset + k);
+      }
+      return {
+        ...(s.id !== undefined ? { id: s.id } : {}),
+        begin_ms: s.begin_ms,
+        duration_ms: s.duration_ms,
+        markIndices: indices,
+        ...(s.caption !== undefined ? { caption: s.caption } : {}),
+      };
+    });
+    return { kind: "timeline", scenes: resolvedScenes };
   }
   // race / scrub — bucket rows by frame_field, derive a per-row series.
   // For v0 we drive bar widths (the most common race chart). The renderer

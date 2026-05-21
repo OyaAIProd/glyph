@@ -1356,6 +1356,43 @@ export const GlyphSpecSchema = z
             easing: z.enum(["linear", "ease-in-out"]).optional(),
           })
           .strict(),
+        // E3 — timeline animation. Sequenced scenes that fade in groups of
+        // layers at declared beats, optionally with a fading caption beneath
+        // the plot area. Composes with A2 draw-in / E1 annotations / E2
+        // travelers: a layer included in a scene inherits that scene's
+        // `begin_ms`, so per-layer animations start at the scene beat rather
+        // than at chart start. Capped at 20 scenes — beyond that, the agent
+        // should emit multiple story-page charts instead of one mega-spec.
+        z
+          .object({
+            kind: z.literal("timeline"),
+            scenes: z
+              .array(
+                z
+                  .object({
+                    /** Optional id for cross-references (annotations / travelers can scope to a scene). */
+                    id: z.string().min(1).optional(),
+                    /** When this scene becomes visible relative to chart start (ms). */
+                    begin_ms: z.number().int().min(0).max(600_000),
+                    /** Duration the scene's marks fade in (default 500). */
+                    duration_ms: z.number().int().min(50).max(60_000).default(500),
+                    /**
+                     * Which layer indexes the scene contains. Other layers
+                     * stay hidden until their scene fires.
+                     */
+                    layers: z.array(z.number().int().nonnegative()).min(1),
+                    /**
+                     * Optional caption rendered at the bottom of the chart,
+                     * fading in alongside the scene.
+                     */
+                    caption: z.string().min(1).max(200).optional(),
+                  })
+                  .strict(),
+              )
+              .min(1)
+              .max(20),
+          })
+          .strict(),
       ])
       .optional(),
   })

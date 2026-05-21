@@ -590,9 +590,9 @@ export function renderSvg(scene: Scene): string {
     animKind === "stage-stagger"
       ? ((scene.animation as { stagger_ms?: number }).stagger_ms ?? 60)
       : 0;
-  const markStrs = scene.marks
-    .map((m, i) => decorateMarkForAnimation(renderMark(m, interactive), i, scene, stagger))
-    .join("");
+  const renderedMarks = scene.marks.map((m, i) =>
+    decorateMarkForAnimation(renderMark(m, interactive), i, scene, stagger),
+  );
   const animClass =
     animKind === "stage"
       ? " glyph-stage"
@@ -602,9 +602,19 @@ export function renderSvg(scene: Scene): string {
           ? " glyph-race"
           : animKind === "draw-in"
             ? " glyph-draw-in"
-            : "";
+            : animKind === "timeline"
+              ? " glyph-timeline"
+              : "";
   // PR61 — append a `glyph-uncertain` marker class when dimPoints fires.
   const uncertainClass = scene.uncertainty?.dimPoints ? " glyph-uncertain" : "";
+  // E3 — timeline animation: wrap each scene's marks in a `<g class="glyph-scene-…">`
+  // with a child SMIL `<animate>` driving opacity 0 → 1 at `begin_ms`.
+  // Marks not in any scene render outside groups (they remain visible
+  // throughout). Captions emit additional animated `<text>` elements at
+  // the bottom of the plot area.
+  const markStrs =
+    animKind === "timeline" ? buildTimelineMarks(scene, renderedMarks) : renderedMarks.join("");
+  const timelineCaptions = animKind === "timeline" ? buildTimelineCaptions(scene) : "";
   const marks =
     interactive || animClass || uncertainClass
       ? `<g class="glyph-marks${animClass}${uncertainClass}">${markStrs}</g>`
@@ -614,7 +624,82 @@ export function renderSvg(scene: Scene): string {
   // SceneMark is present. Returns "" for scenes with no arrows so
   // existing snapshots stay byte-identical.
   const arrowDefs = renderArrowDefs(scene);
-  return `${head}${desc}${provenance}${hoverStyle}${crossfilterStyle}${animationStyle}${uncertaintyStyle}${arrowDefs}${bg}${title}${grid}${marks}${axes}${uncertaintyOverlay}${legends}</svg>\n`;
+  return `${head}${desc}${provenance}${hoverStyle}${crossfilterStyle}${animationStyle}${uncertaintyStyle}${arrowDefs}${bg}${title}${grid}${marks}${axes}${timelineCaptions}${uncertaintyOverlay}${legends}</svg>\n`;
+}
+
+// E3 — timeline animation: assemble the per-scene mark groups.
+//
+// For each timeline scene we wrap the scene's marks in a `<g>` that
+// starts at `opacity="0"` and is driven to `opacity="1"` by a SMIL
+// `<animate>` child with `begin="<begin_ms>ms"` and
+// `dur="<duration_ms>ms"`. The `fill="freeze"` attribute pins the end
+// state so the scene's marks stay visible after the fade-in
+// completes. Marks that aren't claimed by any scene are emitted
+// outside the groups so they remain visible throughout (typical for
+// axes-aligned reference marks that don't need a scene beat).
+//
+// Determinism: the scenes are emitted in spec order; mark indices in
+// each scene's `markIndices` are emitted in scene order (the compiler
+// preserves spec layer order). Same input → same SVG bytes.
+function buildTimelineMarks(scene: Scene, renderedMarks: ReadonlyArray<string>): string {
+  const a = scene.animation;
+  if (!a || a.kind !== "timeline") return renderedMarks.join("");
+  const claimed = new Set<number>();
+  const parts: string[] = [];
+  // Marks not in any scene render first so they sit underneath the
+  // sequenced layers (same z-order as a no-animation chart).
+  for (const s of a.scenes) {
+    for (const i of s.markIndices) claimed.add(i);
+  }
+  for (let i = 0; i < renderedMarks.length; i++) {
+    if (!claimed.has(i)) parts.push(renderedMarks[i] ?? "");
+  }
+  for (let si = 0; si < a.scenes.length; si++) {
+    const s = a.scenes[si];
+    if (!s) continue;
+    const id = s.id ?? String(si);
+    const sceneMarks = s.markIndices.map((i) => renderedMarks[i] ?? "").join("");
+    if (sceneMarks.length === 0) continue;
+    const animate = `<animate attributeName="opacity" from="0" to="1" begin="${s.begin_ms}ms" dur="${s.duration_ms}ms" fill="freeze"/>`;
+    parts.push(`<g class="glyph-scene-${esc(id)}" opacity="0">${animate}${sceneMarks}</g>`);
+  }
+  return parts.join("");
+}
+
+// E3 — timeline captions. One `<text>` element per scene that
+// declares a `caption`. Positioned at the bottom-center of the plot
+// area; each has a SMIL `<animate>` driving opacity 0 → 1 at its
+// scene's `begin_ms`. When successive scenes both carry captions we
+// emit a second `<animate>` on the prior caption driving opacity back
+// to 0 at the next scene's `begin_ms`, so only one caption is visible
+// at a time.
+function buildTimelineCaptions(scene: Scene): string {
+  const a = scene.animation;
+  if (!a || a.kind !== "timeline") return "";
+  const captioned = a.scenes
+    .map((s, i) => ({ s, i }))
+    .filter((e): e is { s: typeof e.s & { caption: string }; i: number } => e.s.caption !== undefined);
+  if (captioned.length === 0) return "";
+  const cx = scene.plotArea.x + scene.plotArea.width / 2;
+  const cy = scene.plotArea.y + scene.plotArea.height + 32;
+  const parts: string[] = [];
+  for (let k = 0; k < captioned.length; k++) {
+    const cur = captioned[k];
+    if (!cur) continue;
+    const fadeIn = `<animate attributeName="opacity" from="0" to="1" begin="${cur.s.begin_ms}ms" dur="${cur.s.duration_ms}ms" fill="freeze"/>`;
+    // When a subsequent caption arrives, fade this one back out at
+    // the next caption's begin (over a short 200ms transition).
+    const next = captioned[k + 1];
+    const fadeOut = next
+      ? `<animate attributeName="opacity" from="1" to="0" begin="${next.s.begin_ms}ms" dur="200ms" fill="freeze"/>`
+      : "";
+    parts.push(
+      `<text x="${cx}" y="${cy}" font-family="${FONT_FAMILY}" font-size="13" fill="#1a1a1a" text-anchor="middle" dominant-baseline="middle" opacity="0">${esc(
+        cur.s.caption,
+      )}${fadeIn}${fadeOut}</text>`,
+    );
+  }
+  return parts.join("");
 }
 
 /**

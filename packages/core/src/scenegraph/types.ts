@@ -400,5 +400,29 @@ export interface Scene {
         readonly kind: "draw-in";
         readonly duration_ms: number;
         readonly easing?: "linear" | "ease-in-out";
+      }
+    | {
+        /**
+         * E3 — timeline animation. Sequenced scenes that fade in groups
+         * of marks at declared beats. The compiler resolves each spec
+         * scene's `layers: number[]` into `markIndices: number[]` (the
+         * positions in `Scene.marks` that the scene owns). The renderer
+         * wraps each `markIndices` group in a `<g class="glyph-scene-…">`
+         * with a child SMIL `<animate attributeName="opacity">` driving
+         * fade-in at `begin_ms` ms over `duration_ms` ms.
+         */
+        readonly kind: "timeline";
+        readonly scenes: ReadonlyArray<{
+          readonly id?: string;
+          readonly begin_ms: number;
+          readonly duration_ms: number;
+          /**
+           * Resolved mark-index list — every `Scene.marks` position the
+           * scene controls. Computed by the compiler from the spec's
+           * `layers: number[]` + the per-layer mark count.
+           */
+          readonly markIndices: ReadonlyArray<number>;
+          readonly caption?: string;
+        }>;
       };
 }
