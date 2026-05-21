@@ -74,20 +74,20 @@ export interface ResolvedTheme {
  * Pure function — same input always returns the same Theme.
  */
 export function brandKitToTheme(brand: BrandKit): ResolvedTheme {
-  const theme: ResolvedTheme = {
+  // Build the object in one shot — ResolvedTheme's `sequential` /
+  // `diverging` fields are `readonly`, so mutating them after the
+  // initializer fails the TS strict check (TS2540).
+  return {
     background: brand.palette.surface.bg,
     fg: brand.palette.surface.fg,
     axis: brand.palette.surface.muted,
     grid: brand.palette.surface.border,
     marks: brand.palette.categorical,
+    ...(brand.palette.sequential !== undefined
+      ? { sequential: brand.palette.sequential }
+      : {}),
+    ...(brand.palette.diverging !== undefined ? { diverging: brand.palette.diverging } : {}),
   };
-  if (brand.palette.sequential !== undefined) {
-    theme.sequential = brand.palette.sequential;
-  }
-  if (brand.palette.diverging !== undefined) {
-    theme.diverging = brand.palette.diverging;
-  }
-  return theme;
 }
 
 /**
@@ -104,23 +104,21 @@ export function mergeBrandWithTheme(brand: BrandKit, theme: ThemeConfig): Resolv
   // Theme overrides have no way to slot-merge today; brand-kit + a
   // partial-theme is the union of brand defaults + the overridden
   // fields, with arrays replaced wholesale.
+  //
+  // Built in one shot so the readonly `sequential` / `diverging`
+  // fields don't trip TS2540 (no mid-construction mutation).
   const base = brandKitToTheme(brand);
-  const merged: ResolvedTheme = {
+  return {
     background: theme.background ?? base.background,
     fg: theme.fg ?? base.fg,
     axis: theme.axis ?? base.axis,
     grid: theme.grid ?? base.grid,
     marks: theme.palette ?? base.marks,
+    // Carry the brand kit's sequential / diverging ramps through the
+    // merge — there's no ThemeConfig field to override them today.
+    ...(base.sequential !== undefined ? { sequential: base.sequential } : {}),
+    ...(base.diverging !== undefined ? { diverging: base.diverging } : {}),
   };
-  // Carry the brand kit's sequential / diverging ramps through the
-  // merge — there's no ThemeConfig field to override them today.
-  if (base.sequential !== undefined) {
-    (merged as { sequential?: ReadonlyArray<string> }).sequential = base.sequential;
-  }
-  if (base.diverging !== undefined) {
-    (merged as { diverging?: ReadonlyArray<string> }).diverging = base.diverging;
-  }
-  return merged;
 }
 
 // ---------------------------------------------------------------------------

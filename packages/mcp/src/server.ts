@@ -72,6 +72,7 @@ import {
   linearRegression,
   morphScenes,
   renderSvg,
+  renderTimeAuditFindings,
   safeParseSpec,
   seasonalNaiveForecast,
   suggestScale,
@@ -1109,11 +1110,34 @@ export function createServer(state: ServerState = new ServerState()): {
               ],
             } as unknown as import("@glyph/core").GlyphSpec;
           }
-          const auditFindings = auditSpec({ spec, rowCount: result.rows.length });
+          // Moat 3 review BLOCKER B1: structured-explain sees AUDIT-10
+          // (and any future render-time rules) via the same path the
+          // glyph_audit_spec handler uses. yField comes from the
+          // explicit hint when supplied, else falls back to the spec's
+          // layer-0 y encoding. Without this, structured-explain's
+          // potentialMisreadings would silently miss missing-data
+          // findings — the moat's "tell you why" half.
+          const schemaMeta = handle.schema.map((c) => ({ name: c.name, type: c.type }));
+          const structuralFindings = auditSpec({ spec, rowCount: result.rows.length });
+          const yForAudit =
+            hints?.yField ??
+            (() => {
+              const y = spec.layers?.[0]?.encoding?.y;
+              if (typeof y === "string") return y;
+              if (y && typeof y === "object" && "field" in y && typeof y.field === "string") {
+                return y.field;
+              }
+              return undefined;
+            })();
+          const renderTime =
+            yForAudit !== undefined
+              ? renderTimeAuditFindings(spec, result.rows, yForAudit, schemaMeta)
+              : [];
+          const auditFindings = [...structuralFindings, ...renderTime];
           const structured = buildStructuredExplanation({
             spec,
             rows: result.rows,
-            schema: handle.schema.map((c) => ({ name: c.name, type: c.type })),
+            schema: schemaMeta,
             auditFindings,
             ...(hints ? { hints } : {}),
           });
@@ -3181,9 +3205,31 @@ export function createServer(state: ServerState = new ServerState()): {
           .nonnegative()
           .optional()
           .describe("Optional distinct color count (drives AUDIT-06)."),
+        // Moat 3 review BLOCKER B1: rows + yField + schema unlock the
+        // render-time pass that emits AUDIT-10 (silent dropouts on
+        // missing data). Without them, AUDIT-10 is unreachable from any
+        // agent — the rule effectively doesn't exist. Caller supplies
+        // these when they have the materialized data on hand; the
+        // structural rules (AUDIT-01..09, 11) still fire either way.
+        rows: z
+          .array(z.array(z.unknown()))
+          .optional()
+          .describe(
+            "Optional materialized rows (positional, aligned to `schema`). Required for AUDIT-10 (missing-data detection); structural rules work without it.",
+          ),
+        yField: z
+          .string()
+          .optional()
+          .describe("Name of the y-encoded field, required when `rows` is set for AUDIT-10."),
+        schema: z
+          .array(z.object({ name: z.string() }).passthrough())
+          .optional()
+          .describe(
+            "Column metadata (positional, aligned to `rows`). Required when `rows` is set so AUDIT-10 can index into row[i][yIdx].",
+          ),
       },
     },
-    async ({ spec, rowCount, colorCardinality }) => {
+    async ({ spec, rowCount, colorCardinality, rows, yField, schema }) => {
       const parsed = safeParseSpec(spec);
       if (!parsed.ok) {
         return {
@@ -3193,11 +3239,26 @@ export function createServer(state: ServerState = new ServerState()): {
           ],
         };
       }
-      const findings = auditSpec({
+      const structural = auditSpec({
         spec: parsed.spec,
         ...(rowCount !== undefined ? { rowCount } : {}),
         ...(colorCardinality !== undefined ? { colorCardinality } : {}),
       });
+      // Run the render-time pass when caller supplied data. The two
+      // passes don't overlap: structural reads spec only, render-time
+      // reads rows + spec.data.onMissing. Concatenated findings stay
+      // sorted by severity (since both passes already sort internally
+      // and severity ordering is deterministic).
+      const renderTime =
+        rows !== undefined && yField !== undefined && schema !== undefined
+          ? renderTimeAuditFindings(
+              parsed.spec,
+              rows as ReadonlyArray<ReadonlyArray<unknown>>,
+              yField,
+              schema as ReadonlyArray<{ readonly name: string }>,
+            )
+          : [];
+      const findings = [...structural, ...renderTime];
       return {
         content: [
           {

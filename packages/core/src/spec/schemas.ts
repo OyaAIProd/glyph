@@ -592,6 +592,16 @@ export const LayerSchema = z
   .refine((l) => l.mark !== "math-text" || (typeof l.expr === "string" && l.expr.length > 0), {
     message: "Layer with mark 'math-text' requires a non-empty 'expr' field.",
   })
+  // Moat 3 review IMPORTANT-3 — layer-level `data.onMissing` is silently
+  // ignored by the compiler (it only reads `spec.data.onMissing`). Reject
+  // it at parse time so the agent isn't surprised by silent skip
+  // behavior. Honoring per-layer overrides requires a separate
+  // materialization pass and is queued for a follow-up.
+  .refine((l) => l.data?.onMissing === undefined, {
+    message:
+      "Per-layer `data.onMissing` overrides are not yet supported. Set onMissing on the top-level `data` block instead.",
+    path: ["data", "onMissing"],
+  })
   // Math PR4 review BLOCKER-B1 — the math-text-only fields `expr`, `fontSize`,
   // `color`, `align`, `at` live at the layer level because they don't fit the
   // per-row encoding model. Without this gate, a `mark: "line"` layer could

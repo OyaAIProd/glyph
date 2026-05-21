@@ -425,7 +425,8 @@ export function renderTimeAuditFindings(
   if (total === 0) return out;
   const frac = missing / total;
   if (frac <= AUDIT_10_THRESHOLD) return out;
-  if (missing === 0) return out;
+  // NIT-1 from review: the prior threshold guard already filters
+  // `missing === 0` (frac would be 0). Dropped the redundant check.
   const pct = Math.round(frac * 1000) / 10; // one decimal place
   out.push({
     rule_id: "AUDIT-10",

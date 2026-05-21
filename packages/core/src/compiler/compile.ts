@@ -2122,7 +2122,11 @@ function buildPoints(
           y: roundPx(yBaseline),
           text: "✕",
           fontSize: 10,
-          fill: theme.fg,
+          // NIT-2 from review: theme.axis is the muted shade. theme.fg
+          // would match titles + (on monochrome themes) the line stroke,
+          // making the callout vanish into the line. axis is the
+          // right "secondary signal" tier.
+          fill: theme.axis,
           anchor: "middle",
           baseline: "middle",
           tooltip: `Missing value at x=${xv == null ? "" : String(xv)}`,
@@ -2258,7 +2262,12 @@ function buildLines(
       continue;
     }
     // Split into runs of solid + dashed sub-paths. A segment from
-    // p[i-1] to p[i] is dashed iff p[i].interpolated is true.
+    // p[i-1] to p[i] is dashed iff EITHER endpoint is interpolated —
+    // not just the trailing point. Without the `||`, a single-gap
+    // sequence [A, null, B] produces a dashed A→bridge segment but
+    // a solid bridge→B segment (Moat 3 review IMPORTANT-1). Same
+    // problem on multi-row gaps: every exit edge lost the dash.
+    // Both endpoints flagged → the full bridge stroke is dashed.
     const solidSegs: string[] = [];
     const dashedSegs: string[] = [];
     for (let i = 1; i < pts.length; i++) {
@@ -2266,7 +2275,7 @@ function buildLines(
       const b = pts[i];
       if (!a || !b) continue;
       const seg = `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
-      if (b.interpolated) dashedSegs.push(seg);
+      if (a.interpolated || b.interpolated) dashedSegs.push(seg);
       else solidSegs.push(seg);
     }
     if (solidSegs.length > 0) {
@@ -2294,7 +2303,8 @@ function buildLines(
       y: roundPx(yBaseline),
       text: "✕",
       fontSize: 10,
-      fill: theme.fg,
+      // NIT-2 from review — see the matching point-mark callout above.
+      fill: theme.axis,
       anchor: "middle",
       baseline: "middle",
       tooltip: `Missing value at x=${c.xRaw == null ? "" : String(c.xRaw)}`,
