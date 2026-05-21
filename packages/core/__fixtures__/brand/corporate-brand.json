@@ -1,0 +1,43 @@
+{
+  "version": "glyph/0.1",
+  "title": "Quarterly revenue (corporate brand)",
+  "data": {
+    "function": {
+      "shape": "function",
+      "x": { "min": 0, "max": 6.283185307179586, "samples": 24 },
+      "expr": "10 + 5 * sin(x)"
+    }
+  },
+  "layers": [
+    {
+      "mark": "bar",
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "scale": { "domain": [0, 20] }
+        }
+      }
+    }
+  ],
+  "brand": {
+    "format": "glyph-brand/1",
+    "palette": {
+      "categorical": ["#1d4ed8", "#f59e0b", "#10b981", "#ef4444"],
+      "surface": {
+        "fg": "#0f172a",
+        "bg": "#ffffff",
+        "muted": "#64748b",
+        "border": "#e2e8f0"
+      }
+    },
+    "typography": {
+      "fontFamily": "Inter, ui-sans-serif, sans-serif",
+      "fontSize": 13,
+      "titleScale": 1.2
+    },
+    "spacing": { "unit": 4, "plotMargin": 4 },
+    "accessibility": { "minContrastRatio": 4.5, "colorBlindSafe": true }
+  }
+}

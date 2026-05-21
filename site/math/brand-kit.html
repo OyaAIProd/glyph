@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Brand-kit theming · Glyph examples</title>
+    <meta
+      name="description"
+      content="Compositional design tokens. Declare a BrandKit once, every chart inherits it. Dark mode is one swap of palette.surface."
+    />
+    <link rel="stylesheet" href="./_shared.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='2' y='9' width='2' height='5' fill='%231d4ed8'/%3E%3Crect x='6' y='5' width='2' height='9' fill='%23f59e0b'/%3E%3Crect x='10' y='2' width='2' height='12' fill='%2310b981'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <header>
+      <div class="wrap nav">
+        <div class="logo">
+          <svg width="22" height="22" viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="2" y="9" width="2" height="5" fill="#1d4ed8" />
+            <rect x="6" y="5" width="2" height="9" fill="#f59e0b" />
+            <rect x="10" y="2" width="2" height="12" fill="#10b981" />
+          </svg>
+          <a href="../">Glyph</a>
+          <span class="crumb"><a href="./">Examples</a></span>
+          <span class="crumb">Brand-kit theming</span>
+        </div>
+        <nav class="nav-links">
+          <a href="./">All examples</a>
+          <a href="../play/">Playground</a>
+          <a href="https://github.com/seanhanca/glyph">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="demo-hero wrap">
+        <span class="eyebrow">Moat PR4 · compositional theming</span>
+        <h1>One brand kit. Light + dark in one swap.</h1>
+        <p class="lede">
+          Vega themes are flat. Plotly templates are opaque JSON blobs.
+          D3 makes you re-style every chart by hand. Glyph compiles a
+          structured <code>BrandKit</code> — palette, typography,
+          spacing, a11y — into every chart, and lets dark mode happen
+          with a single swap of <code>palette.surface</code>.
+        </p>
+      </section>
+
+      <section class="wrap">
+        <div class="chart-card">
+          <img
+            src="./brand-corporate.svg"
+            alt="A corporate-branded bar chart with the light surface block."
+          />
+        </div>
+
+        <div class="chart-card">
+          <img
+            src="./brand-corporate-dark.svg"
+            alt="The same chart re-rendered with a dark surface block — same categorical palette, same data."
+          />
+        </div>
+
+        <h3>Spec</h3>
+        <div class="spec-block">
+          <button class="copy-btn" data-target="spec-brand">Copy</button>
+          <pre id="spec-brand">{
+  <span class="str">"version"</span>: <span class="str">"glyph/0.1"</span>,
+  <span class="str">"data"</span>: { <span class="str">"function"</span>: { <span class="str">"shape"</span>: <span class="str">"function"</span>,
+    <span class="str">"x"</span>: { <span class="str">"min"</span>: <span class="num">0</span>, <span class="str">"max"</span>: <span class="num">6.283</span>, <span class="str">"samples"</span>: <span class="num">24</span> },
+    <span class="str">"expr"</span>: <span class="str">"10 + 5 * sin(x)"</span> } },
+  <span class="str">"layers"</span>: [{ <span class="str">"mark"</span>: <span class="str">"bar"</span>,
+    <span class="str">"encoding"</span>: { <span class="str">"x"</span>: <span class="str">"x"</span>,
+      <span class="str">"y"</span>: { <span class="str">"field"</span>: <span class="str">"y"</span>, <span class="str">"scale"</span>: { <span class="str">"domain"</span>: [<span class="num">0</span>, <span class="num">20</span>] } } } }],
+  <span class="str">"brand"</span>: {
+    <span class="str">"format"</span>: <span class="str">"glyph-brand/1"</span>,
+    <span class="str">"palette"</span>: {
+      <span class="str">"categorical"</span>: [<span class="str">"#1d4ed8"</span>, <span class="str">"#f59e0b"</span>, <span class="str">"#10b981"</span>, <span class="str">"#ef4444"</span>],
+      <span class="str">"surface"</span>: { <span class="str">"fg"</span>: <span class="str">"#0f172a"</span>, <span class="str">"bg"</span>: <span class="str">"#ffffff"</span>,
+                   <span class="str">"muted"</span>: <span class="str">"#64748b"</span>, <span class="str">"border"</span>: <span class="str">"#e2e8f0"</span> }
+    },
+    <span class="str">"typography"</span>: { <span class="str">"fontFamily"</span>: <span class="str">"Inter, sans-serif"</span>,
+                    <span class="str">"fontSize"</span>: <span class="num">13</span>, <span class="str">"titleScale"</span>: <span class="num">1.2</span> },
+    <span class="str">"spacing"</span>: { <span class="str">"unit"</span>: <span class="num">4</span>, <span class="str">"plotMargin"</span>: <span class="num">4</span> },
+    <span class="str">"accessibility"</span>: { <span class="str">"minContrastRatio"</span>: <span class="num">4.5</span>,
+                       <span class="str">"colorBlindSafe"</span>: <span class="num">true</span> }
+  }
+}</pre>
+        </div>
+
+        <div class="callout">
+          <strong>Composition:</strong> dark mode is one swap of
+          <code>palette.surface</code> — the categorical palette,
+          typography, and spacing stay identical. The same trick scales
+          to N charts that share a brand kit: declare once, reuse
+          everywhere.
+        </div>
+
+        <div class="callout">
+          <strong>Accessibility is a token, not a footnote:</strong>
+          <code>accessibility.minContrastRatio</code> is enforced by
+          <strong>AUDIT-11</strong>, which fires the moment fg/bg drop
+          below the threshold. Set <code>colorBlindSafe: true</code> and
+          the auditor also checks the categorical palette under a
+          deuteranopia simulation matrix.
+        </div>
+
+        <div class="cta-row">
+          <a class="cta" href="../play/">Try it in the playground</a>
+          <a
+            class="cta cta-ghost"
+            href="https://github.com/seanhanca/glyph/blob/main/packages/core/__fixtures__/brand/corporate-brand.json"
+            >View the fixture on GitHub</a
+          >
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <p>
+          <a href="./">← All examples</a>
+        </p>
+      </div>
+    </footer>
+
+    <script>
+      for (const btn of document.querySelectorAll(".copy-btn")) {
+        btn.addEventListener("click", async () => {
+          const el = document.getElementById(btn.dataset.target);
+          if (!el) return;
+          const text = el.textContent;
+          try {
+            await navigator.clipboard.writeText(text);
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(() => {
+              btn.textContent = "Copy";
+              btn.classList.remove("copied");
+            }, 1400);
+          } catch (e) {
+            btn.textContent = "Press Ctrl+C";
+            setTimeout(() => (btn.textContent = "Copy"), 1400);
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

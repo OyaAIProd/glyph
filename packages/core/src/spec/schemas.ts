@@ -735,6 +735,102 @@ export const ThemeConfigSchema = z
   })
   .strict();
 
+// ---------------------------------------------------------------------------
+// Moat PR4 — BrandKit (compositional theme tokens)
+//
+// A BrandKit is a structured, reusable bundle of design tokens (palette
+// + typography + spacing + a11y). It is the higher-level abstraction over
+// `theme:` — designers and agents declare a brand once and every chart
+// inherits it. Dark mode is one token swap on `palette.surface`.
+//
+// The renderer resolves a BrandKit into the flat `Theme` tokens it already
+// understands (via `brandKitToTheme()` in render/brand.ts). When both
+// `brand` and `theme` are set on a spec, brand wins for the surface +
+// categorical palette; explicit `theme:` keys merge on top as overrides.
+// ---------------------------------------------------------------------------
+
+/** Surface tokens — what the existing theme.{bg,fg,axis,grid} map to. */
+export const BrandSurfaceSchema = z
+  .object({
+    /** Foreground (titles, labels, default mark stroke). */
+    fg: z.string().min(1),
+    /** Chart canvas background. */
+    bg: z.string().min(1),
+    /** Muted accent (subtitles, secondary labels, axis lines). */
+    muted: z.string().min(1),
+    /** Border / grid color. */
+    border: z.string().min(1),
+  })
+  .strict();
+
+export const BrandPaletteSchema = z
+  .object({
+    /** Primary categorical colors — mark fills, line strokes. >= 1. */
+    categorical: z.array(z.string().min(1)).min(1),
+    /** Sequential ramp for continuous color encodings. >= 2 stops. */
+    sequential: z.array(z.string().min(1)).min(2).optional(),
+    /** Diverging ramp (e.g. red-white-blue) for signed quantities. */
+    diverging: z.array(z.string().min(1)).min(3).optional(),
+    /** Surface colors — derived theme.bg/fg/grid. */
+    surface: BrandSurfaceSchema,
+  })
+  .strict();
+
+export const BrandTypographySchema = z
+  .object({
+    /** CSS font-family stack. */
+    fontFamily: z.string().min(1),
+    /** Base font size in px. */
+    fontSize: z.number().positive(),
+    /** Title scale multiplier (e.g. 1.2 → titles are 1.2× fontSize). */
+    titleScale: z.number().positive(),
+  })
+  .strict();
+
+export const BrandSpacingSchema = z
+  .object({
+    /** Padding unit in px. All chart paddings derive from this. */
+    unit: z.number().positive(),
+    /** Plot-area margin multiplier (e.g. 4 → 4×unit padding). */
+    plotMargin: z.number().positive(),
+  })
+  .strict();
+
+export const BrandAccessibilitySchema = z
+  .object({
+    /**
+     * Minimum WCAG contrast ratio for fg/bg. Brands violating this
+     * threshold emit an AUDIT-11 finding.
+     */
+    minContrastRatio: z.number().positive(),
+    /**
+     * When true, the categorical palette is validated under a deuteranopia
+     * simulation matrix. Palettes that collapse two entries to
+     * indistinguishable hues trigger AUDIT-11 with the offending pair.
+     */
+    colorBlindSafe: z.boolean().optional(),
+  })
+  .strict();
+
+/**
+ * BrandKit — Moat PR4. A reusable bundle of design tokens.
+ *
+ * The wire format version is `"glyph-brand/1"`; bump on breaking shape
+ * changes. The renderer compiles a BrandKit to a Theme via
+ * `brandKitToTheme()`; the contrast/colour-blind checks live in the
+ * audit module (AUDIT-11).
+ */
+export const BrandKitSchema = z
+  .object({
+    /** Schema version. */
+    format: z.literal("glyph-brand/1"),
+    palette: BrandPaletteSchema,
+    typography: BrandTypographySchema,
+    spacing: BrandSpacingSchema,
+    accessibility: BrandAccessibilitySchema,
+  })
+  .strict();
+
 export const GlyphSpecSchema = z
   .object({
     /**
@@ -760,6 +856,14 @@ export const GlyphSpecSchema = z
      * with brand colors. Defaults to "light".
      */
     theme: z.union([z.enum(["light", "dark"]), ThemeConfigSchema]).optional(),
+    /**
+     * Moat PR4 — compositional brand kit. When set, the renderer resolves
+     * the legacy `theme:` tokens from `brand` first, then merges any
+     * explicit `theme:` overrides on top. `brand:` wins for palette +
+     * surface colors. See BrandKitSchema for the shape; see
+     * `brandKitToTheme()` in render/brand.ts for the resolution rule.
+     */
+    brand: BrandKitSchema.optional(),
     /**
      * BCP-47 locale used for number / date tick formatting. Defaults to
      * "en-US" so snapshot tests stay byte-identical across machines. Set

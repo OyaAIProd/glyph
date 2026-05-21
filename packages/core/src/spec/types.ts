@@ -16,6 +16,12 @@
 import type { z } from "zod";
 import type {
   ActionSchema,
+  BrandAccessibilitySchema,
+  BrandKitSchema,
+  BrandPaletteSchema,
+  BrandSpacingSchema,
+  BrandSurfaceSchema,
+  BrandTypographySchema,
   ChannelSchema,
   CoordinatesSchema,
   DataSourceSchema,
@@ -195,6 +201,48 @@ export type ThemeConfig = z.infer<typeof ThemeConfigSchema>;
  *   render(myBrand) // pass to glyph_render in spec.theme
  */
 export function defineTheme(config: ThemeConfig): ThemeConfig {
+  return config;
+}
+
+/**
+ * Moat PR4 — compositional BrandKit. Bundles palette + typography +
+ * spacing + a11y tokens so designers and agents declare a brand once
+ * and every chart inherits it. Dark mode is one swap of
+ * `palette.surface`.
+ *
+ * When a spec sets both `brand:` and `theme:`, brand wins for the
+ * surface + categorical palette; `theme:` keys merge on top as
+ * explicit overrides.
+ */
+export type BrandKit = z.infer<typeof BrandKitSchema>;
+export type BrandPalette = z.infer<typeof BrandPaletteSchema>;
+export type BrandSurface = z.infer<typeof BrandSurfaceSchema>;
+export type BrandTypography = z.infer<typeof BrandTypographySchema>;
+export type BrandSpacing = z.infer<typeof BrandSpacingSchema>;
+export type BrandAccessibility = z.infer<typeof BrandAccessibilitySchema>;
+
+/**
+ * Helper to build a BrandKit. Pure identity at runtime; gives callers
+ * TS inference and a discoverable API, mirroring `defineTheme`.
+ *
+ *   const acme = defineBrandKit({
+ *     format: "glyph-brand/1",
+ *     palette: {
+ *       categorical: ["#1d4ed8", "#f59e0b", "#10b981"],
+ *       surface: { fg: "#0f172a", bg: "#ffffff",
+ *                  muted: "#64748b", border: "#e2e8f0" },
+ *     },
+ *     typography: { fontFamily: "Inter, sans-serif",
+ *                   fontSize: 13, titleScale: 1.2 },
+ *     spacing: { unit: 4, plotMargin: 4 },
+ *     accessibility: { minContrastRatio: 4.5, colorBlindSafe: true },
+ *   });
+ *   const acmeDark = { ...acme,
+ *     palette: { ...acme.palette,
+ *       surface: { fg: "#f1f5f9", bg: "#0b1220",
+ *                  muted: "#94a3b8", border: "#1e293b" } } };
+ */
+export function defineBrandKit(config: BrandKit): BrandKit {
   return config;
 }
 

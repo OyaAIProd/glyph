@@ -23,6 +23,10 @@
  *                     doesn't specify what it is).
  *   AUDIT-09 (medium) Stacked layers on top of negative values
  *                     (numeric reading is ambiguous; bars can cancel).
+ *   AUDIT-11 (medium) Brand-kit accessibility — surface fg/bg contrast
+ *                     ratio below the declared `minContrastRatio`, or
+ *                     categorical palette collapses under deuteranopia
+ *                     simulation when `colorBlindSafe` is set.
  *
  * Reserved (planned for a follow-up; not yet implemented):
  *   AUDIT-05 — Time axis with gaps. Needs a temporal-axis schema check
@@ -34,6 +38,7 @@
  * adding rules is a single-file extension.
  */
 
+import { checkBrandContrast } from "../render/brand.js";
 import type { Channel, Encoding, GlyphSpec, Layer } from "../spec/types.js";
 
 /** Severity tiers — `high` typically gates rendering when strictness=error. */
@@ -80,6 +85,7 @@ export function auditSpec(input: AuditInput): ReadonlyArray<AuditFinding> {
   auditColorCount(out, input.colorCardinality);
   auditAspectRatio(out, spec);
   auditStackedNegatives(out, spec);
+  auditBrandContrast(out, spec);
   return out.sort((a, b) => {
     const sa = severityRank(a.severity);
     const sb = severityRank(b.severity);
@@ -285,6 +291,30 @@ function auditStackedNegatives(out: AuditFinding[], spec: GlyphSpec): void {
       });
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Rule: AUDIT-11 — brand-kit accessibility (Moat PR4)
+//
+// Fires when the spec sets `brand:` AND the brand kit fails its
+// declared `accessibility.minContrastRatio` or (when
+// `colorBlindSafe` is set) the categorical palette collapses to
+// indistinguishable hues under deuteranope simulation.
+// ---------------------------------------------------------------------------
+
+function auditBrandContrast(out: AuditFinding[], spec: GlyphSpec): void {
+  if (spec.brand === undefined) return;
+  const failure = checkBrandContrast(spec.brand);
+  if (failure === null) return;
+  const { a, b, ratio } = failure.failing;
+  out.push({
+    rule_id: "AUDIT-11",
+    severity: "medium",
+    message: `Brand kit accessibility violation: colors ${a} and ${b} fail the declared check (computed value ${ratio.toFixed(2)}, threshold ${spec.brand.accessibility.minContrastRatio}).`,
+    suggestion:
+      "Adjust palette.surface.fg / palette.surface.bg to clear the contrast threshold, or pick categorical hues that stay distinct under color-blind simulation.",
+    path: "/brand/palette",
+  });
 }
 
 // ---------------------------------------------------------------------------

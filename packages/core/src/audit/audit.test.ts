@@ -237,4 +237,86 @@ describe("auditSpec", () => {
     const b = auditSpec({ spec: minimalBarSpec, rowCount: 3 });
     expect(a).toEqual(b);
   });
+
+  // -------------------------------------------------------------------------
+  // AUDIT-11 — brand-kit accessibility (Moat PR4)
+  // -------------------------------------------------------------------------
+
+  it("AUDIT-11: flags grey-on-grey surface that fails minContrastRatio", () => {
+    const out = auditSpec({
+      spec: {
+        ...minimalBarSpec,
+        brand: {
+          format: "glyph-brand/1",
+          palette: {
+            categorical: ["#1d4ed8"],
+            surface: {
+              fg: "#888888",
+              bg: "#999999",
+              muted: "#aaaaaa",
+              border: "#bbbbbb",
+            },
+          },
+          typography: { fontFamily: "Inter", fontSize: 13, titleScale: 1.2 },
+          spacing: { unit: 4, plotMargin: 4 },
+          accessibility: { minContrastRatio: 4.5 },
+        },
+      },
+    });
+    const finding = out.find((f) => f.rule_id === "AUDIT-11");
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe("medium");
+    expect(finding?.message).toContain("#888888");
+    expect(finding?.message).toContain("#999999");
+    expect(finding?.path).toBe("/brand/palette");
+  });
+
+  it("AUDIT-11: does NOT flag a compliant brand kit", () => {
+    const out = auditSpec({
+      spec: {
+        ...minimalBarSpec,
+        brand: {
+          format: "glyph-brand/1",
+          palette: {
+            categorical: ["#1d4ed8", "#f59e0b"],
+            surface: {
+              fg: "#0f172a",
+              bg: "#ffffff",
+              muted: "#64748b",
+              border: "#e2e8f0",
+            },
+          },
+          typography: { fontFamily: "Inter", fontSize: 13, titleScale: 1.2 },
+          spacing: { unit: 4, plotMargin: 4 },
+          accessibility: { minContrastRatio: 4.5 },
+        },
+      },
+    });
+    expect(out.some((f) => f.rule_id === "AUDIT-11")).toBe(false);
+  });
+
+  it("AUDIT-11: flags deuteranope-colliding categorical palette when colorBlindSafe is set", () => {
+    const out = auditSpec({
+      spec: {
+        ...minimalBarSpec,
+        brand: {
+          format: "glyph-brand/1",
+          palette: {
+            categorical: ["#ff0000", "#ff1100"],
+            surface: {
+              fg: "#0f172a",
+              bg: "#ffffff",
+              muted: "#64748b",
+              border: "#e2e8f0",
+            },
+          },
+          typography: { fontFamily: "Inter", fontSize: 13, titleScale: 1.2 },
+          spacing: { unit: 4, plotMargin: 4 },
+          accessibility: { minContrastRatio: 4.5, colorBlindSafe: true },
+        },
+      },
+    });
+    const finding = out.find((f) => f.rule_id === "AUDIT-11");
+    expect(finding).toBeDefined();
+  });
 });

@@ -39,6 +39,7 @@ import {
   squarifiedTreemap,
 } from "../layout/hierarchy.js";
 import { LIBRARY_VERSION } from "../capabilities.js";
+import { brandKitToTheme, mergeBrandWithTheme } from "../render/brand.js";
 import { computeProvenance, type ProvenanceScales } from "../render/provenance.js";
 import type {
   AxisTick,
@@ -299,8 +300,22 @@ const DARK_THEME: Theme = {
  * - undefined / "light" → LIGHT_THEME
  * - "dark"               → DARK_THEME
  * - ThemeConfig          → user palette + tokens, normalized to internal shape
+ *
+ * Moat PR4 — when `spec.brand` is set, the brand kit resolves to a
+ * Theme first; any explicit `spec.theme` ThemeConfig then layers on
+ * top as overrides. `brand:` wins for surface + categorical palette
+ * when no explicit override is set.
  */
-function resolveTheme(specTheme: GlyphSpec["theme"]): Theme {
+function resolveTheme(spec: GlyphSpec): Theme {
+  const specTheme = spec.theme;
+  if (spec.brand !== undefined) {
+    // Brand-only: derive everything from the kit.
+    if (specTheme === undefined || specTheme === "light" || specTheme === "dark") {
+      return brandKitToTheme(spec.brand);
+    }
+    // Brand + explicit ThemeConfig: merge (explicit keys win).
+    return mergeBrandWithTheme(spec.brand, specTheme);
+  }
   if (specTheme === undefined || specTheme === "light") return LIGHT_THEME;
   if (specTheme === "dark") return DARK_THEME;
   // Custom ThemeConfig — Zod has already validated structure + non-empty palette.
@@ -674,7 +689,7 @@ export function compileSpec(input: CompileInput): Scene {
   }
   const width = spec.width ?? DEFAULT_WIDTH;
   const height = spec.height ?? DEFAULT_HEIGHT;
-  const theme = resolveTheme(spec.theme);
+  const theme = resolveTheme(spec);
   const formatTick = makeTickFormatter(spec.locale);
 
   // Adjust right padding for (a) right-side axis OR (b) a legend that will
@@ -1261,7 +1276,7 @@ function compilePolar(input: CompileInput): Scene {
   const { spec, rows, schema } = input;
   const width = spec.width ?? DEFAULT_WIDTH;
   const height = spec.height ?? DEFAULT_HEIGHT;
-  const theme = resolveTheme(spec.theme);
+  const theme = resolveTheme(spec);
   // Plot area is centered; we don't need left/right axes so just inset.
   const inset = 16;
   const plotArea = input.plotAreaOverride ?? {
@@ -1482,7 +1497,7 @@ function compileHierarchy(input: CompileInput): Scene {
   }
   const width = spec.width ?? DEFAULT_WIDTH;
   const height = spec.height ?? DEFAULT_HEIGHT;
-  const theme = resolveTheme(spec.theme);
+  const theme = resolveTheme(spec);
   const inset = 16;
   const plotArea = input.plotAreaOverride ?? {
     x: inset,
@@ -1613,7 +1628,7 @@ function compileGraph(input: CompileInput): Scene {
   if (!graph) throw new Error("compileGraph called without spec.data.graph");
   const width = spec.width ?? DEFAULT_WIDTH;
   const height = spec.height ?? DEFAULT_HEIGHT;
-  const theme = resolveTheme(spec.theme);
+  const theme = resolveTheme(spec);
   const inset = 16;
   const plotArea = input.plotAreaOverride ?? {
     x: inset,
@@ -1739,7 +1754,7 @@ function compileContour(input: CompileInput): Scene {
   if (!grid) throw new Error("compileContour called without spec.data.grid");
   const width = spec.width ?? DEFAULT_WIDTH;
   const height = spec.height ?? DEFAULT_HEIGHT;
-  const theme = resolveTheme(spec.theme);
+  const theme = resolveTheme(spec);
   const inset = 16;
   const plotArea = input.plotAreaOverride ?? {
     x: inset,
@@ -2733,7 +2748,7 @@ function compileFaceted(input: CompileInput): Scene {
 
   const W = spec.width ?? DEFAULT_WIDTH;
   const H = spec.height ?? DEFAULT_HEIGHT;
-  const theme = resolveTheme(spec.theme);
+  const theme = resolveTheme(spec);
   const facetField = spec.facet.col;
 
   const values = distinctOrdered(rows, schema, facetField);

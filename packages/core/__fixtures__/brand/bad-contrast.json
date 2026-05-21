@@ -1,0 +1,43 @@
+{
+  "version": "glyph/0.1",
+  "title": "Brand kit with grey-on-grey surface (trips AUDIT-11)",
+  "data": {
+    "function": {
+      "shape": "function",
+      "x": { "min": 0, "max": 6.283185307179586, "samples": 12 },
+      "expr": "5 + 3 * sin(x)"
+    }
+  },
+  "layers": [
+    {
+      "mark": "bar",
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "scale": { "domain": [0, 10] }
+        }
+      }
+    }
+  ],
+  "brand": {
+    "format": "glyph-brand/1",
+    "palette": {
+      "categorical": ["#888888"],
+      "surface": {
+        "fg": "#888888",
+        "bg": "#999999",
+        "muted": "#aaaaaa",
+        "border": "#bbbbbb"
+      }
+    },
+    "typography": {
+      "fontFamily": "Inter, ui-sans-serif, sans-serif",
+      "fontSize": 13,
+      "titleScale": 1.2
+    },
+    "spacing": { "unit": 4, "plotMargin": 4 },
+    "accessibility": { "minContrastRatio": 4.5 }
+  }
+}
