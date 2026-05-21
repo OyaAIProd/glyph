@@ -76,7 +76,7 @@ describe("Glyph MCP server", () => {
     rmSync(tempMemoryDir, { recursive: true, force: true });
   });
 
-  it("lists the fifty-one tools", async () => {
+  it("lists the fifty tools", async () => {
     const r = await client.listTools();
     const names = r.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -118,6 +118,7 @@ describe("Glyph MCP server", () => {
       "glyph_render",
       "glyph_spec_diff",
       "glyph_spec_patch",
+      "glyph_story",
       "glyph_story_await_checkpoint",
       "glyph_story_clarify",
       "glyph_story_execute",
@@ -181,6 +182,7 @@ describe("Glyph MCP server", () => {
       "glyph_render",
       "glyph_spec_diff",
       "glyph_spec_patch",
+      "glyph_story",
       "glyph_story_await_checkpoint",
       "glyph_story_clarify",
       "glyph_story_execute",
@@ -3103,6 +3105,84 @@ describe("Glyph MCP server", () => {
         plan_id: "nope",
         answers: [{ field: "y", choice: "rides" }],
       });
+      expect(r.isError).toBe(true);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // glyph_story (Joy of Math PR E5) — natural-language composer
+  //
+  // The verb is a pure recipe-lookup; no engine state is involved. These
+  // tests focus on the handler contract: matched intent → spec + caption
+  // sequence; unmatched intent → empty spec + recipe list in
+  // explanation.suggestedFollowups; arg validation rejects out-of-range
+  // duration. The composer's own determinism + recipe coverage are
+  // exercised at the unit level in `packages/core/src/story/compose.test.ts`.
+  // ---------------------------------------------------------------------------
+  describe("glyph_story (Joy of Math PR E5 — natural-language composer)", () => {
+    it("composes a sine-wave story from a kid-targeted intent", async () => {
+      const r = await callText(client, "glyph_story", {
+        intent: "show me a sine wave for an 8-year-old",
+        audience: "kid",
+      });
+      expect(r.isError).toBe(false);
+      const out = JSON.parse(r.text);
+      // Spec must round-trip through the parser — guards against the
+      // composer drifting away from the Glyph schema.
+      expect(out.spec).toBeDefined();
+      expect(Array.isArray(out.spec.layers)).toBe(true);
+      expect(out.spec.layers.length).toBeGreaterThan(0);
+      // Kid audience → playground theme by default.
+      expect(out.spec.theme).toBe("playground");
+      // Multi-scene timeline is the whole point of the bar-raiser.
+      expect(out.spec.animation?.kind).toBe("timeline");
+      expect(out.spec.animation?.scenes?.length).toBeGreaterThanOrEqual(2);
+      // M2 explanation envelope is attached and follows the structured
+      // shape — at minimum a headline + a non-empty followups list.
+      expect(out.explanation).toBeDefined();
+      expect(typeof out.explanation.headline).toBe("string");
+      // Caption sequence is a flat scene→text→at_ms list the UI can
+      // subscribe to without re-parsing the spec.
+      expect(Array.isArray(out.caption_sequence)).toBe(true);
+      expect(out.caption_sequence.length).toBeGreaterThan(0);
+      for (const cap of out.caption_sequence) {
+        expect(typeof cap.scene).toBe("string");
+        expect(typeof cap.text).toBe("string");
+        expect(typeof cap.at_ms).toBe("number");
+      }
+    });
+
+    it("returns the same JSON bytes for identical inputs (determinism)", async () => {
+      const r1 = await callText(client, "glyph_story", {
+        intent: "show me a parabola",
+        audience: "kid",
+      });
+      const r2 = await callText(client, "glyph_story", {
+        intent: "show me a parabola",
+        audience: "kid",
+      });
+      expect(r1.text).toBe(r2.text);
+    });
+
+    it("falls back to a recipe-list explanation on unknown intent", async () => {
+      const r = await callText(client, "glyph_story", {
+        intent: "make me a piano",
+      });
+      expect(r.isError).toBe(false);
+      const out = JSON.parse(r.text);
+      // Empty spec is the documented no-match signal — no layers, no
+      // animation. The agent is expected to read `suggestedFollowups`
+      // and prompt the user with a known recipe.
+      expect(out.spec.layers ?? []).toEqual([]);
+      expect(out.explanation.suggestedFollowups?.length ?? 0).toBeGreaterThan(0);
+    });
+
+    it("rejects an out-of-range duration_ms via the input schema", async () => {
+      const r = await callText(client, "glyph_story", {
+        intent: "show me a sine wave",
+        duration_ms: 9_999_999,
+      });
+      // MCP validation rejects values > 60_000 (the schema cap).
       expect(r.isError).toBe(true);
     });
   });

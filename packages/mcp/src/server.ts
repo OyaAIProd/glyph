@@ -61,6 +61,7 @@ import {
   buildCausalGraph,
   buildStructuredExplanation,
   compileSpec,
+  composeStory,
   decomposeVariance,
   detectAnomalies,
   diffSpecs,
@@ -191,6 +192,11 @@ const MCP_TOOLS = [
   // a verify verb. Without it, the seal is opaque — agents can't ask
   // "is this SVG genuinely from this spec + data?" through MCP.
   { name: "glyph_verify", since: "0.0.21" },
+  // ---- Joy of Math PR E5 — natural-language story composer -----------
+  // The "bar-raiser" agent-facing endpoint. Same `(intent, audience,
+  // theme, duration_ms)` → same JSON; no LLM call. See the
+  // `glyph_story` handler block below for the full contract.
+  { name: "glyph_story", since: "0.0.22" },
 ] as const;
 
 /** Best-effort browser launcher. Returns true on success. */
@@ -3720,6 +3726,86 @@ export function createServer(state: ServerState = new ServerState()): {
                   total_steps: m.steps.length,
                   completed_steps: completed,
                   steps: stepResults,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }),
+  );
+
+  // ----- glyph_story (Joy of Math PR E5) -----------------------------------
+  // The bar-raiser endpoint. Takes natural-language intent (e.g. "show me a
+  // sine wave for an 8-year-old") and returns a multi-scene Glyph spec
+  // ready to render — composed via a deterministic recipe registry, no LLM
+  // in the loop. Resolves to:
+  //   - spec: Glyph spec embedding M4 BrandKit (E4 preset), E1 annotations,
+  //     E2 traveler, E3 timeline animation
+  //   - explanation: M2 structured Explanation envelope
+  //   - caption_sequence: flat scene→text→at_ms array the UI can subscribe to
+  //
+  // Unrecognized intents return an empty spec + an Explanation whose
+  // suggestedFollowups list the available recipes verbatim, so an agent
+  // (or a kid) can pick the next prompt without guessing.
+  //
+  // No new top-level deps; no LLM; same `(intent, audience, theme,
+  // duration_ms)` → same bytes. Recipe set: sine, cosine, circle, parabola,
+  // vector field (and growing — adding a recipe is one object literal in
+  // `packages/core/src/story/compose.ts`).
+  server.registerTool(
+    "glyph_story",
+    {
+      title: "Compose a kid-persona math story from natural-language intent",
+      description:
+        'Compose a multi-scene Glyph spec from a natural-language intent. Recipe-driven (no LLM call); same inputs → same JSON. Pass `intent` (e.g. "show me a sine wave"); the composer returns `{ spec, explanation, caption_sequence }`. Render the spec via glyph_render; subscribe to caption_sequence to drive any UI text overlay; use explanation.suggestedFollowups to chain to a follow-up prompt. When the intent does not match a known recipe the result is an empty spec + an explanation listing the available recipes. Recipes today: sine, cosine, circle, parabola, vector field.',
+      inputSchema: {
+        intent: z
+          .string()
+          .min(1)
+          .max(512)
+          .describe(
+            'Natural-language phrase. "show me a sine wave", "draw a circle and explain pi", "what is a parabola".',
+          ),
+        audience: z
+          .enum(["kid", "high-school", "adult"])
+          .optional()
+          .describe(
+            "Reader persona. Default 'kid' — playground theme, larger fonts, simpler captions. 'high-school' uses the light theme with mathematical captions; 'adult' is minimal text.",
+          ),
+        theme: z
+          .enum(["light", "dark", "playground", "3b1b"])
+          .optional()
+          .describe(
+            "BrandKit preset. Defaults: 'playground' for kid audiences, 'light' otherwise.",
+          ),
+        duration_ms: z
+          .number()
+          .int()
+          .positive()
+          .max(60_000)
+          .optional()
+          .describe("Total animation duration in ms. Default 8000."),
+      },
+    },
+    async ({ intent, audience, theme, duration_ms }) =>
+      state.serial(async () => {
+        const result = composeStory({
+          intent,
+          ...(audience !== undefined ? { audience } : {}),
+          ...(theme !== undefined ? { theme } : {}),
+          ...(duration_ms !== undefined ? { duration_ms } : {}),
+        });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  spec: result.spec,
+                  explanation: result.explanation,
+                  caption_sequence: result.caption_sequence,
                 },
                 null,
                 2,

@@ -29,4 +29,5 @@ export * from "./stats/index.js";
 export * from "./layout/index.js";
 export * from "./contour/index.js";
 export * from "./interactions/index.js";
+export * from "./story/index.js";
 export { powScale, quantileScale, thresholdScale } from "./compiler/scales.js";

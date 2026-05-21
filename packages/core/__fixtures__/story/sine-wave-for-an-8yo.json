@@ -1,0 +1,126 @@
+{
+  "version": "glyph/0.1",
+  "title": "Sine wave",
+  "data": {
+    "function": {
+      "shape": "function",
+      "x": {
+        "min": -6.283185307179586,
+        "max": 6.283185307179586,
+        "samples": 120
+      },
+      "expr": "sin(x)"
+    }
+  },
+  "layers": [
+    {
+      "id": "curve",
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "x",
+          "type": "quantitative",
+          "scale": {
+            "domain": [
+              -6.283185307179586,
+              6.283185307179586
+            ]
+          }
+        },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "scale": {
+            "domain": [
+              -1.3,
+              1.3
+            ]
+          }
+        }
+      }
+    },
+    {
+      "mark": "traveler",
+      "encoding": {
+        "x": {
+          "field": "x",
+          "type": "quantitative"
+        },
+        "y": {
+          "field": "y",
+          "type": "quantitative"
+        }
+      },
+      "traveler": {
+        "follow": {
+          "layerId": "curve"
+        },
+        "duration_ms": 4000,
+        "radius": 6,
+        "trail": {
+          "length": 0.2,
+          "fade": true
+        }
+      }
+    },
+    {
+      "mark": "annotation",
+      "encoding": {
+        "x": {
+          "field": "x",
+          "type": "quantitative"
+        },
+        "y": {
+          "field": "y",
+          "type": "quantitative"
+        }
+      },
+      "annotation": {
+        "anchor": {
+          "kind": "coord",
+          "x": 1.5707963267948966,
+          "y": 1
+        },
+        "text": "peak!",
+        "arrow": "auto",
+        "fontSize": 16
+      }
+    }
+  ],
+  "theme": "playground",
+  "animation": {
+    "kind": "timeline",
+    "scenes": [
+      {
+        "id": "draw",
+        "begin_ms": 0,
+        "duration_ms": 2500,
+        "layers": [
+          0
+        ],
+        "caption": "Watch the wave grow"
+      },
+      {
+        "id": "travel",
+        "begin_ms": 2500,
+        "duration_ms": 4000,
+        "layers": [
+          1
+        ],
+        "caption": "A dot rides the wave"
+      },
+      {
+        "id": "peak",
+        "begin_ms": 6500,
+        "duration_ms": 1500,
+        "layers": [
+          2
+        ],
+        "caption": "That's the peak!"
+      }
+    ]
+  },
+  "provenance": {
+    "includeTimestamp": false
+  }
+}
