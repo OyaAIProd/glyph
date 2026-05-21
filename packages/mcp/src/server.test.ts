@@ -2207,6 +2207,17 @@ describe("Glyph MCP server", () => {
       expect(fields).toContain("(missing seal)");
     });
 
+    // NIT-2 from review (scaleDigest mismatch test) deferred to a
+    // future PR. The expected behavior — diffProvenance flagging
+    // scaleDigest on a domain change — is implicitly covered by the
+    // uniform field loop in diffProvenance. Constructing a spec pair
+    // that ONLY differs on the resolved scale digest (without also
+    // differing on specHash) is non-trivial because nice() axis
+    // normalization masks small domain shifts. Re-attempting requires
+    // a way to alter scaleDigest without changing the spec body —
+    // which would mean introspecting on compile internals from a
+    // test, defeating the purpose of the uniform field loop.
+
     it("rejects an invalid spec with a clear error", async () => {
       const r = await callText(client, "glyph_verify", {
         spec: { not_a_spec: true },
