@@ -306,14 +306,36 @@ function auditBrandContrast(out: AuditFinding[], spec: GlyphSpec): void {
   if (spec.brand === undefined) return;
   const failure = checkBrandContrast(spec.brand);
   if (failure === null) return;
-  const { a, b, ratio } = failure.failing;
+  // Moat 4 review NIT-6 + NIT-9: branch on failure kind so the path
+  // points at the specific failing block (surface vs categorical) and
+  // the message distinguishes a WCAG contrast ratio from a deuteranope
+  // distance — they're semantically different signals and the agent
+  // needs both to act on the finding.
+  if (failure.kind === "contrast") {
+    out.push({
+      rule_id: "AUDIT-11",
+      severity: "medium",
+      message:
+        `Brand surface contrast too low: ${failure.a} on ${failure.b} ` +
+        `has WCAG ratio ${failure.ratio.toFixed(2)} (threshold ${failure.threshold}). ` +
+        "Foreground and background are too close for WCAG-compliant text.",
+      suggestion:
+        "Adjust palette.surface.fg or palette.surface.bg until contrastRatio(fg, bg) ≥ accessibility.minContrastRatio.",
+      path: "/brand/palette/surface",
+    });
+    return;
+  }
+  // failure.kind === "color-blind"
   out.push({
     rule_id: "AUDIT-11",
     severity: "medium",
-    message: `Brand kit accessibility violation: colors ${a} and ${b} fail the declared check (computed value ${ratio.toFixed(2)}, threshold ${spec.brand.accessibility.minContrastRatio}).`,
+    message:
+      `Categorical palette pair collapses under deuteranopia: ${failure.a} and ${failure.b} ` +
+      `differ by only ${failure.distance.toFixed(2)} units in simulated RGB ` +
+      `(threshold ${failure.threshold}). Viewers with red-green color blindness will see them as the same color.`,
     suggestion:
-      "Adjust palette.surface.fg / palette.surface.bg to clear the contrast threshold, or pick categorical hues that stay distinct under color-blind simulation.",
-    path: "/brand/palette",
+      "Replace one of the colliding hues with a distinct lightness or chroma. Sites like https://colorbrewer2.org/ list deuteranope-safe palettes.",
+    path: "/brand/palette/categorical",
   });
 }
 

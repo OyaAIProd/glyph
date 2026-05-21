@@ -749,28 +749,61 @@ export const ThemeConfigSchema = z
 // categorical palette; explicit `theme:` keys merge on top as overrides.
 // ---------------------------------------------------------------------------
 
+/**
+ * Strict regex for color literals the brand-kit accepts. Matches:
+ *   - `#rgb` / `#rrggbb` / `#rgba` / `#rrggbbaa` (hex with optional alpha)
+ *   - `rgb(R, G, B)` / `rgba(R, G, B, A)` (the parser clamps overflow + drops alpha)
+ *
+ * Deliberately rejects:
+ *   - Named colors (`"white"`) — parseColor returns null, AUDIT-11 would
+ *     silently see a perfect contrast ratio of 1.0 (i.e. the moat
+ *     defeats itself). Fix per Moat 4 review IMPORTANT-1.
+ *   - HSL / HWB / LAB — parseColor doesn't handle them; tightening the
+ *     schema fails them at parse-time instead of letting them slip
+ *     through to silently pass the audit.
+ *   - Negative or wildly-malformed rgb (e.g. `rgb(-5, 0, 0)`).
+ *
+ * Callers needing named colors should use the matching hex literal.
+ * This is a v0 scope decision — when the renderer grows a full CSS
+ * Color parser we can loosen this.
+ */
+const BRAND_COLOR_RE = /^(?:#[0-9a-fA-F]{3,8}|rgba?\(\s*\d+(?:\s*,\s*\d+){2,3}\s*\))$/;
+const BrandColor = z.string().regex(BRAND_COLOR_RE, {
+  message:
+    "Brand color must be #rgb / #rrggbb / #rrggbbaa / rgb(R,G,B) / rgba(R,G,B,A). Named colors and HSL are rejected so AUDIT-11 can't be silently bypassed.",
+});
+
 /** Surface tokens — what the existing theme.{bg,fg,axis,grid} map to. */
 export const BrandSurfaceSchema = z
   .object({
     /** Foreground (titles, labels, default mark stroke). */
-    fg: z.string().min(1),
+    fg: BrandColor,
     /** Chart canvas background. */
-    bg: z.string().min(1),
+    bg: BrandColor,
     /** Muted accent (subtitles, secondary labels, axis lines). */
-    muted: z.string().min(1),
+    muted: BrandColor,
     /** Border / grid color. */
-    border: z.string().min(1),
+    border: BrandColor,
   })
   .strict();
 
 export const BrandPaletteSchema = z
   .object({
     /** Primary categorical colors — mark fills, line strokes. >= 1. */
-    categorical: z.array(z.string().min(1)).min(1),
-    /** Sequential ramp for continuous color encodings. >= 2 stops. */
-    sequential: z.array(z.string().min(1)).min(2).optional(),
-    /** Diverging ramp (e.g. red-white-blue) for signed quantities. */
-    diverging: z.array(z.string().min(1)).min(3).optional(),
+    categorical: z.array(BrandColor).min(1),
+    /**
+     * Sequential ramp for continuous color encodings. >= 2 stops.
+     *
+     * Math PR4 review IMPORTANT-3 follow-up: brandKitToTheme now
+     * forwards this into theme.sequential so heatmap / contour /
+     * sequential-color-encoded marks honor the brand kit's ramp.
+     */
+    sequential: z.array(BrandColor).min(2).optional(),
+    /**
+     * Diverging ramp (e.g. red-white-blue) for signed quantities.
+     * Forwarded into theme.diverging via brandKitToTheme.
+     */
+    diverging: z.array(BrandColor).min(3).optional(),
     /** Surface colors — derived theme.bg/fg/grid. */
     surface: BrandSurfaceSchema,
   })

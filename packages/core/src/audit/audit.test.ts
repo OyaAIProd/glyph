@@ -268,7 +268,9 @@ describe("auditSpec", () => {
     expect(finding?.severity).toBe("medium");
     expect(finding?.message).toContain("#888888");
     expect(finding?.message).toContain("#999999");
-    expect(finding?.path).toBe("/brand/palette");
+    // Review NIT-6: contrast failures point at /brand/palette/surface
+    // (vs /brand/palette/categorical for color-blind collapses).
+    expect(finding?.path).toBe("/brand/palette/surface");
   });
 
   it("AUDIT-11: does NOT flag a compliant brand kit", () => {

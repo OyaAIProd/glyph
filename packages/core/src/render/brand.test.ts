@@ -150,14 +150,20 @@ describe("checkBrandContrast", () => {
       ...baseBrand,
       palette: {
         ...baseBrand.palette,
-        surface: { fg: "#888888", bg: "#999999", muted: "#aaa", border: "#bbb" },
+        // 3-char hex per the schema regex; the parser expands #aaa → #aaaaaa.
+        surface: { fg: "#888", bg: "#999", muted: "#aaa", border: "#bbb" },
       },
     };
     const result = checkBrandContrast(bad);
     expect(result).not.toBeNull();
-    expect(result?.failing.a).toBe("#888888");
-    expect(result?.failing.b).toBe("#999999");
-    expect(result?.failing.ratio).toBeLessThan(4.5);
+    // Discriminated union — `kind: "contrast"` carries `{a, b, ratio, threshold}`.
+    expect(result?.kind).toBe("contrast");
+    if (result?.kind === "contrast") {
+      expect(result.a).toBe("#888");
+      expect(result.b).toBe("#999");
+      expect(result.ratio).toBeLessThan(4.5);
+      expect(result.threshold).toBe(4.5);
+    }
   });
 
   it("flags a deuteranopia-collapsing palette when colorBlindSafe=true", () => {
@@ -172,6 +178,13 @@ describe("checkBrandContrast", () => {
     };
     const result = checkBrandContrast(colorBlindUnsafe);
     expect(result).not.toBeNull();
+    // Discriminated union — `kind: "color-blind"` carries `{a, b, distance, threshold}`.
+    expect(result?.kind).toBe("color-blind");
+    if (result?.kind === "color-blind") {
+      expect(result.a).toBe("#ff0000");
+      expect(result.b).toBe("#ff1100");
+      expect(result.distance).toBeLessThan(result.threshold);
+    }
   });
 
   it("does NOT flag a colorBlindSafe palette when entries stay distinct under simulation", () => {
@@ -201,5 +214,23 @@ describe("simulateDeuteranopia", () => {
 
   it("is deterministic", () => {
     expect(simulateDeuteranopia([200, 100, 50])).toEqual(simulateDeuteranopia([200, 100, 50]));
+  });
+
+  // Moat 4 review NIT-7: lock the Machado-2009 matrix coefficients against
+  // a known canonical color. Pure red should shift toward olive-yellow-grey
+  // (R channel dominated by the green-row coefficient since red sensitivity
+  // is gone; G and B shift accordingly). A future typo in the matrix
+  // (e.g. swapping 0.860646 and 0.367322) would fail this assertion
+  // immediately, with a precise number rather than a vague "looks wrong."
+  it("produces the canonical red→olive shift for #ff0000 (matrix-coefficient lock)", () => {
+    const [r, g, b] = simulateDeuteranopia([255, 0, 0]);
+    // Expected values derived from the published Machado-2009 deuteranope
+    // severity-1.0 matrix applied to (255, 0, 0):
+    //   r' = 0.367322 * 255 = 93.67  (clamped, in range)
+    //   g' = 0.280085 * 255 = 71.42
+    //   b' = -0.011820 * 255 = -3.01 → clamped to 0
+    expect(r).toBeCloseTo(93.67, 1);
+    expect(g).toBeCloseTo(71.42, 1);
+    expect(b).toBe(0);
   });
 });

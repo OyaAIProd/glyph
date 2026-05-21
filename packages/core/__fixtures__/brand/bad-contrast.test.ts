@@ -34,6 +34,7 @@ describe("brand examples — bad-contrast (moat PR4)", () => {
     expect(finding?.severity).toBe("medium");
     expect(finding?.message).toContain("#888888");
     expect(finding?.message).toContain("#999999");
-    expect(finding?.path).toBe("/brand/palette");
+    // Review NIT-6: contrast failures point at /brand/palette/surface.
+    expect(finding?.path).toBe("/brand/palette/surface");
   });
 });
