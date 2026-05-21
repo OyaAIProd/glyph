@@ -63,7 +63,9 @@ import {
   decomposeVariance,
   detectAnomalies,
   diffSpecs,
+  diffProvenance,
   explainHandle,
+  extractProvenanceFromSvg,
   getCapabilities,
   isTranslateError,
   linearRegression,
@@ -181,6 +183,12 @@ const MCP_TOOLS = [
   { name: "glyph_engagement_query", since: "0.0.19" },
   // ---- PR74 (D3 Gap 3) — morph transitions ----------------------------
   { name: "glyph_morph_render", since: "0.0.20" },
+  // ---- Moat PR1 — cryptographic provenance verification ---------------
+  // The one foundational exception to Phase 2's "zero new MCP verbs"
+  // rule: closing the agent-facing loop on the provenance seal requires
+  // a verify verb. Without it, the seal is opaque — agents can't ask
+  // "is this SVG genuinely from this spec + data?" through MCP.
+  { name: "glyph_verify", since: "0.0.21" },
 ] as const;
 
 /** Best-effort browser launcher. Returns true on success. */
@@ -3255,6 +3263,113 @@ export function createServer(state: ServerState = new ServerState()): {
           return {
             isError: true,
             content: [{ type: "text" as const, text: (err as Error).message ?? String(err) }],
+          };
+        }
+      }),
+  );
+
+  // ----- glyph_verify (Moat PR1) -------------------------------------------
+  // Cryptographic provenance verification. Closes the loop on the seal
+  // every renderSvg attaches: an agent passes a spec + the data it
+  // believes the SVG was rendered against + the SVG itself, and gets
+  // back a clear yes/no plus the list of mismatched fields when no.
+  //
+  // The seal is a pure-fn of (spec, rows, schema, scales,
+  // libraryVersion). Re-rendering on the same inputs produces the same
+  // seal. The verb extracts the embedded seal, re-renders, and diffs.
+  server.registerTool(
+    "glyph_verify",
+    {
+      title: "Verify an SVG's cryptographic provenance seal",
+      description:
+        "Moat PR1 — cryptographic provenance verification. Pass a Glyph `spec`, the `rows` + `schema` you believe the SVG was rendered against, and the rendered `svg` string. The server re-renders against the same inputs and compares the embedded provenance block byte-for-byte. Returns `{ valid: boolean, mismatches: Array<{ field, expected, actual }> }`. Use this to prove that a chart attached to a message was generated from the spec + data the agent thinks it was — foundational for AI-generated content trust.",
+      inputSchema: {
+        spec: z.unknown().describe("The Glyph spec the SVG should hash against."),
+        rows: z
+          .array(z.array(z.unknown()))
+          .describe("Positional rows matching `schema` (parallel to glyph_render's materializer)."),
+        schema: z
+          .array(z.object({ name: z.string(), type: z.string() }))
+          .describe("Column schema (name + DuckDB type string) for the rows."),
+        svg: z.string().min(1).describe("The rendered SVG bytes to verify."),
+      },
+    },
+    async ({ spec, rows, schema, svg }) =>
+      state.serial(async () => {
+        const parsed = safeParseSpec(spec);
+        if (!parsed.ok) {
+          return {
+            isError: true,
+            content: [
+              { type: "text" as const, text: `glyph_verify: spec invalid: ${parsed.error.message}` },
+            ],
+          };
+        }
+        const embedded = extractProvenanceFromSvg(svg);
+        if (!embedded) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    valid: false,
+                    mismatches: [
+                      {
+                        field: "(missing seal)",
+                        expected: "glyph-provenance/1 metadata block",
+                        actual: "no <metadata id=\"glyph-provenance\"> element in SVG",
+                      },
+                    ],
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+          };
+        }
+        try {
+          const recomputed = compileSpec({
+            spec: parsed.spec,
+            rows,
+            schema,
+          }).provenance;
+          if (!recomputed) {
+            // Shouldn't happen — compileSpec always seals — but guard
+            // anyway so a future regression surfaces here, not in a NPE.
+            return {
+              isError: true,
+              content: [
+                {
+                  type: "text" as const,
+                  text: "glyph_verify: compiler produced a scene without provenance (regression)",
+                },
+              ],
+            };
+          }
+          const mismatches = diffProvenance(recomputed, embedded);
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  { valid: mismatches.length === 0, mismatches },
+                  null,
+                  2,
+                ),
+              },
+            ],
+          };
+        } catch (err) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: "text" as const,
+                text: `glyph_verify: re-render failed: ${(err as Error).message ?? String(err)}`,
+              },
+            ],
           };
         }
       }),

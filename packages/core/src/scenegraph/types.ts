@@ -228,6 +228,25 @@ export interface ScenePanel {
   readonly axes: ReadonlyArray<SceneAxis>;
 }
 
+/**
+ * Moat PR1 — Cryptographic provenance seal. Computed by the compiler at
+ * the end of every compile path; emitted by the SVG renderer as an
+ * `<metadata id="glyph-provenance">` child of the root. Same shape as
+ * `ProvenanceBlock` in `../render/provenance.ts`; declared here without
+ * importing to keep the dependency direction (renderer → scenegraph)
+ * one-way.
+ */
+export interface SceneProvenance {
+  readonly format: "glyph-provenance/1";
+  readonly specHash: string;
+  readonly dataHash: string | null;
+  readonly libraryVersion: string;
+  readonly rowCount: number;
+  readonly scaleDigest: string;
+  /** Opt-in ISO 8601 timestamp; omitted by default so SVG bytes stay stable. */
+  readonly generatedAt?: string;
+}
+
 /** The complete scene a renderer consumes. */
 export interface Scene {
   readonly width: number;
@@ -242,6 +261,12 @@ export interface Scene {
   readonly axes: ReadonlyArray<SceneAxis>;
   readonly marks: ReadonlyArray<SceneMark>;
   readonly title?: string;
+  /**
+   * Moat PR1 — cryptographic provenance seal. Optional only for
+   * scenes built by tests / morph-from snapshots / non-spec callers;
+   * `compileSpec` always sets it.
+   */
+  readonly provenance?: SceneProvenance;
   /** When set, the renderer emits data-* attributes for interactivity. */
   readonly schema?: SceneSchema;
   /** Optional legends (color/size/opacity). Renderer places them on the right. */

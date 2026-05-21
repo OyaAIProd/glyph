@@ -68,3 +68,43 @@ describe("renderSvg — determinism", () => {
     expect(a).toBe(b);
   });
 });
+
+describe("renderSvg — provenance seal (Moat PR1)", () => {
+  const sealed: Scene = {
+    ...baseScene,
+    provenance: {
+      format: "glyph-provenance/1",
+      specHash: "a".repeat(64),
+      dataHash: "b".repeat(64),
+      libraryVersion: "0.0.0",
+      rowCount: 3,
+      scaleDigest: "c".repeat(64),
+    },
+  };
+
+  it("emits exactly one <metadata id=\"glyph-provenance\"> element", () => {
+    const out = renderSvg(sealed);
+    const matches = out.match(/<metadata id="glyph-provenance"/g) ?? [];
+    expect(matches.length).toBe(1);
+  });
+
+  it("the metadata payload parses as valid JSON", () => {
+    const out = renderSvg(sealed);
+    const m = out.match(
+      /<metadata id="glyph-provenance"><!\[CDATA\[([\s\S]*?)\]\]><\/metadata>/,
+    );
+    expect(m).not.toBeNull();
+    const parsed = JSON.parse(m?.[1] ?? "null");
+    expect(parsed.format).toBe("glyph-provenance/1");
+    expect(parsed.specHash).toBe("a".repeat(64));
+    expect(parsed.rowCount).toBe(3);
+  });
+
+  it("two renders produce byte-identical SVGs (timestamp opt-in is off)", () => {
+    expect(renderSvg(sealed)).toBe(renderSvg(sealed));
+  });
+
+  it("emits no metadata block when scene.provenance is unset (pre-moat compat)", () => {
+    expect(renderSvg(baseScene)).not.toContain("<metadata");
+  });
+});

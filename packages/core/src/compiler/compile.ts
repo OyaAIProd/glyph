@@ -38,6 +38,8 @@ import {
   partitionLayout,
   squarifiedTreemap,
 } from "../layout/hierarchy.js";
+import { LIBRARY_VERSION } from "../capabilities.js";
+import { computeProvenance, type ProvenanceScales } from "../render/provenance.js";
 import type {
   AxisTick,
   LegendEntry,
@@ -46,6 +48,7 @@ import type {
   SceneAxis,
   SceneLegend,
   SceneMark,
+  SceneProvenance,
   SceneSchema,
   SceneUncertainty,
 } from "../scenegraph/types.js";
@@ -441,6 +444,28 @@ function deriveUncertainty(
     hatchBars: confidence !== "high" || lowSample,
     dimPoints: confidence === "low" || lowSample,
   };
+}
+
+/**
+ * Moat PR1 — Build a `SceneProvenance` block for a compile path. Pure
+ * wrapper around `computeProvenance` that supplies the package version
+ * and the spec's opt-in timestamp flag so callers only have to pass
+ * what they have on hand (the spec, rows, schema, and resolved scales).
+ */
+function buildSceneProvenance(
+  spec: GlyphSpec,
+  rows: ReadonlyArray<ReadonlyArray<unknown>>,
+  schema: ReadonlyArray<CompileFieldInfo>,
+  scales: ProvenanceScales,
+): SceneProvenance {
+  return computeProvenance({
+    spec,
+    rows,
+    schema,
+    scales,
+    libraryVersion: LIBRARY_VERSION,
+    includeTimestamp: spec.provenance?.includeTimestamp === true,
+  });
 }
 
 /** Y-axis side a layer renders against. */
@@ -1187,6 +1212,14 @@ export function compileSpec(input: CompileInput): Scene {
   // PR61 — uncertainty signals from optional provenance.
   const uncertainty = deriveUncertainty(input.provenance, spec.interactive);
 
+  // Moat PR1 — cryptographic provenance seal. Captures the resolved x +
+  // y domains so a regression in scale inference surfaces as a hash
+  // mismatch even when (spec, rows) are unchanged.
+  const scenePr = buildSceneProvenance(spec, rows, schema, {
+    xDomain: xScale.domain,
+    yDomain: leftY?.scale.domain ?? rightY?.scale.domain,
+  });
+
   return {
     width,
     height,
@@ -1199,6 +1232,7 @@ export function compileSpec(input: CompileInput): Scene {
     ...(legends.length > 0 ? { legends } : {}),
     ...(uncertainty ? { uncertainty } : {}),
     ...(spec.animation ? { animation: buildSceneAnimation(spec, rows, schema, marks) } : {}),
+    provenance: scenePr,
   };
 }
 
@@ -1369,6 +1403,13 @@ function compilePolar(input: CompileInput): Scene {
   // Uncertainty (PR61) still works in polar.
   const uncertainty = deriveUncertainty(input.provenance, spec.interactive);
 
+  // Moat PR1 — polar charts don't share x/y scale objects with the
+  // cartesian path; the seal captures the radial geometry instead.
+  const scenePr = buildSceneProvenance(spec, rows, schema, {
+    xDomain: [String(innerR), String(outerR)],
+    yDomain: [startA, endA],
+  });
+
   return {
     width,
     height,
@@ -1379,6 +1420,7 @@ function compilePolar(input: CompileInput): Scene {
     ...(spec.title ? { title: spec.title } : {}),
     ...(legends.length > 0 ? { legends } : {}),
     ...(uncertainty ? { uncertainty } : {}),
+    provenance: scenePr,
   };
 }
 
@@ -1530,6 +1572,14 @@ function compileHierarchy(input: CompileInput): Scene {
 
   const uncertainty = deriveUncertainty(input.provenance, spec.interactive);
 
+  // Moat PR1 — hierarchy charts skip the cartesian scale plumbing; the
+  // seal still captures the plot-area dimensions so a layout regression
+  // surfaces as a scaleDigest mismatch.
+  const scenePr = buildSceneProvenance(spec, input.rows, input.schema, {
+    xDomain: [plotArea.x, plotArea.x + plotArea.width],
+    yDomain: [plotArea.y, plotArea.y + plotArea.height],
+  });
+
   return {
     width,
     height,
@@ -1539,6 +1589,7 @@ function compileHierarchy(input: CompileInput): Scene {
     marks,
     ...(spec.title ? { title: spec.title } : {}),
     ...(uncertainty ? { uncertainty } : {}),
+    provenance: scenePr,
   };
 }
 
@@ -1649,6 +1700,13 @@ function compileGraph(input: CompileInput): Scene {
 
   const uncertainty = deriveUncertainty(input.provenance, spec.interactive);
 
+  // Moat PR1 — graph layout has no shared scale; the seal anchors on
+  // the seeded simulation's bounding box via plotArea.
+  const scenePr = buildSceneProvenance(spec, input.rows, input.schema, {
+    xDomain: [plotArea.x, plotArea.x + plotArea.width],
+    yDomain: [plotArea.y, plotArea.y + plotArea.height],
+  });
+
   return {
     width,
     height,
@@ -1658,6 +1716,7 @@ function compileGraph(input: CompileInput): Scene {
     marks,
     ...(spec.title ? { title: spec.title } : {}),
     ...(uncertainty ? { uncertainty } : {}),
+    provenance: scenePr,
   };
 }
 
@@ -1749,6 +1808,14 @@ function compileContour(input: CompileInput): Scene {
 
   const uncertainty = deriveUncertainty(input.provenance, spec.interactive);
 
+  // Moat PR1 — contour has no input rows table; the seal hashes the
+  // grid's dimensions + threshold list via the spec (the only source
+  // of truth for both).
+  const scenePr = buildSceneProvenance(spec, input.rows, input.schema, {
+    xDomain: [plotArea.x, plotArea.x + plotArea.width],
+    yDomain: [plotArea.y, plotArea.y + plotArea.height],
+  });
+
   return {
     width,
     height,
@@ -1758,6 +1825,7 @@ function compileContour(input: CompileInput): Scene {
     marks,
     ...(spec.title ? { title: spec.title } : {}),
     ...(uncertainty ? { uncertainty } : {}),
+    provenance: scenePr,
   };
 }
 
@@ -2668,6 +2736,10 @@ function compileFaceted(input: CompileInput): Scene {
       marks: [],
       panels: [],
       ...(spec.title ? { title: spec.title } : {}),
+      provenance: buildSceneProvenance(spec, rows, schema, {
+        xDomain: [0, W],
+        yDomain: [0, H],
+      }),
     };
   }
 
@@ -2721,6 +2793,14 @@ function compileFaceted(input: CompileInput): Scene {
     };
   });
 
+  // Moat PR1 — faceted seal hashes the full spec (so it captures every
+  // panel's encoding) + the union of all rows. Each sub-panel's own
+  // provenance was discarded above when we lifted only marks/axes out.
+  const scenePr = buildSceneProvenance(spec, rows, schema, {
+    xDomain: [0, W],
+    yDomain: [0, H],
+  });
+
   return {
     width: W,
     height: H,
@@ -2730,6 +2810,7 @@ function compileFaceted(input: CompileInput): Scene {
     marks: [],
     panels,
     ...(spec.title ? { title: spec.title } : {}),
+    provenance: scenePr,
   };
 }
 

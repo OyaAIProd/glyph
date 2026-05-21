@@ -25,6 +25,7 @@ import type {
   LayerSchema,
   MarkSchema,
   ProjectionSchema,
+  ProvenanceConfigSchema,
   ScaleSchema,
   StatSchema,
   ThemeConfigSchema,
@@ -62,6 +63,9 @@ export type Stat = z.infer<typeof StatSchema>;
 
 /** Opt-in interactivity config (see InteractiveSchema for details). */
 export type InteractiveConfig = z.infer<typeof InteractiveSchema>;
+
+/** Moat PR1 — cryptographic provenance seal config (see ProvenanceConfigSchema). */
+export type ProvenanceConfig = z.infer<typeof ProvenanceConfigSchema>;
 
 /** PR66 — polar-coordinate config (see CoordinatesSchema). */
 export type Coordinates = z.infer<typeof CoordinatesSchema>;

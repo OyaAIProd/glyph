@@ -687,6 +687,21 @@ export const ActionSchema = z
   .strict();
 
 /**
+ * Moat PR1 — Cryptographic provenance seal config. The renderer always
+ * emits the seal; this knob controls one optional field on it.
+ *
+ *   - `includeTimestamp` (default false): when true, the seal carries
+ *     a `generatedAt` ISO 8601 timestamp. Off by default so two renders
+ *     of the same spec produce byte-identical SVGs (the determinism
+ *     contract every other Glyph feature relies on).
+ */
+export const ProvenanceConfigSchema = z
+  .object({
+    includeTimestamp: z.boolean().optional(),
+  })
+  .strict();
+
+/**
  * Spec versions known to the compiler. The compiler dispatches by version so
  * old specs keep working when new features ship. Bumping the major component
  * (\`glyph/0\` → \`glyph/1\`) is the breaking-change signal; minor bumps
@@ -755,6 +770,12 @@ export const GlyphSpecSchema = z
     facet: FacetSchema.optional(),
     /** Opt into data-bound, hydratable SVG output. */
     interactive: InteractiveSchema.optional(),
+    /**
+     * Moat PR1 — cryptographic provenance seal. Always emitted on the
+     * rendered SVG; this object only configures the optional timestamp
+     * field. Omit the field entirely to keep the seal fully deterministic.
+     */
+    provenance: ProvenanceConfigSchema.optional(),
     /** Declarative actions for `glyph_act` — Phase 3 §4. */
     actions: z.array(ActionSchema).optional(),
     /** Map projection — required when any layer uses a `geo-*` mark. */

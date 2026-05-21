@@ -24,6 +24,7 @@ import type {
   SceneMark,
   ScenePanel,
 } from "../scenegraph/types.js";
+import { renderProvenanceMetadata } from "./provenance.js";
 
 const AXIS_COLOR = "#999999";
 const AXIS_LABEL_COLOR = "#333333";
@@ -415,6 +416,10 @@ export function renderSvg(scene: Scene): string {
   const head = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${scene.width} ${scene.height}" width="${scene.width}" height="${scene.height}"${ariaRole}${ariaLabel}${ariaDesribedBy}${rootAttrs}>`;
   // Hidden <desc> for screen-reader-only description.
   const desc = `<desc id="glyph-desc">${esc(scene.title ?? "Glyph chart")}</desc>`;
+  // Moat PR1 — cryptographic provenance seal. Always emitted when the
+  // compiler attaches a block; the rendered SVG becomes a verifiable
+  // artifact (specHash + dataHash + scaleDigest tied to the bytes).
+  const provenance = scene.provenance ? renderProvenanceMetadata(scene.provenance) : "";
   const bg = `<rect x="0" y="0" width="${scene.width}" height="${scene.height}" fill="${esc(scene.background)}"/>`;
   const title = scene.title
     ? `<text x="${scene.width / 2}" y="16" font-family="${FONT_FAMILY}" font-size="14" fill="#1a1a1a" text-anchor="middle" dominant-baseline="middle">${esc(
@@ -435,7 +440,7 @@ export function renderSvg(scene: Scene): string {
   // unused (panels carry their own).
   if (scene.panels && scene.panels.length > 0) {
     const panelStrs = scene.panels.map((p) => renderPanel(p, interactive)).join("");
-    return `${head}${desc}${hoverStyle}${uncertaintyStyle}${bg}${title}${panelStrs}${uncertaintyOverlay}${legends}</svg>\n`;
+    return `${head}${desc}${provenance}${hoverStyle}${uncertaintyStyle}${bg}${title}${panelStrs}${uncertaintyOverlay}${legends}</svg>\n`;
   }
 
   // Grid sits behind marks; axes + legends in front.
@@ -470,7 +475,7 @@ export function renderSvg(scene: Scene): string {
   // SceneMark is present. Returns "" for scenes with no arrows so
   // existing snapshots stay byte-identical.
   const arrowDefs = renderArrowDefs(scene);
-  return `${head}${desc}${hoverStyle}${animationStyle}${uncertaintyStyle}${arrowDefs}${bg}${title}${grid}${marks}${axes}${uncertaintyOverlay}${legends}</svg>\n`;
+  return `${head}${desc}${provenance}${hoverStyle}${animationStyle}${uncertaintyStyle}${arrowDefs}${bg}${title}${grid}${marks}${axes}${uncertaintyOverlay}${legends}</svg>\n`;
 }
 
 /**

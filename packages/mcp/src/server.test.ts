@@ -76,7 +76,7 @@ describe("Glyph MCP server", () => {
     rmSync(tempMemoryDir, { recursive: true, force: true });
   });
 
-  it("lists the fifty tools", async () => {
+  it("lists the fifty-one tools", async () => {
     const r = await client.listTools();
     const names = r.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -128,6 +128,7 @@ describe("Glyph MCP server", () => {
       "glyph_subscribe",
       "glyph_suggest_scale",
       "glyph_trust",
+      "glyph_verify",
       "glyph_whyboard",
       "glyph_whyboard_diff",
     ]);
@@ -190,6 +191,7 @@ describe("Glyph MCP server", () => {
       "glyph_subscribe",
       "glyph_suggest_scale",
       "glyph_trust",
+      "glyph_verify",
       "glyph_whyboard",
       "glyph_whyboard_diff",
     ]);
@@ -2121,6 +2123,99 @@ describe("Glyph MCP server", () => {
       });
       expect(r.isError).toBe(true);
       expect(r.text).toContain("spec_a invalid");
+    });
+  });
+
+  describe("glyph_verify (Moat PR1 — cryptographic provenance seal)", () => {
+    const spec = {
+      data: { source: "inline" },
+      layers: [{ mark: "bar", encoding: { x: "a", y: "b" } }],
+    } as const;
+    const schema = [
+      { name: "a", type: "VARCHAR" },
+      { name: "b", type: "INTEGER" },
+    ];
+    const rows: ReadonlyArray<ReadonlyArray<unknown>> = [
+      ["hi", 1],
+      ["bye", 2],
+    ];
+
+    // Self-render via @glyph/core so the test doesn't depend on
+    // glyph_render's materialize step (which reads from DuckDB).
+    async function renderSelf(): Promise<string> {
+      const { compileSpec, parseSpec, renderSvg } = await import("@glyph/core");
+      return renderSvg(compileSpec({ spec: parseSpec(spec), rows, schema }));
+    }
+
+    it("returns valid=true when the SVG matches the spec + rows + schema", async () => {
+      const svg = await renderSelf();
+      const r = await callText(client, "glyph_verify", { spec, rows, schema, svg });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.text);
+      expect(out.valid).toBe(true);
+      expect(out.mismatches).toEqual([]);
+    });
+
+    it("returns valid=false with a specHash mismatch when the spec disagrees", async () => {
+      const svg = await renderSelf();
+      const otherSpec = {
+        ...spec,
+        layers: [{ mark: "point", encoding: { x: "a", y: "b" } }],
+      };
+      const r = await callText(client, "glyph_verify", {
+        spec: otherSpec,
+        rows,
+        schema,
+        svg,
+      });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.text);
+      expect(out.valid).toBe(false);
+      const fields = (out.mismatches as Array<{ field: string }>).map((m) => m.field);
+      expect(fields).toContain("specHash");
+    });
+
+    it("returns valid=false with a dataHash mismatch when rows differ", async () => {
+      const svg = await renderSelf();
+      const r = await callText(client, "glyph_verify", {
+        spec,
+        rows: [
+          ["hi", 1],
+          ["bye", 999],
+        ],
+        schema,
+        svg,
+      });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.text);
+      expect(out.valid).toBe(false);
+      const fields = (out.mismatches as Array<{ field: string }>).map((m) => m.field);
+      expect(fields).toContain("dataHash");
+    });
+
+    it("returns valid=false (missing seal) for an SVG without the metadata block", async () => {
+      const r = await callText(client, "glyph_verify", {
+        spec,
+        rows,
+        schema,
+        svg: "<svg xmlns=\"http://www.w3.org/2000/svg\"><rect/></svg>",
+      });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.text);
+      expect(out.valid).toBe(false);
+      const fields = (out.mismatches as Array<{ field: string }>).map((m) => m.field);
+      expect(fields).toContain("(missing seal)");
+    });
+
+    it("rejects an invalid spec with a clear error", async () => {
+      const r = await callText(client, "glyph_verify", {
+        spec: { not_a_spec: true },
+        rows,
+        schema,
+        svg: "<svg/>",
+      });
+      expect(r.isError).toBe(true);
+      expect(r.text).toContain("spec invalid");
     });
   });
 
