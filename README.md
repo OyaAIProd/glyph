@@ -15,6 +15,105 @@ A TypeScript chart-and-compute library where charts are JSON specs an LLM can au
 
 > 🌐 **Want the full tour?** Open [`site/index.html`](./site/index.html) in your browser — it's a single static page with a playground, 8 animated demos, 9 visualized innovations, a 16-row comparison matrix, and side-by-side Claude / Codex setup. No build step, no server. See [Interactive docs](#interactive-docs) below for one-line ways to open it.
 
+## Joy of Math — one MCP call → an animated math story your kid can watch
+
+This is what an LLM agent can ship today, in one call, from a single sentence of intent:
+
+> **You:** "Show me a sine wave for an 8-year-old."
+>
+> **Claude:** _calls `glyph_story({ intent: "show me a sine wave", audience: "kid" })`_
+
+What comes back is not prose. It's a self-contained animated SVG — composed deterministically, no LLM in the render loop. The curve draws itself. A traveling dot follows it. A peak gets labeled. Captions fade in. The same prompt, run a year from now, produces the same bytes:
+
+<p align="center">
+<img alt="Sine wave for an 8-year-old — animated SVG composed by glyph_story" src="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/story/sine-wave-for-an-8yo.svg" width="640">
+</p>
+
+> ↑ This is a live SMIL-animated SVG. **GitHub renders the animation in your browser as you scroll past it** — no JS, no CDN, no embed code. Same artifact a Claude Desktop user gets back from `glyph_story`. [View raw](https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/story/sine-wave-for-an-8yo.svg) · [JSON spec](./packages/core/__fixtures__/story/sine-wave-for-an-8yo.json)
+
+### Eight more, all rendered by the same pipeline
+
+Every image below is a real fixture in this repo, locked at byte-identity by tests in CI. Click any image to open the raw animated SVG.
+
+<table>
+<tr>
+<td width="33%" valign="top" align="center">
+  <a href="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/timeline/circle-circumference.svg">
+    <img alt="Circle → 2πr unwrap (E3 timeline)" src="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/timeline/circle-circumference.svg" width="100%">
+  </a>
+  <br><sub><b>Multi-scene timeline (E3)</b><br>Circle → radius → 2πr unwrap</sub>
+</td>
+<td width="33%" valign="top" align="center">
+  <a href="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/traveler/sine-traveler.svg">
+    <img alt="Sine wave with traveling dot (E2 traveler)" src="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/traveler/sine-traveler.svg" width="100%">
+  </a>
+  <br><sub><b>Traveler mark (E2)</b><br>SMIL <code>animateMotion</code> dot</sub>
+</td>
+<td width="33%" valign="top" align="center">
+  <a href="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/math/draw-in-spiral.svg">
+    <img alt="Archimedean spiral drawing itself (A2 draw-in)" src="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/math/draw-in-spiral.svg" width="100%">
+  </a>
+  <br><sub><b>Pen-draw animation (A2)</b><br>Archimedean spiral, dash-offset trick</sub>
+</td>
+</tr>
+<tr>
+<td width="33%" valign="top" align="center">
+  <a href="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/math/streamline-rotation.svg">
+    <img alt="Vector field streamlines via RK4 (A3)" src="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/math/streamline-rotation.svg" width="100%">
+  </a>
+  <br><sub><b>Streamlines (A3)</b><br>RK4-integrated <code>dx/dt=-y, dy/dt=x</code></sub>
+</td>
+<td width="33%" valign="top" align="center">
+  <a href="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/math/bezier-cubic.svg">
+    <img alt="Cubic Bezier with de Casteljau construction (A5)" src="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/math/bezier-cubic.svg" width="100%">
+  </a>
+  <br><sub><b>Bezier construction (A5)</b><br>De Casteljau overlay at <code>t=0.5</code></sub>
+</td>
+<td width="33%" valign="top" align="center">
+  <a href="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/math/lissajous.svg">
+    <img alt="Lissajous curve (math.shape: trajectory)" src="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/math/lissajous.svg" width="100%">
+  </a>
+  <br><sub><b>Parametric curve</b><br>Lissajous: <code>x=sin(3t), y=cos(2t)</code></sub>
+</td>
+</tr>
+<tr>
+<td width="33%" valign="top" align="center">
+  <a href="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/annotation/peak-callout.svg">
+    <img alt="Peak callout annotation (E1)" src="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/annotation/peak-callout.svg" width="100%">
+  </a>
+  <br><sub><b>Annotation mark (E1)</b><br>Pin a chart fact with a labeled arrow</sub>
+</td>
+<td width="33%" valign="top" align="center">
+  <a href="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/brand/threeblueone-brown.svg">
+    <img alt="3Blue1Brown-style chalkboard preset (E4)" src="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/brand/threeblueone-brown.svg" width="100%">
+  </a>
+  <br><sub><b>BrandKit preset (E4)</b><br><code>theme: "3b1b"</code> — chalkboard + Cardo</sub>
+</td>
+<td width="33%" valign="top" align="center">
+  <a href="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/brand/playground-preset.svg">
+    <img alt="Playground kid preset (E4)" src="https://raw.githubusercontent.com/seanhanca/glyph/main/packages/core/__fixtures__/brand/playground-preset.svg" width="100%">
+  </a>
+  <br><sub><b>BrandKit preset (E4)</b><br><code>theme: "playground"</code> — kid-bright</sub>
+</td>
+</tr>
+</table>
+
+### Try it from Claude in 30 seconds
+
+```bash
+claude mcp add glyph -- npx -y @glyph/mcp
+```
+
+Then ask Claude:
+
+> Use glyph_story to show me a sine wave for an 8-year-old. Save the SVG to ./sine.svg.
+
+Open `sine.svg` in any browser. Curve draws, dot travels, caption fades, annotation lands — all from one MCP call, all deterministic, all in a single self-contained file you can email to a kid.
+
+The same `glyph_story` verb supports 5 recipes today (`sine`, `cosine`, `circle`, `parabola`, `vector field`) and 3 audiences (`kid`, `high-school`, `adult`). Adding a recipe is one object literal in [`packages/core/src/story/compose.ts`](./packages/core/src/story/compose.ts) — no architectural surface, no LLM in the render loop, no surprise behavior in CI.
+
+**→ Full kid landing page** with sliders + prompt portal + the same demos in 3D via three.js: [`site/forkids.html`](./site/forkids.html) ([live](https://seanhanca.github.io/glyph/forkids.html))
+
 ## Quickstart
 
 ### 1. Use it with Claude Code
