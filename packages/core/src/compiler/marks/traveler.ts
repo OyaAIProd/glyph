@@ -42,12 +42,27 @@
  *    round(N * trail.length) and N is the configured polyline sample
  *    count. Each trail circle has a small `beginMs` offset so the tail
  *    trails behind the head. When `fade: true`, opacity ramps from
- *    0.10 (tail) → 0.70 (head).
+ *    0.10 (tail) → 0.65 (closest trail) → 1.0 (head). The head sits
+ *    at full opacity to read clearly against the path stroke.
  *
  * --- Determinism ---
  * The path geometry is built by the same `roundPx`-guarded projection
  * helpers every line mark uses. The animateMotion durations are
  * integer milliseconds. Same spec → same bytes.
+ *
+ * --- Composition gotchas ---
+ *   - When the followed path also has `animation.kind: "draw-in"`,
+ *     the path is initially hidden (stroke-dashoffset = length) but
+ *     the traveler's head begins moving at t=0. Viewers see the dot
+ *     "floating" until the wave catches up. v0 documents this; a
+ *     future PR could gate the traveler's begin on the draw-in's
+ *     completion.
+ *   - Trail circles each carry their OWN animateMotion with a
+ *     `begin="-Nms"` offset. Per SMIL, each restarts at (t - begin)
+ *     mod dur — so when the head wraps the loop, trail circles wrap
+ *     at slightly different moments. The visible effect is a single
+ *     "frame skip" once per loop; imperceptible at small
+ *     trail.length but worth flagging.
  *
  * --- v0 limitations ---
  *   - Only follows `line`-shaped layers (`mark: "line"`); a future PR
@@ -272,7 +287,29 @@ export const travelerMarkCompiler: MarkCompiler = {
     }
 
     const polyline = projectPolyline(args, followedLayer);
-    if (!polyline || polyline.length < 2) return;
+    if (!polyline) {
+      // E2 review IMPORTANT — same I1/I2 precedent the unknown-layerId
+      // case follows: throw instead of silently emitting nothing when
+      // the target layer can't project a path. The most common cause
+      // is the followed layer lacking x/y encoding (e.g. following an
+      // annotation layer, or a degenerate layer with empty rows).
+      const tgtId = opts.follow === "self" ? "self" : opts.follow.layerId;
+      throw new Error(
+        `traveler: target layer '${tgtId}' has no x/y encoding to project, ` +
+          "or its rows produced no finite points. Only line-shaped layers " +
+          "(line/area/point with x+y encoding) can be followed.",
+      );
+    }
+    if (polyline.length < 2) {
+      // Polyline projected but has fewer than 2 points — same as the
+      // missing-encoding case but happens when rows are empty. Same
+      // diagnostic so the agent's debug path is consistent.
+      const tgtId = opts.follow === "self" ? "self" : opts.follow.layerId;
+      throw new Error(
+        `traveler: target layer '${tgtId}' projected only ${polyline.length} ` +
+          "finite point(s); need at least 2 for a path the head can follow.",
+      );
+    }
     const d = polylineToD(polyline);
     if (d.length === 0) return;
 
@@ -285,6 +322,33 @@ export const travelerMarkCompiler: MarkCompiler = {
         : opts.id;
     const idx = travelerIndex(spec, layer);
     const pathId = explicitId ?? `traveler-path-${idx}`;
+
+    // E2 review IMPORTANT — pathId collision. If two traveler layers
+    // (or a traveler + another layer) emit the same id, the browser
+    // resolves `<mpath href="#..."/>` to the FIRST match, so the
+    // second traveler silently rides the wrong path. Validate that
+    // explicit ids are unique across the whole spec (auto-generated
+    // `traveler-path-N` ids are unique by construction since N is the
+    // traveler-layer index in spec order).
+    if (explicitId !== undefined) {
+      let collisions = 0;
+      for (let i = 0; i < spec.layers.length; i++) {
+        const other = spec.layers[i];
+        if (!other) continue;
+        const otherId =
+          typeof (other as { id?: unknown }).id === "string"
+            ? ((other as { id: string }).id as string)
+            : (other as { traveler?: { id?: string } }).traveler?.id;
+        if (otherId === explicitId) collisions++;
+      }
+      if (collisions > 1) {
+        throw new Error(
+          `traveler: id "${explicitId}" is used by ${collisions} layers in this spec. ` +
+            "Layer / traveler ids must be unique because <mpath> resolves to the first " +
+            "match in document order.",
+        );
+      }
+    }
 
     // Hidden anchor path. stroke=none + fill=none keeps the geometry
     // invisible while the id stays referenceable by `<mpath>`. Emitted
