@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any, Literal
+from typing import Any, Literal, overload
 
 from glyph._runtime import call_verb
 from glyph.exceptions import (
@@ -461,6 +461,33 @@ def forecast(
     )
 
 
+# Review IMPORTANT-2: typed overloads so callers narrowing on `format`
+# get the right return type without a runtime isinstance check. Without
+# these, `glyph.explain(h).highlights` raises a mypy error against
+# StructuredExplanation; `glyph.explain(h, format="structured").headline`
+# would compile but fail at runtime.
+@overload
+def explain(
+    handle: str,
+    *,
+    x_field: str | None = ...,
+    y_field: str | None = ...,
+    group_field: str | None = ...,
+    format: Literal["legacy"] = ...,
+) -> ExplainResult: ...
+
+
+@overload
+def explain(
+    handle: str,
+    *,
+    x_field: str | None = ...,
+    y_field: str | None = ...,
+    group_field: str | None = ...,
+    format: Literal["structured"],
+) -> StructuredExplanation: ...
+
+
 def explain(
     handle: str,
     *,
@@ -535,6 +562,7 @@ def _parse_structured_explanation(raw: dict[str, Any]) -> StructuredExplanation:
                 description=str(m.get("description", "") or ""),
                 severity=str(m.get("severity", "low") or "low"),  # type: ignore[arg-type]
                 audit_rule_id=m.get("auditRuleId"),
+                path=m.get("path"),
             )
         )
 
@@ -575,6 +603,7 @@ def _parse_structured_explanation(raw: dict[str, Any]) -> StructuredExplanation:
                 question=str(fu.get("question", "") or ""),
                 suggested_verb=fu.get("suggestedVerb"),
                 suggested_args=dict(fu.get("suggestedArgs", {}) or {}),
+                requires=[str(r) for r in (fu.get("requires") or [])],
             )
         )
 

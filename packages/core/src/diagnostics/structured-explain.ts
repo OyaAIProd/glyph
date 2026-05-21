@@ -51,6 +51,12 @@ export interface PotentialMisreading {
   readonly auditRuleId?: string;
   /** Severity — mirrors the underlying audit finding when applicable. */
   readonly severity: MisreadingSeverity;
+  /**
+   * RFC 6901 pointer into the spec where the misreading originates,
+   * passed through from the audit finding. Lets agents jump-to-source
+   * without re-running auditSpec. NIT-6 from review.
+   */
+  readonly path?: string;
 }
 
 /** A pointer to where a value in the chart came from. */
@@ -80,8 +86,21 @@ export interface SuggestedFollowup {
   readonly question: string;
   /** Suggested MCP verb (e.g. "glyph_anomaly", "glyph_forecast"). */
   readonly suggestedVerb?: string;
-  /** Pre-built args for the suggested verb — the agent can call it directly. */
+  /**
+   * Pre-built args the agent can use directly. Always omits `handle_id`
+   * (the agent supplies that themselves). May omit other required args
+   * when they can't be inferred from the spec; see `requires` below.
+   */
   readonly suggestedArgs?: Record<string, unknown>;
+  /**
+   * Names of required-by-the-verb args that this followup CAN'T infer
+   * from the spec alone — the agent must supply them. Empty when
+   * `suggestedArgs` is complete. Example: `glyph_drift` needs
+   * `periodField`, `periodA`, `periodB`, none of which a static spec
+   * carries. Without this field the agent would have to read each
+   * verb's schema to know what's missing.
+   */
+  readonly requires?: ReadonlyArray<string>;
 }
 
 /** The full structured explanation envelope. */
@@ -176,10 +195,10 @@ function pickFieldNames(input: StructuredExplainInput): {
 
   let xField = input.hints?.xField ?? channelField(enc.x);
   let yField = input.hints?.yField ?? channelField(enc.y);
-  const groupField =
-    input.hints?.groupField ??
-    channelField(enc.color) ??
-    channelField((enc as { group?: unknown }).group);
+  // EncodingSchema in spec/schemas.ts has no `group` channel — color
+  // is the canonical group-by signal. NIT-5 from review removed a dead
+  // fallback to a non-existent `enc.group` here.
+  const groupField = input.hints?.groupField ?? channelField(enc.color);
 
   // Fallback: walk schema if the spec didn't declare an x/y.
   if (yField === undefined) {
@@ -329,6 +348,11 @@ function buildPotentialMisreadings(
     description: canned[f.rule_id] ?? f.message,
     auditRuleId: f.rule_id,
     severity: f.severity,
+    // NIT-6 from review: pass-through the audit-finding's RFC 6901
+    // pointer when present so callers can jump-to-source without
+    // re-running auditSpec. Undefined when the rule doesn't anchor
+    // to a specific spec location (e.g. global aspect-ratio rules).
+    ...(f.path !== undefined ? { path: f.path } : {}),
   }));
 }
 
@@ -491,6 +515,41 @@ function buildChartTypeRationale(spec: GlyphSpec): ChartTypeRationale {
         },
       ],
     },
+    // Math PR3 — vector-field mark renders {x, y, dx, dy} rows as
+    // arrows on a grid. The natural alternative is a heatmap if the
+    // viewer cares about |v| (magnitude), or streamlines if they
+    // want flow lines.
+    "vector-field": {
+      rationale:
+        "Vector-field marks are ideal for 2D fluid flow, gradient fields, and force visualization — arrows show both magnitude and direction at each sampled grid point.",
+      alternatives: [
+        {
+          chartType: "heatmap",
+          tradeoff:
+            "Better when only magnitude matters (drops the directional information).",
+        },
+        {
+          chartType: "contour",
+          tradeoff:
+            "Better when the underlying scalar potential matters (drops the direction; emphasizes level curves).",
+        },
+      ],
+    },
+    // Math PR4 — math-text renders a LaTeX expression at a fixed
+    // (x, y) in data space. Used for chart titles, axis labels, and
+    // pointwise annotations. The natural alternative is the plain
+    // text mark when the label has no mathematical notation.
+    "math-text": {
+      rationale:
+        "Math-text marks render LaTeX expressions inline — best for axis labels with subscripts/Greek letters, chart titles with formulas, and pointwise mathematical annotations.",
+      alternatives: [
+        {
+          chartType: "text",
+          tradeoff:
+            "Better when the label has no mathematical notation (avoids the KaTeX parse cost).",
+        },
+      ],
+    },
   };
   const entry = table[String(mark)];
   if (entry) {
@@ -553,6 +612,11 @@ function buildSuggestedFollowups(
             valueField: yField,
             groupField,
           },
+          // glyph_drift requires periodField + periodA + periodB; none
+          // of those can be inferred from a categorical bar spec. The
+          // agent has to choose which temporal column + which two
+          // period boundaries the drift should compare.
+          requires: ["periodField", "periodA", "periodB"],
         });
       }
       break;
@@ -579,6 +643,12 @@ function buildSuggestedFollowups(
             valueField: yField,
             ...(groupField ? { groupField } : {}),
           },
+          // Same as the bar→drift case: drift needs periodField +
+          // periodA + periodB picked by the agent. The temporal x
+          // field is a strong candidate for periodField but the
+          // boundary values can't be picked without knowing the
+          // domain extent.
+          requires: ["periodField", "periodA", "periodB"],
         });
       }
       break;
@@ -627,15 +697,20 @@ function buildSuggestedFollowups(
       break;
   }
 
-  // Always close with a generic "explain me" rerun for narrative.
-  out.push({
+  // NIT-4 from review: the generic "explain me" rerun used to live
+  // AFTER mark-specific entries, so when a mark already filled the
+  // 5-entry cap the rerun got silently dropped. Hoist it to the
+  // front so it's guaranteed to appear in every envelope — agents
+  // can always fall back to the prose narrative if the structured
+  // followups don't fit their UX.
+  const rerun: SuggestedFollowup = {
     question: "Re-read this chart in prose form.",
     suggestedVerb: "glyph_explain",
     suggestedArgs: { format: "legacy" },
-  });
+  };
 
-  // Cap at 5 to keep the envelope small.
-  return out.slice(0, 5);
+  // Cap at 5 to keep the envelope small. Rerun reserves slot 0.
+  return [rerun, ...out].slice(0, 5);
 }
 
 // ---------------------------------------------------------------------------

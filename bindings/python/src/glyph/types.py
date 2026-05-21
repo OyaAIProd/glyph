@@ -240,11 +240,15 @@ class PotentialMisreading:
     Sourced from the audit-rule pass (AUDIT-01..09). ``audit_rule_id``
     points to the rule that produced this misreading; callers can filter
     on rule id the same way ``glyph_audit_spec`` consumers do.
+    ``path`` is the RFC 6901 pointer (e.g. ``/layers/0/encoding/y``)
+    passed through from the audit finding when available — lets agents
+    jump-to-source without re-running ``glyph_audit_spec``.
     """
 
     description: str
     severity: MisreadingSeverity
     audit_rule_id: str | None = None
+    path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -279,11 +283,15 @@ class SuggestedFollowup:
     The ``suggested_verb`` + ``suggested_args`` fields let the agent chain
     a follow-up call deterministically — pass them straight into the named
     Glyph wrapper (e.g. ``glyph.forecast(handle, **fc.suggested_args)``).
+    ``requires`` lists arg names the caller MUST supply (the spec can't
+    infer them) — e.g. ``glyph_drift`` needs a ``period_field`` +
+    ``period_a`` + ``period_b`` triple no static spec carries.
     """
 
     question: str
     suggested_verb: str | None = None
     suggested_args: dict[str, Any] = field(default_factory=dict)
+    requires: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

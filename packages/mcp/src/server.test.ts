@@ -909,6 +909,51 @@ describe("Glyph MCP server", () => {
       expect(o.format).toBeUndefined();
       expect(e).toEqual(o);
     });
+
+    // Review NIT-7: locks the AUDIT-01 → potentialMisreadings bridge end-to-end
+    // through the MCP handler. The core-level test asserts buildStructuredExplanation
+    // does the mapping; this asserts the handler actually wires the audit pass
+    // into the structured envelope returned by glyph_explain.
+    it("structured envelope surfaces AUDIT-01 as a potentialMisreading for truncated-y bars", async () => {
+      // Render a bar chart with an explicit non-zero y baseline so AUDIT-01
+      // fires. Use the existing taxi fixture as the data source.
+      const renderRes = await callText(client, "glyph_render", {
+        spec: {
+          data: { source: fixture, format: "csv" },
+          layers: [
+            {
+              mark: "bar",
+              encoding: {
+                x: "pickup_hour",
+                y: {
+                  field: "rides",
+                  type: "quantitative",
+                  scale: { domain: [100, 300] },
+                },
+              },
+            },
+          ],
+        },
+      });
+      const handle_id = (JSON.parse(renderRes.text) as { handle_id: string }).handle_id;
+
+      const r = await callText(client, "glyph_explain", {
+        handle_id,
+        format: "structured",
+      });
+      expect(r.isError).toBe(false);
+      const exp = JSON.parse(r.text);
+      const misreadings = exp.potentialMisreadings as Array<{
+        auditRuleId?: string;
+        severity: string;
+        path?: string;
+      }>;
+      const audit01 = misreadings.find((m) => m.auditRuleId === "AUDIT-01");
+      expect(audit01).toBeDefined();
+      expect(audit01?.severity).toBe("high");
+      // NIT-6: the audit finding's RFC 6901 path should pass through.
+      expect(audit01?.path).toBe("/layers/0/encoding/y");
+    });
   });
 
   // ---- Phase 3 §3: diagnostic primitives (PR36) --------------------------
