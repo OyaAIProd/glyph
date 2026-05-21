@@ -85,6 +85,9 @@ import "./marks/annotation.js";
 // Joy of Math E2 — traveler registers `traveler` (SMIL <animateMotion> dot
 // that traces a sibling layer's polyline).
 import "./marks/traveler.js";
+// Math Phase 2 Track A PR A3 — streamline registers `streamline` (RK4
+// integration of a 2D vector field into continuous flow lines).
+import "./marks/streamline.js";
 import {
   angleScale,
   bandScale,
@@ -770,6 +773,10 @@ export function compileSpec(input: CompileInput): Scene {
       // Joy of Math E2 — traveler rides the cartesian path; the leaf
       // mark compiler builds its polyline from the followed sibling.
       "traveler",
+      // Math Phase 2 Track A PR A3 — streamline integrates a 2D vector
+      // field into continuous flow lines via RK4. Cartesian path with
+      // linear x/y, same as vector-field.
+      "streamline",
     ];
     if (!allowedMarks.includes(l.mark)) {
       throw new Error(`Phase 1 supports marks ${allowedMarks.join("|")}; layer ${i} has ${l.mark}`);
@@ -880,6 +887,20 @@ export function compileSpec(input: CompileInput): Scene {
       const t = (l as { traveler?: unknown }).traveler;
       if (typeof t !== "object" || t === null) {
         throw new Error(`Layer ${i} (traveler) requires a 'traveler' config block`);
+      }
+      continue;
+    }
+    // Math Phase 2 Track A PR A3 — streamline gets its (dxdt, dydt)
+    // expressions + seeds from layer.streamline; it does NOT read row
+    // data. But it still needs x/y encoding so the resolved scales
+    // can map integrated (x, y) points to pixels.
+    if (l.mark === "streamline") {
+      if (fieldOf(l.encoding.x) === undefined || fieldOf(l.encoding.y) === undefined) {
+        throw new Error(`Layer ${i} (streamline) requires both x and y encodings`);
+      }
+      const sc = (l as unknown as { streamline?: unknown }).streamline;
+      if (typeof sc !== "object" || sc === null) {
+        throw new Error(`Layer ${i} (streamline) requires a 'streamline' config block`);
       }
       continue;
     }

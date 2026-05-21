@@ -377,6 +377,12 @@ export const MarkSchema = z.enum([
   // (or its own) over time via SMIL `<animateMotion>`. Kid-delight
   // unlock — the moving dot is the star, not the curve.
   "traveler",
+  // A3 — streamline mark. Renders continuous flow lines of a 2D
+  // vector field by integrating the field via RK4 in both directions
+  // from each seed point. The vector-field mark shows discrete arrows
+  // at grid points; streamlines integrate those arrows into
+  // trajectories that reveal the GLOBAL flow structure.
+  "streamline",
 ]);
 
 /**
@@ -708,6 +714,74 @@ export const LayerSchema = z
       })
       .strict()
       .optional(),
+    // A3 — streamline mark
+    /**
+     * Math Phase 2 Track A PR A3 — config for `mark: "streamline"`.
+     * Required when `mark === "streamline"`; rejected on other marks
+     * (mirrors the math-text `expr` pattern).
+     *
+     *   - `dxdt` / `dydt`: 2D vector field expressions in `(x, y)`.
+     *     Evaluated by the same `expr-eval` backend the function and
+     *     trajectory shapes use (same determinism / safety contract).
+     *   - `seeds`: where streamlines start.
+     *       - `kind: "grid"` — evenly-spaced `rows × cols` grid inset
+     *         from the integration domain edges.
+     *       - `kind: "array"` — caller-pinned list of `{x, y}` seeds.
+     *   - `step`: RK4 step size in data units (default 0.05).
+     *   - `maxSteps`: per-direction iteration cap (default 500). DoS
+     *     guard — the integrator runs forward AND backward from each
+     *     seed, so total work is bounded by `2 * seeds * maxSteps`.
+     *     Worst-case (50×50 grid × 10_000 maxSteps) is ~80M
+     *     evaluator calls and several seconds of CPU; prefer keeping
+     *     grid ≤ 20×20 and maxSteps ≤ 2000 unless you've benchmarked
+     *     the specific field.
+     *   - `domain`: integration bounds. When omitted, the resolved
+     *     x/y scale domains are used as a fallback.
+     *
+     * Domain-fallback caveat (A3 review I3): when `streamline.domain`
+     * is omitted, the integrator uses the resolved layer scale's
+     * domain. That domain is currently DATA-DERIVED (from the rows
+     * fed to the layer) on linear scales — explicit
+     * `encoding.x.scale.domain` is NOT honored on the linear path
+     * today. To control the integration extent, either set
+     * `streamline.domain` explicitly OR provide rows that anchor the
+     * desired range. Explicit `streamline.domain` is the
+     * unambiguous path.
+     */
+    streamline: z
+      .object({
+        dxdt: z.string().min(1),
+        dydt: z.string().min(1),
+        seeds: z.union([
+          z
+            .object({
+              kind: z.literal("grid"),
+              rows: z.number().int().min(2).max(50).default(5),
+              cols: z.number().int().min(2).max(50).default(5),
+            })
+            .strict(),
+          z
+            .object({
+              kind: z.literal("array"),
+              points: z
+                .array(z.object({ x: z.number(), y: z.number() }).strict())
+                .min(1)
+                .max(500),
+            })
+            .strict(),
+        ]),
+        step: z.number().positive().max(10).default(0.05),
+        maxSteps: z.number().int().min(10).max(10_000).default(500),
+        domain: z
+          .object({
+            x: z.tuple([z.number(), z.number()]),
+            y: z.tuple([z.number(), z.number()]),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .refine((l) => l.mark !== "math-text" || (typeof l.expr === "string" && l.expr.length > 0), {
@@ -738,6 +812,21 @@ export const LayerSchema = z
   .refine((l) => l.mark === "traveler" || l.traveler === undefined, {
     message: "The 'traveler' config is only valid when mark is 'traveler'.",
     path: ["traveler"],
+  })
+  // A3 — streamline mark: require config when mark="streamline" AND
+  // reject the `streamline` config block on any other mark (mirrors
+  // the math-text `expr` validation gate). Without this, a `mark:
+  // "line"` layer could declare a `streamline` block and the value
+  // would silently parse but never render — a real footgun for agents.
+  .refine(
+    (l) =>
+      l.mark !== "streamline" || (typeof l.streamline === "object" && l.streamline !== null),
+    {
+      message: "Layer with mark 'streamline' requires a 'streamline' config block.",
+    },
+  )
+  .refine((l) => l.mark === "streamline" || l.streamline === undefined, {
+    message: "Field 'streamline' is only valid when mark is 'streamline'.",
   })
   // Moat 3 review IMPORTANT-3 — layer-level `data.onMissing` is silently
   // ignored by the compiler (it only reads `spec.data.onMissing`). Reject

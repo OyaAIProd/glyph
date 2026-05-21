@@ -90,6 +90,31 @@ export type Mark = z.infer<typeof MarkSchema>;
  */
 export type Annotation = NonNullable<Layer["annotation"]>;
 
+/**
+ * Math Phase 2 Track A PR A3 — config for `mark: "streamline"`. The
+ * layer-level schema attaches this block under `layer.streamline`.
+ * `kind: "grid"` auto-seeds an evenly-spaced grid across the
+ * integration domain; `kind: "array"` lets the caller pin specific
+ * seeds. The `step` / `maxSteps` knobs cap RK4 work. `domain`
+ * defaults to the resolved x/y scale domains.
+ */
+export interface StreamlineConfig {
+  readonly dxdt: string;
+  readonly dydt: string;
+  readonly seeds:
+    | { readonly kind: "grid"; readonly rows: number; readonly cols: number }
+    | {
+        readonly kind: "array";
+        readonly points: ReadonlyArray<{ readonly x: number; readonly y: number }>;
+      };
+  readonly step: number;
+  readonly maxSteps: number;
+  readonly domain?: {
+    readonly x: readonly [number, number];
+    readonly y: readonly [number, number];
+  };
+}
+
 /** The encoding maps fields to visual channels. */
 export type Encoding = z.infer<typeof EncodingSchema>;
 

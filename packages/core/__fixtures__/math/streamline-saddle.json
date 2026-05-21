@@ -1,0 +1,35 @@
+{
+  "version": "glyph/0.1",
+  "title": "Saddle streamlines: dx/dt = x, dy/dt = -y",
+  "data": {
+    "source": "inline:streamline-saddle"
+  },
+  "layers": [
+    {
+      "mark": "streamline",
+      "encoding": {
+        "x": {
+          "field": "x",
+          "type": "quantitative",
+          "scale": { "domain": [-2, 2] }
+        },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "scale": { "domain": [-2, 2] }
+        }
+      },
+      "streamline": {
+        "dxdt": "x",
+        "dydt": "-y",
+        "seeds": { "kind": "grid", "rows": 5, "cols": 5 },
+        "step": 0.05,
+        "maxSteps": 200,
+        "domain": {
+          "x": [-2, 2],
+          "y": [-2, 2]
+        }
+      }
+    }
+  ]
+}
