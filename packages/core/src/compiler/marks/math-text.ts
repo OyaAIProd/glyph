@@ -310,7 +310,16 @@ const SUPPORTED_MATHML = new Set([
   "mtd",
   // KaTeX wraps matrix cell content in <mstyle scriptlevel="0" displaystyle="false">
   // — semantically transparent to layout, so we treat it as a passthrough row.
+  // The mstyle attributes (scriptlevel, displaystyle, mathcolor, …) are
+  // intentionally dropped today; if KaTeX ever emits a style we can't ignore,
+  // the parser's default-branch will route the element through parseSequence
+  // and the existing structure renders.
   "mstyle",
+  // KaTeX with `forMathmlOnly: true` wraps the entire <math> tree in
+  // <span class="katex">. Pure styling sugar — no semantic layout
+  // implications. Allowlisting silences the one-shot warning on every
+  // fresh-process compile.
+  "span",
 ]);
 
 /**

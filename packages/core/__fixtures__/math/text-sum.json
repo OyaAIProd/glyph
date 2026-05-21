@@ -36,6 +36,28 @@
         "x": { "field": "x", "type": "quantitative" },
         "y": { "field": "y", "type": "quantitative" }
       }
+    },
+    {
+      "mark": "math-text",
+      "expr": "\\int_0^1 x^2 \\, dx",
+      "fontSize": 22,
+      "align": "middle",
+      "at": { "x": 7.5, "y": 70 },
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": { "field": "y", "type": "quantitative" }
+      }
+    },
+    {
+      "mark": "math-text",
+      "expr": "\\lim_{x \\to 0} \\frac{\\sin x}{x}",
+      "fontSize": 20,
+      "align": "middle",
+      "at": { "x": 7.5, "y": 30 },
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": { "field": "y", "type": "quantitative" }
+      }
     }
   ]
 }

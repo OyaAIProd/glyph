@@ -36,6 +36,17 @@
         "x": { "field": "x", "type": "quantitative" },
         "y": { "field": "y", "type": "quantitative" }
       }
+    },
+    {
+      "mark": "math-text",
+      "expr": "\\sqrt[3]{x}",
+      "fontSize": 18,
+      "align": "middle",
+      "at": { "x": -2, "y": 1.0 },
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": { "field": "y", "type": "quantitative" }
+      }
     }
   ]
 }
