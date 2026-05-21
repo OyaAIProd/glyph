@@ -86,6 +86,10 @@ function renderMark(m: SceneMark, interactive: boolean): string {
       // Moat PR3 — dashed border for missing-data callout markers.
       const dash =
         m.strokeDasharray !== undefined ? ` stroke-dasharray="${esc(m.strokeDasharray)}"` : "";
+      // Joy of Math E1 — rounded corners for annotation bubbles.
+      // Undefined for every other rect consumer → byte-identical
+      // rendering preserved.
+      const rx = m.rx !== undefined ? ` rx="${m.rx}"` : "";
       if (!interactive) {
         // Moat PR3 — even in the non-interactive path, emit `<title>` when
         // the mark carries one. Today only the missing-data callout marker
@@ -95,11 +99,11 @@ function renderMark(m: SceneMark, interactive: boolean): string {
         if (m.tooltip) {
           return `<rect x="${m.x}" y="${m.y}" width="${m.width}" height="${m.height}" fill="${esc(
             m.fill,
-          )}"${stroke}${sw}${dash}><title>${esc(m.tooltip)}</title></rect>`;
+          )}"${stroke}${sw}${dash}${rx}><title>${esc(m.tooltip)}</title></rect>`;
         }
         return `<rect x="${m.x}" y="${m.y}" width="${m.width}" height="${m.height}" fill="${esc(
           m.fill,
-        )}"${stroke}${sw}${dash}/>`;
+        )}"${stroke}${sw}${dash}${rx}/>`;
       }
       const data = renderDataAttrs(m);
       const aria = ariaForMark(m);
@@ -107,11 +111,11 @@ function renderMark(m: SceneMark, interactive: boolean): string {
       if (tooltip) {
         return `<rect x="${m.x}" y="${m.y}" width="${m.width}" height="${m.height}" fill="${esc(
           m.fill,
-        )}"${stroke}${sw}${dash}${data}${aria}>${tooltip}</rect>`;
+        )}"${stroke}${sw}${dash}${rx}${data}${aria}>${tooltip}</rect>`;
       }
       return `<rect x="${m.x}" y="${m.y}" width="${m.width}" height="${m.height}" fill="${esc(
         m.fill,
-      )}"${stroke}${sw}${dash}${data}${aria}/>`;
+      )}"${stroke}${sw}${dash}${rx}${data}${aria}/>`;
     }
     case "circle": {
       const stroke = m.stroke ? ` stroke="${esc(m.stroke)}"` : "";

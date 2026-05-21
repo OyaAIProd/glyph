@@ -50,6 +50,13 @@ export type SceneMark =
        * "data is missing here" rect from a real data bar.
        */
       readonly strokeDasharray?: string;
+      /**
+       * Joy of Math E1 — corner radius (px). When set, the renderer emits
+       * `rx="<value>"` so the rect reads as a rounded bubble (annotation
+       * mark) rather than a sharp-cornered data rect. Existing rect
+       * consumers leave this undefined and render unchanged.
+       */
+      readonly rx?: number;
     } & MarkData)
   | ({
       readonly type: "circle";

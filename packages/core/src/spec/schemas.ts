@@ -604,6 +604,19 @@ export const LayerSchema = z
      * `{dx, dy}` is interpreted in PIXELS (bubble layout is a pure-
      * pixel concern, so mixing it with data units would surprise the
      * caller).
+     *
+     * Layout caveats (v0):
+     *  - Bubble width estimated as `fontSize * text.length * 0.55` —
+     *    underestimates for CJK / wide-unicode glyphs by ~2× (same
+     *    caveat math-text documents).
+     *  - Keep `text` short enough to fit the plot area; at the default
+     *    fontSize=14 a 30-char label is the safe maximum on a 640px
+     *    plot. Longer labels render correctly but the bubble may
+     *    overflow if anchored near the chart edge. Explicit `{dx, dy}`
+     *    is clamped into the plot area to mitigate overflow.
+     *  - Requires a linear x-scale today; band-scale (categorical)
+     *    annotations throw at compile time. Use `mark: "math-text"`
+     *    on a non-band axis if you need to annotate categories.
      */
     annotation: z
       .object({

@@ -103,10 +103,18 @@ function num(v: unknown): number {
 
 /**
  * Resolve a data-mode anchor to data-space (xv, yv) by looking up
- * `rowIndex` in the materialized rows. Returns undefined when the
- * row is missing or its x/y cells aren't finite numbers — the
- * compiler then silently skips the annotation (matches the
- * non-finite-row policy of every other mark).
+ * `rowIndex` in the materialized rows.
+ *
+ * E1 review IMPORTANT-2: throws on out-of-bounds rowIndex / missing
+ * encoding fields rather than silently dropping the annotation.
+ * Earlier the function returned undefined for ANY error (missing row,
+ * unknown field, non-finite value) and the compiler silently skipped
+ * the mark — a typo in `rowIndex` made the whole annotation vanish
+ * with no diagnostic. The Joy of Math UX needs fail-loud here.
+ *
+ * Non-finite cell values still return undefined (graceful skip
+ * matching every other mark's row-filtering policy) — that's the
+ * "missing data" path, not an authoring error.
  */
 function resolveDataAnchor(
   rowIndex: number,
@@ -115,11 +123,29 @@ function resolveDataAnchor(
   xField: string,
   yField: string,
 ): { xv: number; yv: number } | undefined {
+  if (rowIndex >= rows.length) {
+    throw new Error(
+      `annotation: anchor.rowIndex ${rowIndex} is out of bounds (data has ${rows.length} rows). ` +
+        "Use anchor.kind = 'coord' to anchor outside the data row index.",
+    );
+  }
   const row = rows[rowIndex];
-  if (!row) return undefined;
+  if (!row) {
+    // Sparse array — shouldn't happen with the standard row pipeline, but
+    // fail loud if it does (consistent with the out-of-bounds case).
+    throw new Error(
+      `annotation: anchor.rowIndex ${rowIndex} is a sparse-array hole. The row pipeline shouldn't produce these.`,
+    );
+  }
   const xIdx = schema.findIndex((c) => c.name === xField);
   const yIdx = schema.findIndex((c) => c.name === yField);
-  if (xIdx < 0 || yIdx < 0) return undefined;
+  if (xIdx < 0 || yIdx < 0) {
+    throw new Error(
+      `annotation: encoding.x="${xField}" or encoding.y="${yField}" not found in schema (got: ${schema
+        .map((c) => c.name)
+        .join(", ")}). Either fix the field names or use anchor.kind = 'coord'.`,
+    );
+  }
   const xv = num(row[xIdx]);
   const yv = num(row[yIdx]);
   if (!Number.isFinite(xv) || !Number.isFinite(yv)) return undefined;
@@ -131,10 +157,21 @@ export const annotationMarkCompiler: MarkCompiler = {
   compile(args: MarkCompileArgs): void {
     const { xScale, yScale, rows, schema, theme, out, layer, plotArea, xField, yField } = args;
     if (!yScale) return;
-    // Annotations anchor on a continuous (x, y); band scales are for
-    // categorical layouts where the row-index → pixel mapping isn't a
-    // meaningful "point at this".
-    if (xScale.type !== "linear") return;
+    // E1 review IMPORTANT-1: band x-scale used to silently emit
+    // nothing. That kills the "label the tallest bar" use case
+    // — the canonical Joy of Math example for annotations on bar
+    // charts. v0 still doesn't support band-x annotations (the
+    // band scale needs a string-keyed anchor, not a numeric one),
+    // but we fail loud so the agent can fix the spec rather than
+    // staring at a missing annotation.
+    if (xScale.type !== "linear") {
+      throw new Error(
+        "annotation: this mark requires a linear x-scale today; " +
+          "got a band x-scale. The current anchor shape is numeric (kind: 'coord' " +
+          "uses {x, y} numbers; kind: 'data' projects row[xField] through xScale). " +
+          "Band-scale support (categorical x) is queued for a follow-up.",
+      );
+    }
 
     const ann = (layer as { annotation?: Annotation }).annotation;
     if (!ann) return;
@@ -166,8 +203,15 @@ export const annotationMarkCompiler: MarkCompiler = {
       offset = { dx: ann.arrow.dx, dy: ann.arrow.dy };
     }
 
-    const tipX = xpx + offset.dx;
-    const tipY = ypx + offset.dy;
+    // E1 review NIT-2: clamp the arrow tip + bubble center into the
+    // plot area when the caller-supplied offset would push them
+    // off-canvas. Auto-offset already steers toward the center; this
+    // hardens the explicit-offset path so a typo (`{dx: 9999}`) doesn't
+    // walk the bubble off-screen.
+    const rawTipX = xpx + offset.dx;
+    const rawTipY = ypx + offset.dy;
+    const tipX = Math.min(Math.max(rawTipX, plotArea.x), plotArea.x + plotArea.width);
+    const tipY = Math.min(Math.max(rawTipY, plotArea.y), plotArea.y + plotArea.height);
     const color = ann.color ?? theme.fg;
 
     // ---- Highlight ring around the anchor -----------------------------
@@ -189,10 +233,13 @@ export const annotationMarkCompiler: MarkCompiler = {
     // Re-use the `arrow` SceneMark type the vector-field mark defines so
     // the renderer's existing `glyph-arrow` <marker> def picks it up
     // automatically — no new SVG envelope, no new <defs>. The shaft
-    // length + angle are derived so the tail sits at the anchor and the
-    // head touches the bubble.
-    const length = Math.sqrt(offset.dx * offset.dx + offset.dy * offset.dy);
-    const angle = Math.atan2(offset.dy, offset.dx);
+    // length + angle are derived from the CLAMPED tip so a clamped tip
+    // still draws an arrow to the actual bubble position (rather than
+    // pointing off-canvas where the raw tip would have been).
+    const clampedDx = tipX - xpx;
+    const clampedDy = tipY - ypx;
+    const length = Math.sqrt(clampedDx * clampedDx + clampedDy * clampedDy);
+    const angle = Math.atan2(clampedDy, clampedDx);
     out.push({
       type: "arrow",
       x: roundPx(xpx),
@@ -224,6 +271,11 @@ export const annotationMarkCompiler: MarkCompiler = {
       fill: theme.background,
       stroke: color,
       strokeWidth: 1,
+      // E1 review NIT-3: rounded corners read as a "speech bubble"
+      // rather than a sharp-cornered data rect — exactly the
+      // Joy of Math aesthetic the track is targeting. 6px matches
+      // the bubble height proportions at fontSize=14.
+      rx: 6,
     });
     out.push({
       type: "text",

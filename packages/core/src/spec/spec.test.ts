@@ -168,6 +168,94 @@ describe("Glyph spec — JSON parsing", () => {
   });
 });
 
+// Joy of Math E1 review IMPORTANT-3: parse-rejection tests for the
+// `mark: "annotation"` schema gates. The two .refines on LayerSchema
+// + the discriminated anchor union are the only thing standing
+// between a typo'd annotation spec and a silent runtime no-op.
+describe("Glyph spec — annotation mark (Joy of Math E1)", () => {
+  it("rejects `mark: 'annotation'` without an annotation block", () => {
+    const r = safeParseSpec({
+      data: { source: "x.parquet" },
+      layers: [{ mark: "annotation", encoding: { x: "a", y: "b" } }],
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects an annotation block on a non-annotation mark", () => {
+    const r = safeParseSpec({
+      data: { source: "x.parquet" },
+      layers: [
+        {
+          mark: "line",
+          encoding: { x: "a", y: "b" },
+          annotation: {
+            anchor: { kind: "coord", x: 0, y: 0 },
+            text: "wrong",
+            arrow: "auto",
+          },
+        },
+      ],
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects mixed anchor discriminator keys", () => {
+    const r = safeParseSpec({
+      data: { source: "x.parquet" },
+      layers: [
+        {
+          mark: "annotation",
+          encoding: { x: "a", y: "b" },
+          annotation: {
+            // `kind: "data"` requires rowIndex; extra `x` is not part of
+            // the data-anchor shape and strict mode should fail it.
+            anchor: { kind: "data", rowIndex: 0, x: 1 },
+            text: "mixed",
+            arrow: "auto",
+          },
+        },
+      ],
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects an arrow object missing one of dx/dy", () => {
+    const r = safeParseSpec({
+      data: { source: "x.parquet" },
+      layers: [
+        {
+          mark: "annotation",
+          encoding: { x: "a", y: "b" },
+          annotation: {
+            anchor: { kind: "coord", x: 0, y: 0 },
+            text: "half-arrow",
+            arrow: { dx: 10 }, // missing dy
+          },
+        },
+      ],
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it("accepts a well-formed annotation spec", () => {
+    const r = safeParseSpec({
+      data: { source: "x.parquet" },
+      layers: [
+        {
+          mark: "annotation",
+          encoding: { x: "a", y: "b" },
+          annotation: {
+            anchor: { kind: "coord", x: 1.5708, y: 1 },
+            text: "peak!",
+            arrow: "auto",
+          },
+        },
+      ],
+    });
+    expect(r.ok).toBe(true);
+  });
+});
+
 describe("Glyph spec — theme (PR25)", () => {
   it("accepts theme: 'light'", () => {
     const r = safeParseSpec({
