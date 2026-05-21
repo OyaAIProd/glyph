@@ -200,6 +200,47 @@ type MNode =
 
 const EMPTY_ROW: MNode = { kind: "row", children: [] };
 
+/**
+ * MathML elements we render with dedicated layout. Anything outside this set
+ * triggers `warnUnknownMathmlOnce` (one warning per element name across the
+ * process lifetime). Keep in sync with the `parseElement` switch — adding a
+ * case there without adding the name here is fine (extra entries are just
+ * not-warned), but adding a name here without a case is misleading.
+ */
+const SUPPORTED_MATHML = new Set([
+  "mi",
+  "mo",
+  "mn",
+  "mtext",
+  "msup",
+  "msub",
+  "msubsup",
+  "mfrac",
+  "mrow",
+  "math",
+  "semantics",
+  "annotation",
+  "mspace",
+]);
+
+/**
+ * Module-local set of MathML element names we've already warned about — keeps
+ * a chart with 100 `\sqrt` instances from logging 100 times. Reset never
+ * happens within a process; that's intentional (logging once per session is
+ * the desired UX).
+ */
+const _warnedMathml = new Set<string>();
+function warnUnknownMathmlOnce(name: string): void {
+  if (SUPPORTED_MATHML.has(name) || _warnedMathml.has(name)) return;
+  _warnedMathml.add(name);
+  console.warn(
+    `[glyph] math-text: MathML element <${name}> is not yet rendered with dedicated layout. ` +
+      `Its child content will appear inline. ` +
+      `Supported: ${[...SUPPORTED_MATHML].join(", ")}. ` +
+      `If you need <${name}> (likely from \\sqrt, \\hat, \\sum, matrices, accents), please file an issue.`,
+  );
+}
+
 /** A streaming parser over the token list. Advances `i` in-place. */
 class MParser {
   private i = 0;
@@ -322,8 +363,13 @@ class MParser {
         return EMPTY_ROW;
       }
       default: {
-        // Unknown — recurse so content still appears, even if styling
-        // is dropped.
+        // Math PR4 review BLOCKER-B2 — log a one-shot warning naming the
+        // unknown element so the caller can tell `\sqrt{x+1}` rendered as
+        // bare `x+1` (no radical) instead of silently dropping the
+        // structural info. Recurse anyway so simple text content still
+        // appears. Dedup via a module-level Set so a chart with 100
+        // `\sqrt` instances logs once, not 100 times.
+        warnUnknownMathmlOnce(name);
         return this.parseSequence(name);
       }
     }
@@ -598,9 +644,27 @@ export const mathTextMarkCompiler: MarkCompiler = {
       xv = opts.at.x;
       yv = opts.at.y;
     } else {
+      // Math PR4 review IMPORTANT-2 — surface a real error when the
+      // encoding-x/y fields aren't in the schema. The previous version
+      // silently returned, leaving the user staring at a math-text
+      // layer that emitted nothing with zero diagnostic. compile.ts's
+      // validation gate confirms the encoding is SET; this confirms
+      // the named field actually exists.
+      if (!args.xField || !args.yField) {
+        throw new Error(
+          "math-text: missing 'at' anchor and no encoding.x/encoding.y set " +
+            "(compile.ts validation gate should have caught this earlier).",
+        );
+      }
       const xIdx = schema.findIndex((c) => c.name === args.xField);
       const yIdx = schema.findIndex((c) => c.name === args.yField);
-      if (xIdx < 0 || yIdx < 0) return;
+      if (xIdx < 0 || yIdx < 0) {
+        throw new Error(
+          `math-text: encoding.x="${args.xField}" or encoding.y="${args.yField}" ` +
+            `not found in schema (got: ${schema.map((c) => c.name).join(", ")}). ` +
+            "Either fix the field names or set 'at: { x, y }' for fixed positioning.",
+        );
+      }
       const firstRow = rows[0];
       if (!firstRow) return;
       xv = num(firstRow[xIdx]);

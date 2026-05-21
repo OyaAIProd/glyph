@@ -514,7 +514,25 @@ export const LayerSchema = z
   .strict()
   .refine((l) => l.mark !== "math-text" || (typeof l.expr === "string" && l.expr.length > 0), {
     message: "Layer with mark 'math-text' requires a non-empty 'expr' field.",
-  });
+  })
+  // Math PR4 review BLOCKER-B1 — the math-text-only fields `expr`, `fontSize`,
+  // `color`, `align`, `at` live at the layer level because they don't fit the
+  // per-row encoding model. Without this gate, a `mark: "line"` layer could
+  // declare `expr: "y = sin(x)"` and the value would parse cleanly but get
+  // silently dropped by every non-math compiler — a real footgun for agents
+  // emitting specs. Reject the combination at validation time so the error
+  // surfaces immediately instead of via mysterious missing output.
+  .refine(
+    (l) => {
+      if (l.mark === "math-text") return true;
+      const mathOnlyFields = ["expr", "fontSize", "color", "align", "at"] as const;
+      return mathOnlyFields.every((k) => (l as Record<string, unknown>)[k] === undefined);
+    },
+    {
+      message:
+        "Fields 'expr', 'fontSize', 'color', 'align', and 'at' are only valid when mark is 'math-text'.",
+    },
+  );
 
 // ---------------------------------------------------------------------------
 // Top-level Glyph spec
