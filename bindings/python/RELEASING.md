@@ -6,20 +6,27 @@ This package publishes through GitHub Actions via **PyPI trusted publishing**
 
 ## One-time setup (maintainer)
 
-Before the first release, register a trusted publisher on PyPI:
+Before the first release, register a trusted publisher on PyPI. **Do these
+in order** — if you push a `python-v*` tag before the GitHub environment
+exists, the workflow fails with an environment-protection error.
 
-1. Create the project entry on PyPI. The first publish needs a **pending**
-   publisher because the project doesn't exist yet:
-   <https://pypi.org/manage/account/publishing/>
-2. Click **Add a pending publisher** and fill the form:
+1. **GitHub first.** Create an environment named `release` under
+   *Settings -> Environments*. Recommended (not required) protection rules:
+   - Add at least one required reviewer (gates accidental tag pushes).
+   - Restrict deployment branches to tags matching `python-v*` (deny tags
+     pushed to feature branches or other tag namespaces from triggering
+     this workflow).
+
+2. **PyPI second.** Register the trusted publisher. The first publish
+   needs a **pending** publisher because the project doesn't exist on PyPI
+   yet: <https://pypi.org/manage/account/publishing/>
+   Fill the "Add a new pending publisher" form with:
    - **PyPI Project Name:** `glyph-charts`
    - **Owner:** `seanhanca`
    - **Repository name:** `glyph`
-   - **Workflow name:** `publish-python.yml`
+   - **Workflow name:** `publish-python.yml` (the workflow filename — not
+     the `name:` value inside the YAML)
    - **Environment name:** `release`
-3. In GitHub, create an environment named `release` under
-   *Settings -> Environments*. Optional but recommended: add a required reviewer
-   and restrict the environment to tags matching `python-v*`.
 
 Once the first release lands, PyPI auto-promotes the pending publisher to a
 regular trusted publisher — no further action needed for subsequent tags.

@@ -12,7 +12,64 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Build once on 3.11 (the wheel is pure-Python, single artifact), then
+  # smoke-import on every supported Python version. Why split: a single-
+  # version smoke can let 3.10-incompatible syntax (`typing.Self`,
+  # 3.12-only typing operators, etc.) sneak into a release that breaks
+  # the `requires-python = ">=3.10"` contract in pyproject.toml.
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install build tooling
+        # `pypa/build` is the PEP 517 frontend — it spins up an isolated env
+        # per backend invocation so the wheel/sdist are reproducible across
+        # contributor machines. Pinning hatchling here would be redundant;
+        # pyproject.toml's `requires` already does that.
+        run: python -m pip install --upgrade pip build
+      - name: Build wheel + sdist
+        working-directory: bindings/python
+        run: python -m build
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: bindings/python/dist/
+
+  smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Smoke-import on Python ${{ matrix.python-version }}
+        # Catch broken wheels BEFORE they hit PyPI — a published bad wheel
+        # cannot be replaced (PyPI prohibits filename reuse), so the only
+        # remedy is yanking + bumping. Installing into a brand-new venv
+        # (no `-e`, no source tree on sys.path) is the only way to verify
+        # the wheel is self-sufficient.
+        run: |
+          python -m venv /tmp/glyph-smoke
+          /tmp/glyph-smoke/bin/pip install --upgrade pip
+          /tmp/glyph-smoke/bin/pip install dist/*.whl
+          /tmp/glyph-smoke/bin/python -c "import glyph; print('glyph', glyph.__version__)"
+
   publish:
+    needs: smoke
     runs-on: ubuntu-latest
     # `id-token: write` is what PyPI's OIDC flow consumes — without it the
     # `gh-action-pypi-publish` step has nothing to exchange for an upload
@@ -26,47 +83,26 @@ jobs:
     # without touching this YAML. Mirrors publish-mcp.yml.
     environment: release
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
+      - uses: actions/download-artifact@v4
         with:
-          python-version: "3.11"
-
-      - name: Install build tooling
-        # `pypa/build` is the PEP 517 frontend — it spins up an isolated env
-        # per backend invocation so the wheel/sdist are reproducible across
-        # contributor machines. Pinning hatchling here would be redundant;
-        # pyproject.toml's `requires` already does that.
-        run: python -m pip install --upgrade pip build
-
-      - name: Build wheel + sdist
-        working-directory: bindings/python
-        run: python -m build
-
-      - name: Smoke-test the wheel in a fresh venv
-        # Catch broken wheels BEFORE they hit PyPI — a published bad wheel
-        # cannot be replaced (PyPI prohibits filename reuse), so the only
-        # remedy is yanking + bumping. Installing into a brand-new venv
-        # (no `-e`, no source tree on sys.path) is the only way to verify
-        # the wheel is self-sufficient.
-        working-directory: bindings/python
-        run: |
-          python -m venv /tmp/glyph-smoke
-          /tmp/glyph-smoke/bin/pip install --upgrade pip
-          /tmp/glyph-smoke/bin/pip install dist/*.whl
-          /tmp/glyph-smoke/bin/python -c "import glyph; print('glyph', glyph.__version__)"
+          name: dist
+          path: dist
 
       - name: Publish to PyPI
         # No `password:` — OIDC trusted publishing exchanges the workflow's
         # id-token for a short-lived upload credential. The action defaults
-        # to `dist/`, so we point it at the bindings dir.
+        # to `dist/`, so we point it at the downloaded-artifact dir.
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: bindings/python/dist
+          packages-dir: dist
 
       - name: Summary
         run: |
-          v=$(python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('bindings/python/pyproject.toml').read_text())['project']['version'])")
+          # The downloaded artifact's wheel filename embeds the version,
+          # e.g. `glyph_charts-0.1.0a1-py3-none-any.whl`. Parse it back
+          # out instead of re-reading pyproject — the artifact IS the
+          # source of truth for what we just published.
+          v=$(ls dist/*.whl | sed -E 's|.*glyph_charts-([^-]+)-py3.*|\1|' | head -1)
           echo "## Published to PyPI" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- glyph-charts @ $v — https://pypi.org/project/glyph-charts/$v/" >> $GITHUB_STEP_SUMMARY
