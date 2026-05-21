@@ -924,13 +924,25 @@ export const InteractiveSchema = z
      * Static-SVG path: every mark gains
      *   `data-crossfilter-group="<group>"` and
      *   `data-crossfilter-key="<key-value>"`
-     * plus a small `<style>` block driving same-chart hover highlight
-     * via CSS attribute selectors (zero JS).
+     * plus a small `<style>` block driving a same-chart "focus + dim"
+     * effect via CSS attribute selectors (zero JS). The static path
+     * cannot key-match siblings (CSS can't read the hovered element's
+     * attribute value); it dims non-hovered marks as a focus aid.
      *
      * Live-SVG path: `@glyph/live` reads the same data-attrs and
      * broadcasts hover events across all charts subscribed to the
-     * group. The browser-side hydration extension is out of scope for
-     * the moat PR; the static contract is the durable surface.
+     * group. Real key-matched highlight (same-chart) and cross-chart
+     * linkage both require JS — the browser-side hydration extension
+     * is out of scope for the moat PR; the static contract above is
+     * the durable surface.
+     *
+     * v0 limitation — `spec.facet`: faceted compile lifts each panel's
+     * marks but drops the top-level `scene.schema`, so the root-level
+     * `data-crossfilter-group` attribute is not emitted on faceted
+     * SVGs. Per-mark data-attrs still land via panel sub-compiles, but
+     * `@glyph/live` needs the root attr to bind a group bus. Use two
+     * separate (non-faceted) charts that share the same group string
+     * until faceted scenes carry the schema upward.
      */
     crossfilter: z
       .object({
@@ -949,9 +961,14 @@ export const InteractiveSchema = z
          */
         key: z.string().min(1).optional(),
         /**
-         * Default interaction. `"hover"` highlights on mouseover;
-         * `"click"` toggles persistent selection. `"both"` enables
-         * hover preview + click commit.
+         * Forward-compat scaffolding for `@glyph/live` hydration —
+         * NOT yet read by the static-SVG compile path. `"hover"`
+         * highlights on mouseover; `"click"` toggles persistent
+         * selection; `"both"` enables hover preview + click commit.
+         * The static path's CSS is hover-only regardless of value;
+         * the field is accepted (and round-trips through the schema)
+         * so spec authors can pin intent before the live runtime
+         * lands. Default `"hover"`.
          */
         mode: z.enum(["hover", "click", "both"]).default("hover"),
       })

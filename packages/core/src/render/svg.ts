@@ -36,18 +36,22 @@ const HOVER_STYLE =
   "<style>.glyph-marks &gt; *{transition:filter .12s ease-out}.glyph-marks &gt; *:hover{filter:brightness(1.08);outline:1px solid #00000033;outline-offset:1px;cursor:pointer}</style>";
 
 /**
- * Moat 5/5 — declarative crossfilter CSS. Same-chart hover highlight:
+ * Moat 5/5 — declarative crossfilter CSS. Same-chart "focus + dim"
+ * effect (NOT key-matched sibling highlight; see note below):
  *   1. The directly-hovered mark gets a bright outline (yellow by
  *      default; overridable via the `--crossfilter-highlight` CSS
  *      variable a brand theme can set).
- *   2. The `:hover` pseudo on a sibling propagates via the
- *      `:has()`-aware rule on the marks group: when ANY child is
- *      hovered, the chart enters "filter mode" and matching siblings
- *      with the same `data-crossfilter-key` light up too.
+ *   2. When any descendant carrying `data-crossfilter-key` is hovered,
+ *      the `:has()` rule on `.glyph-marks` enters "filter mode" and
+ *      dims every OTHER `data-crossfilter-key` sibling to opacity .35
+ *      — irrespective of key value. This is intentionally a focus aid,
+ *      not a key-matched highlight: the static SVG path has no way to
+ *      read the hovered element's key value in pure CSS.
  *
- * Cross-chart linkage requires JS — `@glyph/live` reads the same
- * data-attrs and broadcasts hover events keyed by group. This CSS is
- * the zero-JS baseline.
+ * Real key-matched highlight (single-chart) and cross-chart linkage
+ * both require JS — `@glyph/live` reads the same data-attrs and
+ * broadcasts hover events keyed by group. This CSS is the zero-JS
+ * baseline.
  *
  * Emitted only when `scene.schema.crossfilterGroup` is set, so
  * existing snapshots stay byte-identical.
