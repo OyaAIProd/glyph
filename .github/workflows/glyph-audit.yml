@@ -1,0 +1,43 @@
+# Dogfood: glyph-audit-action runs against this repo's own example
+# specs on every PR. Closes the loop that S4 PR7 had to drop because
+# v0.1.0 of the action only rendered diffs (no audit step).
+#
+# v0.2.0 of the action (published 2026-05-21) ships the real audit
+# pass — see https://github.com/seanhanca/glyph-audit-action for
+# behavior. Adopters elsewhere can copy this file as a starter.
+name: Glyph audit
+on: pull_request
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      # `pull-requests: write` lets the action upsert the sticky
+      # PR comment. The default token already carries `contents:
+      # read`, which is enough to fetch spec contents at the base
+      # + head SHAs.
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      # Pinned to the explicit v0.2.0 tag. A floating `@v0.2` or
+      # `@v1` ref isn't created by the action's release workflow —
+      # only the exact version tag exists. Bump deliberately when
+      # v0.2.1 / v0.3.0 publish.
+      - uses: seanhanca/glyph-audit-action@v0.2.0
+        with:
+          # Top-level only — does NOT match the `_canary/` subdir.
+          # That subdir holds intentional-truncated.glyph.json
+          # which trips AUDIT-01 on purpose (the rule-output
+          # smoke-test). Auditing it on every PR would mark CI
+          # red forever, which destroys the dogfood signal. The
+          # canary stays around as a manual-test fixture; see
+          # examples/charts/_canary/README.md for how to exercise
+          # the rule against it locally.
+          spec-pattern: "examples/charts/*.glyph.json"
+          # `error` blocks merge on HIGH-severity findings. The
+          # two specs in scope are clean today; any new spec
+          # added under examples/charts/ that introduces a HIGH
+          # finding will fail CI until fixed — which is the
+          # whole point.
+          fail-on: error
+          comment-mode: sticky

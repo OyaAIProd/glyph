@@ -4,12 +4,13 @@ Reference specs that double as starting templates for new contributors.
 Each one parses cleanly against the current `@glyph/core` schema and
 demonstrates a specific pattern.
 
-> **Audit-on-PR is not wired up yet.** The earlier plan was to dogfood
-> `seanhanca/glyph-audit-action` on every PR here, but the action's
-> `v0.1.0` only renders diffs — it doesn't yet surface
-> `auditSpec()` findings. Once the action grows an audit step, a
-> follow-up PR can add the workflow back. Until then these files are
-> just examples and validation seeds.
+> **Audit-on-PR is wired up.** Every PR runs
+> [`seanhanca/glyph-audit-action@v0.2.0`](https://github.com/seanhanca/glyph-audit-action)
+> against the specs in this directory and posts a sticky comment with
+> the findings. See `.github/workflows/glyph-audit.yml` for the
+> workflow. `fail-on: error` means HIGH-severity findings block
+> merge — so any new spec here must pass the eight built-in audit
+> rules.
 
 ## What's here
 
@@ -18,11 +19,11 @@ demonstrates a specific pattern.
   Copy as a baseline when adding a new bar chart.
 - **`sales-trend.glyph.json`** — clean line chart over time. Also
   clean; copy when adding a temporal series.
-- **`intentional-truncated.glyph.json`** — bar chart with
-  `y.scale.domain: [100, 200]`. Deliberately trips **AUDIT-01**
-  (truncated y-axis) when audited — useful for testing rule output
-  by hand. **Don't "fix" it.** Once the dogfood workflow lands this
-  is the canary that proves the audit pipeline is alive.
+- **`_canary/`** — `intentional-truncated.glyph.json` lives here.
+  It deliberately trips **AUDIT-01** so contributors can verify the
+  audit pipeline against a known-bad spec locally. **Excluded from
+  the PR workflow** (the audit's `spec-pattern` is non-recursive)
+  so it doesn't gate merges. See `_canary/README.md`.
 
 ## Validating a new spec
 
