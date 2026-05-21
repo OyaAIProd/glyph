@@ -116,9 +116,12 @@ export function integrateTrajectory(
     // spec.time.max — mirrors the endpoint-anchoring trick in
     // sampleFunction so RK4 accumulated drift can't shift the
     // displayed `t` values between platforms. Interior steps walk
-    // the uniform grid `time.min + h * i`. The RK4 evaluation
-    // itself uses a uniform step `h` per stage so the integration
-    // is consistent even when the last `tNext` is endpoint-anchored.
+    // the uniform grid `time.min + h * i`. The RK4 STAGE SPACING
+    // (the offsets between k1/k2/k3/k4 t-evaluations) is uniformly
+    // h on every step, including the last; only the absolute
+    // `tNext` value gets snapped to time.max. Difference vs
+    // `tPrev + h` is at most ~1 ULP and zero for autonomous
+    // systems (dx/dt, dy/dt independent of t).
     const tPrev = i === 1 ? spec.time.min : spec.time.min + h * (i - 1);
     const tNext = i === samples - 1 ? spec.time.max : spec.time.min + h * i;
     const tMid = tPrev + h * 0.5;

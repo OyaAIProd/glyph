@@ -140,6 +140,38 @@ describe("integrateTrajectory", () => {
     ).toThrow(/initial/);
   });
 
+  it("rejects expressions referencing an unbound identifier", () => {
+    // `z` isn't one of the bound identifiers (x, y, t). The
+    // evaluator should reject the expression with a message
+    // mentioning the offending name so a typo is debuggable.
+    expect(() =>
+      integrateTrajectory({
+        shape: "trajectory",
+        dxdt: "y",
+        dydt: "z + y", // z is unbound
+        initial: { x: 1, y: 0 },
+        time: { min: 0, max: 1, samples: 10 },
+      }),
+    ).toThrow(/z|unbound|undefined|unknown/i);
+  });
+
+  it("surfaces a divergent trajectory as a contextualized error", () => {
+    // dx/dt = x^2 with x(0) = 10 has the analytical solution
+    // x(t) = 10 / (1 - 10*t), which diverges at t = 0.1. The RK4
+    // step blows up to +Infinity within the time window; evalDeriv
+    // re-throws with the offending (x, y, t) coordinate so callers
+    // can locate the singularity.
+    expect(() =>
+      integrateTrajectory({
+        shape: "trajectory",
+        dxdt: "x*x",
+        dydt: "0",
+        initial: { x: 10, y: 0 },
+        time: { min: 0, max: 10, samples: 1000 },
+      }),
+    ).toThrow(/non-finite|trajectory|derivative/i);
+  });
+
   it("emits rows in time order (insertion order) for closed orbits", () => {
     // Damped oscillator — every t should be strictly greater than
     // the previous one (no reordering). This is what lets the line

@@ -44,7 +44,12 @@ describe("math examples — animated trajectory pendulum (Phase 2 Track A PR A1)
     expect(scene.animation?.kind).toBe("scrub");
     if (scene.animation?.kind === "scrub") {
       expect(scene.animation.frame_field).toBe("t");
-      expect(scene.animation.frames.length).toBeGreaterThan(2);
+      // Exact frame count: the fixture pins `samples: 120` with
+      // `frame_field: "t"`, so the trajectory produces 120 distinct
+      // t-values. A regression that deduped frames or halved the
+      // sample rate would silently collapse the scrub animation —
+      // the exact-count assertion (vs >2) catches that.
+      expect(scene.animation.frames.length).toBe(120);
     }
     const svg = renderSvg(scene);
     // Byte-identity across two compiles.
