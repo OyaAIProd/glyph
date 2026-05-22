@@ -1,12 +1,19 @@
-# Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages
+# Manual-only fallback workflow for deploying static content to GitHub
+# Pages. The primary deploy lives in `pages.yml`, which:
+#   - rebuilds the playground bundle (`@glyph/core` → site/play/glyph-bundle.js)
+#   - verifies the bundle + spec.schema.json are fresh on every push
+#   - uploads ONLY the `site/` directory, so URLs are
+#       https://seanhanca.github.io/glyph/forkids.html
+#     NOT
+#       https://seanhanca.github.io/glyph/site/forkids.html
+#
+# This file stays as a break-glass option (workflow_dispatch only) in
+# case pages.yml's build step ever needs to be bypassed. It does NOT
+# run on push, so it can't race with pages.yml or clobber the
+# published URL structure the README links depend on.
+name: Deploy static content to Pages (manual fallback)
 
 on:
-  # Runs on pushes targeting the default branch
-  push:
-    branches: ["main"]
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
@@ -36,8 +43,9 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.'
+          # Match pages.yml — upload only the `site/` directory so the
+          # served URLs are root-anchored at /glyph/, not /glyph/site/.
+          path: site
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
