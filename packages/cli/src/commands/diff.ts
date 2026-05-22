@@ -313,16 +313,20 @@ function resolveSourcePaths(spec: GlyphSpec, specPath: string): GlyphSpec {
 }
 
 async function renderSpecToSvg(spec: GlyphSpec, specPath: string): Promise<string> {
-  const resolved = resolveSourcePaths(spec, specPath);
+  // Use the original (relative-source) spec for compile + render so
+  // the provenance specHash is identical across platforms. The
+  // absolute-source variant is only needed by `materializeSpec` to
+  // resolve the on-disk data file.
+  const specForMaterialize = resolveSourcePaths(spec, specPath);
   // Mirror cmdRender's branching: hierarchy / graph / grid specs bypass DuckDB.
-  if (resolved.data?.hierarchy || resolved.data?.graph || resolved.data?.grid) {
-    return renderSvg(compileSpec({ spec: resolved, rows: [], schema: [] }));
+  if (spec.data?.hierarchy || spec.data?.graph || spec.data?.grid) {
+    return renderSvg(compileSpec({ spec, rows: [], schema: [] }));
   }
   const engine = await createDuckDBEngine();
   try {
-    const m = await materializeSpec(engine, resolved);
+    const m = await materializeSpec(engine, specForMaterialize);
     const scene = compileSpec({
-      spec: resolved,
+      spec,
       rows: m.result.rows,
       schema: m.handle.schema,
     });

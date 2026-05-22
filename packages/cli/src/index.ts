@@ -90,7 +90,12 @@ async function cmdRender(args: string[]): Promise<number> {
     process.stderr.write("glyph render: missing <spec.json>\n");
     return 1;
   }
-  const spec = resolveSourcePaths(readSpec(specPath), specPath);
+  // Keep the original (relative-source) spec for the compile + render
+  // path so the provenance specHash hashes the AUTHOR'S intent, not
+  // the runner's home directory. Only `materializeSpec` needs the
+  // absolute path to find the CSV/Parquet on disk.
+  const spec = readSpec(specPath);
+  const specForMaterialize = resolveSourcePaths(spec, specPath);
 
   // PR67 / PR68 — hierarchy and graph data both bypass DuckDB.
   let svg: string;
@@ -98,7 +103,7 @@ async function cmdRender(args: string[]): Promise<number> {
     svg = renderSvg(compileSpec({ spec, rows: [], schema: [] }));
   } else {
     svg = await withEngine(async (engine) => {
-      const m = await materializeSpec(engine, spec);
+      const m = await materializeSpec(engine, specForMaterialize);
       const scene = compileSpec({ spec, rows: m.result.rows, schema: m.handle.schema });
       return renderSvg(scene);
     });
@@ -185,10 +190,14 @@ async function cmdCheck(args: string[]): Promise<number> {
     process.stderr.write("glyph check: usage: glyph check <spec.json> <baseline.svg>\n");
     return 1;
   }
-  const spec = resolveSourcePaths(readSpec(specPath), specPath);
+  // Same split as cmdRender — compileSpec sees the original (relative-
+  // source) spec so the specHash is platform-stable; materializeSpec
+  // sees the absolute-source variant so it can find the data on disk.
+  const spec = readSpec(specPath);
+  const specForMaterialize = resolveSourcePaths(spec, specPath);
   const baseline = readFileSync(resolve(baselinePath), "utf8");
   const svg = await withEngine(async (engine) => {
-    const m = await materializeSpec(engine, spec);
+    const m = await materializeSpec(engine, specForMaterialize);
     const scene = compileSpec({ spec, rows: m.result.rows, schema: m.handle.schema });
     return renderSvg(scene);
   });
