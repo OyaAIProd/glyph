@@ -87,6 +87,7 @@ const svg = renderSvg(scene); // byte-identical across platforms
 
 - **🎨 [Playground](https://seanhanca.github.io/glyph/play/)** — paste a CSV, edit a spec, share via URL. Browser-only.
 - **🧒 [Kid landing page](https://seanhanca.github.io/glyph/forkids.html)** — see Joy of Math demos including two interactive three.js wow demos.
+- **✨ [Joy of Math wow page](https://seanhanca.github.io/glyph/math/joy.html)** — six interactive math curves (Lissajous, hypotrochoid, curlicue, Archimedean spiral, butterfly, gravity-lensing). Drag sliders, watch equations come alive.
 - **📚 [30-minute learn guide](./docs/LEARN.md)** — 7 hands-on sections, three of them no-install.
 
 ---

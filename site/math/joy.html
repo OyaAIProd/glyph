@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Joy of Math — beautiful curves Glyph can draw</title>
+<meta name="description" content="Six interactive parametric curves rendered live: Lissajous, hypotrochoid, curlicue, Archimedean spiral, butterfly curve, and a relativistic light-bending demo. A taste of what an agent-driven viz layer can do.">
+<meta property="og:title" content="Joy of Math — beautiful curves Glyph can draw">
+<meta property="og:description" content="Six interactive parametric curves and a relativistic light-bending demo.">
+<style>
+  /* ===========================================================
+     Joy of Math wow page — dark aesthetic to make the math glow.
+     Single static HTML; six self-contained interactive demos.
+     Each demo is a `<canvas>` (or `<svg>`) driven by a small
+     `requestAnimationFrame` loop, with `<input type="range">`
+     sliders for the parameters. No framework, no CDN, no build
+     step. Everything ships from `/site/math/joy.html` on Pages.
+     =========================================================== */
+  :root {
+    --bg: #0a0e1a;
+    --panel: #131826;
+    --panel-edge: #232a3d;
+    --ink: #e2e8f0;
+    --muted: #94a3b8;
+    --primary: #60a5fa;
+    --accent: #fbbf24;
+    --pink: #f472b6;
+    --violet: #a78bfa;
+    --emerald: #34d399;
+    --rose: #fb7185;
+    --grid: rgba(96,165,250,.12);
+    --font-sans: -apple-system, "Helvetica Neue", system-ui, "Segoe UI", sans-serif;
+    --font-mono: "SF Mono", "Cascadia Code", ui-monospace, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--font-sans);-webkit-font-smoothing:antialiased;line-height:1.55}
+  a{color:var(--primary);text-underline-offset:3px}
+  h1,h2,h3{margin:0 0 .35em;letter-spacing:-.015em;line-height:1.15}
+  h1{font-size:clamp(2.4rem,5vw,3.6rem);font-weight:800}
+  h2{font-size:clamp(1.5rem,3vw,2rem);font-weight:700}
+  h3{font-size:1.1rem;font-weight:600;color:var(--ink)}
+  p{margin:0 0 .8em}
+  code,kbd{font-family:var(--font-mono);font-size:.92em;background:#1e293b;padding:.1em .35em;border-radius:4px;color:#e0e7ff}
+  .container{max-width:1180px;margin:0 auto;padding:0 24px}
+  /* Hero */
+  .hero{padding:80px 0 56px;text-align:center;background:radial-gradient(ellipse at top, rgba(96,165,250,.10), transparent 60%)}
+  .hero p{color:var(--muted);max-width:62ch;margin:.4em auto 0;font-size:1.08rem}
+  .hero-cta{margin-top:28px;display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+  .btn{display:inline-block;padding:12px 22px;border-radius:9999px;text-decoration:none;font-weight:600;font-size:.95rem;border:1px solid transparent;transition:transform .15s ease,background .15s ease}
+  .btn-primary{background:var(--primary);color:#0a0e1a}
+  .btn-primary:hover{transform:translateY(-1px);background:#7eb6ff}
+  .btn-ghost{border-color:#374151;color:var(--ink)}
+  .btn-ghost:hover{border-color:var(--primary);color:var(--primary)}
+  /* Demo card */
+  .demo{padding:48px 0;border-top:1px solid var(--panel-edge)}
+  .demo:first-of-type{border-top:none}
+  .demo-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:28px;align-items:start}
+  @media (max-width:880px){.demo-grid{grid-template-columns:1fr}}
+  .demo-canvas{background:var(--panel);border:1px solid var(--panel-edge);border-radius:14px;padding:6px;aspect-ratio:1/1;position:relative;overflow:hidden}
+  .demo-canvas canvas, .demo-canvas svg{display:block;width:100%;height:100%;border-radius:10px}
+  .demo-info h2 .num{display:inline-block;width:1.6em;height:1.6em;line-height:1.6em;text-align:center;background:var(--accent);color:#0a0e1a;border-radius:50%;font-size:.8em;margin-right:.4em;vertical-align:middle;font-weight:800}
+  .demo-info p.lede{color:var(--muted)}
+  .formula{font-family:var(--font-mono);background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 14px;color:#e0e7ff;font-size:.93rem;margin:10px 0 16px;overflow-x:auto;white-space:nowrap}
+  .controls label{display:block;margin-bottom:14px}
+  .controls .lbl{display:flex;justify-content:space-between;font-size:.86rem;color:var(--muted);margin-bottom:6px}
+  .controls .lbl strong{color:var(--ink);font-weight:600;font-family:var(--font-mono)}
+  .controls input[type=range]{width:100%;accent-color:var(--primary)}
+  .controls input[type=range]::-webkit-slider-runnable-track{background:#1e293b;height:4px;border-radius:4px}
+  .controls .preset-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .controls .preset-row button{background:#1e293b;border:1px solid #334155;color:var(--ink);padding:4px 10px;border-radius:9999px;font-size:.82rem;cursor:pointer;font-family:inherit}
+  .controls .preset-row button:hover{background:var(--primary);color:#0a0e1a;border-color:var(--primary)}
+  .demo-note{color:var(--muted);font-size:.88rem;margin-top:18px;padding-top:14px;border-top:1px dashed var(--panel-edge)}
+  .demo-note code{background:transparent;border:1px solid #334155}
+  /* Footer */
+  footer{padding:48px 0 64px;text-align:center;color:var(--muted);border-top:1px solid var(--panel-edge)}
+  footer a{color:var(--primary)}
+  @media (prefers-reduced-motion: reduce){
+    .btn:hover{transform:none}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="container">
+    <h1>Joy of Math</h1>
+    <p>Six interactive mathematical curves rendered live in your browser. Drag the sliders, watch the equations come alive. A taste of what <a href="https://github.com/seanhanca/glyph">Glyph</a> can become as an agent-driven viz layer for formulas + algorithms + datasets.</p>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="#lissajous">Start with Lissajous ↓</a>
+      <a class="btn btn-ghost" href="/glyph/play/">Try the playground</a>
+      <a class="btn btn-ghost" href="https://github.com/seanhanca/glyph/blob/main/docs/LEARN.md">Learn the grammar</a>
+    </div>
+  </div>
+</header>
+
+<!-- ===========================================================
+     1. LISSAJOUS CURVES
+     =========================================================== -->
+<section class="demo" id="lissajous">
+  <div class="container demo-grid">
+    <div class="demo-canvas" data-demo="lissajous">
+      <canvas></canvas>
+    </div>
+    <div class="demo-info">
+      <h2><span class="num">1</span>Lissajous Curves</h2>
+      <p class="lede">Two perpendicular sine waves drawn against each other. As the frequency ratio <code>a:b</code> changes, the curve sweeps through every closed shape a string can make: an ellipse, a figure-eight, a knot.</p>
+      <div class="formula">x = A · sin(a·t + δ) &nbsp; y = B · sin(b·t)</div>
+      <div class="controls">
+        <label><span class="lbl"><span>frequency a</span><strong id="lbl-liss-a">3</strong></span><input id="liss-a" type="range" min="1" max="9" step="1" value="3"></label>
+        <label><span class="lbl"><span>frequency b</span><strong id="lbl-liss-b">2</strong></span><input id="liss-b" type="range" min="1" max="9" step="1" value="2"></label>
+        <label><span class="lbl"><span>phase δ (rad)</span><strong id="lbl-liss-d">0.00</strong></span><input id="liss-d" type="range" min="0" max="6.283" step="0.05" value="0"></label>
+        <div class="preset-row">
+          <button data-preset="3,2,0">3:2 figure-8</button>
+          <button data-preset="5,4,1.5708">5:4 knot</button>
+          <button data-preset="7,5,0.7854">7:5 lattice</button>
+          <button data-preset="1,1,0.7854">1:1 ellipse</button>
+        </div>
+      </div>
+      <p class="demo-note">The phase δ ticks forward continuously — at δ = 0 the figure-eight is "open", at δ = π/2 it pinches into a vertical line, then back. This is the underlying physics of any two harmonic oscillators sharing a screen.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================================
+     2. HYPOTROCHOID + EPITROCHOID (Spirograph)
+     =========================================================== -->
+<section class="demo" id="spirograph">
+  <div class="container demo-grid">
+    <div class="demo-canvas" data-demo="spirograph">
+      <canvas></canvas>
+    </div>
+    <div class="demo-info">
+      <h2><span class="num">2</span>Spirograph: Hypotrochoid + Epitrochoid</h2>
+      <p class="lede">A point attached to a small circle rolling <em>inside</em> a big circle traces a <strong>hypotrochoid</strong>. Rolling <em>outside</em> traces an <strong>epitrochoid</strong>. Tune R, r, d — get cardioids, nephroids, rose curves, full Spirograph patterns.</p>
+      <div class="formula">x = (R−r)·cos(t) + d·cos((R−r)/r · t) &nbsp;<br>y = (R−r)·sin(t) − d·sin((R−r)/r · t)</div>
+      <div class="controls">
+        <label><span class="lbl"><span>R (fixed circle)</span><strong id="lbl-spiro-R">5</strong></span><input id="spiro-R" type="range" min="3" max="11" step="1" value="5"></label>
+        <label><span class="lbl"><span>r (rolling circle)</span><strong id="lbl-spiro-r">3</strong></span><input id="spiro-r" type="range" min="1" max="9" step="1" value="3"></label>
+        <label><span class="lbl"><span>d (pen offset)</span><strong id="lbl-spiro-d">5.0</strong></span><input id="spiro-d" type="range" min="0.5" max="8" step="0.1" value="5"></label>
+        <label><span class="lbl"><span>mode</span><strong id="lbl-spiro-mode">hypo (inside)</strong></span><input id="spiro-mode" type="range" min="0" max="1" step="1" value="0"></label>
+        <div class="preset-row">
+          <button data-preset="5,3,5,0">5:3 rosette</button>
+          <button data-preset="7,2,7,0">7-petal star</button>
+          <button data-preset="3,1,2,1">cardioid</button>
+          <button data-preset="5,1,3,1">5-cusp epi</button>
+        </div>
+      </div>
+      <p class="demo-note">Set <code>R = 1, r = 1, d = 1</code> in epitrochoid mode and you've drawn a perfect <strong>cardioid</strong> — the antenna-radiation pattern of every directional microphone on Earth.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================================
+     3. CURLICUE CURVES
+     =========================================================== -->
+<section class="demo" id="curlicue">
+  <div class="container demo-grid">
+    <div class="demo-canvas" data-demo="curlicue">
+      <canvas></canvas>
+    </div>
+    <div class="demo-info">
+      <h2><span class="num">3</span>Curlicue Spiral</h2>
+      <p class="lede">Take tiny unit steps. At step n, turn by an angle that scales with n². The result is a fractal-like organic spiral that "blooms" continuously — every irrational base angle θ produces a different visual language.</p>
+      <div class="formula">z_{n+1} = z_n + exp(i · (θ·n² + t))</div>
+      <div class="controls">
+        <label><span class="lbl"><span>θ (base angle, rad)</span><strong id="lbl-curl-theta">1.5708</strong></span><input id="curl-theta" type="range" min="0.1" max="3.14159" step="0.001" value="1.5708"></label>
+        <label><span class="lbl"><span>steps</span><strong id="lbl-curl-n">8000</strong></span><input id="curl-n" type="range" min="500" max="20000" step="500" value="8000"></label>
+        <div class="preset-row">
+          <button data-preset="1.5708">π/2</button>
+          <button data-preset="2.39996">golden</button>
+          <button data-preset="2.094">2π/3</button>
+          <button data-preset="0.6180">φ⁻¹</button>
+          <button data-preset="3.14159">π</button>
+        </div>
+      </div>
+      <p class="demo-note">The golden-angle θ ≈ 2.39996 rad (137.5°) is exactly the angle sunflower seeds use to pack densely. Try it — the resulting curlicue lattice <em>is</em> the seed pattern.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================================
+     4. ARCHIMEDEAN SPIRAL
+     =========================================================== -->
+<section class="demo" id="archimedean">
+  <div class="container demo-grid">
+    <div class="demo-canvas" data-demo="archimedean">
+      <canvas></canvas>
+    </div>
+    <div class="demo-info">
+      <h2><span class="num">4</span>Archimedean Spiral</h2>
+      <p class="lede">The simplest spiral imaginable: r grows linearly with θ. Animate the growth rate b and the spiral breathes — every spring, every nautilus shell, every vinyl record's groove.</p>
+      <div class="formula">r(θ) = a + b·θ</div>
+      <div class="controls">
+        <label><span class="lbl"><span>a (start radius)</span><strong id="lbl-arch-a">0.0</strong></span><input id="arch-a" type="range" min="0" max="20" step="0.5" value="0"></label>
+        <label><span class="lbl"><span>b (growth rate)</span><strong id="lbl-arch-b">2.0</strong></span><input id="arch-b" type="range" min="0.2" max="6" step="0.05" value="2"></label>
+        <label><span class="lbl"><span>turns</span><strong id="lbl-arch-t">8</strong></span><input id="arch-t" type="range" min="2" max="30" step="1" value="8"></label>
+      </div>
+      <p class="demo-note">Glyph already supports this via <code>data.shape: "trajectory"</code> with <code>x = (a+b·t)·cos(t)</code>, <code>y = (a+b·t)·sin(t)</code>. The fixture at <a href="https://github.com/seanhanca/glyph/blob/main/packages/core/__fixtures__/math/draw-in-spiral.svg">__fixtures__/math/draw-in-spiral.svg</a> is the byte-stable version of this same spiral, with pen-draw animation.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================================
+     5. BUTTERFLY CURVE
+     =========================================================== -->
+<section class="demo" id="butterfly">
+  <div class="container demo-grid">
+    <div class="demo-canvas" data-demo="butterfly">
+      <canvas></canvas>
+    </div>
+    <div class="demo-info">
+      <h2><span class="num">5</span>Butterfly Curve <span style="color:var(--muted);font-size:.6em;font-weight:400">— Temple H. Fay, 1989</span></h2>
+      <p class="lede">A transcendental parametric curve. Sweep <code>t</code> from 0 to 12π and the trace draws a six-winged butterfly. Few formulas this short produce a shape this complex.</p>
+      <div class="formula">x = sin(t)·(e^cos(t) − 2·cos(4t) − sin⁵(t/12))<br>y = cos(t)·(e^cos(t) − 2·cos(4t) − sin⁵(t/12))</div>
+      <div class="controls">
+        <label><span class="lbl"><span>animation speed</span><strong id="lbl-butter-spd">1.0×</strong></span><input id="butter-spd" type="range" min="0.1" max="3" step="0.1" value="1"></label>
+        <label><span class="lbl"><span>trail persistence</span><strong id="lbl-butter-fade">98%</strong></span><input id="butter-fade" type="range" min="80" max="100" step="1" value="98"></label>
+      </div>
+      <p class="demo-note">The butterfly emerges scene by scene — the pen draws six wings as t crosses the periodic structure of cos(4t). When the trace completes a full loop (t = 12π) the figure is whole.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================================
+     6. GRAVITY LENS — relativistic light bending
+     =========================================================== -->
+<section class="demo" id="gravity-lens">
+  <div class="container demo-grid">
+    <div class="demo-canvas" data-demo="gravity-lens">
+      <canvas></canvas>
+    </div>
+    <div class="demo-info">
+      <h2><span class="num">6</span>Gravity Bends Light</h2>
+      <p class="lede">Einstein's general relativity says: mass curves spacetime. Light follows the straightest possible path through that curved space, which makes it visibly bend around heavy objects. Drag the mass slider — watch space deform, watch the light rays follow.</p>
+      <div class="formula">deflection angle = 4·G·M / (c² · b)<br>(b = impact parameter, M = lens mass)</div>
+      <div class="controls">
+        <label><span class="lbl"><span>lens mass (M☉)</span><strong id="lbl-grav-mass">10⁵</strong></span><input id="grav-mass" type="range" min="0" max="100" step="1" value="50"></label>
+        <label><span class="lbl"><span>impact parameter b</span><strong id="lbl-grav-b">0.3</strong></span><input id="grav-b" type="range" min="-1" max="1" step="0.02" value="0.3"></label>
+        <label><span class="lbl"><span>ray count</span><strong id="lbl-grav-rays">5</strong></span><input id="grav-rays" type="range" min="1" max="11" step="1" value="5"></label>
+      </div>
+      <p class="demo-note">When the deflection is large enough, you get <strong>gravitational lensing</strong> — a single distant galaxy appears as multiple arcs or a full <em>Einstein ring</em> around the foreground mass. This is how astronomers weigh dark matter without ever seeing it.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================================
+     What this means for Glyph
+     =========================================================== -->
+<section class="demo" id="about">
+  <div class="container" style="max-width:780px">
+    <h2>What this means for Glyph</h2>
+    <p>Every curve on this page is a parametric formula. Most of them already compose as a <a href="https://github.com/seanhanca/glyph/blob/main/docs/LEARN.md">Glyph spec</a> — <code>data.shape: "trajectory"</code> with the <code>x(t), y(t)</code> formulas plugged in. The result: a byte-stable, deterministic SVG that an AI agent can author from English.</p>
+    <p>The pieces that <em>aren't</em> Glyph specs yet — iterative recurrences (curlicue), 3D field distortions (gravity lens), continuous slider-driven parameter sweeps — are exactly the surfaces a future Glyph extension would expose. Each one is a candidate for a <a href="https://github.com/seanhanca/glyph/issues/new?template=feature_request.yml">feature request</a>.</p>
+    <p>The bigger vision: Glyph as the viz layer agents reach for to render <em>any</em> formula, dataset, or algorithm. Grammar of graphics over math, not just bar charts.</p>
+    <div class="hero-cta" style="margin-top:24px">
+      <a class="btn btn-primary" href="https://github.com/seanhanca/glyph">⭐ Star on GitHub</a>
+      <a class="btn btn-ghost" href="https://github.com/seanhanca/glyph/issues/new?template=recipe_idea.yml">Add a recipe</a>
+      <a class="btn btn-ghost" href="https://github.com/seanhanca/glyph/discussions">Discuss</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Joy of Math · part of <a href="https://github.com/seanhanca/glyph">Glyph</a> · Apache 2.0 · No telemetry · <a href="/glyph/forkids.html">Kid-friendly version</a>
+  </div>
+</footer>
+
+<script src="joy.js"></script>
+</body>
+</html>

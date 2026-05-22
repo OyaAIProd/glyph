@@ -259,6 +259,8 @@ own.)
 
 Full Joy of Math walk-through: [`docs/MATH.md`](./MATH.md) (existing).
 
+**More math beauty:** the [Joy of Math wow page](https://seanhanca.github.io/glyph/math/joy.html) renders six interactive parametric curves live in your browser — Lissajous, hypotrochoid, curlicue, Archimedean spiral, butterfly curve, and a gravitational-lens demo. Drag the sliders, watch the equations come alive. Most of these can already be expressed as a Glyph spec via `data.shape: "trajectory"`; the page is a preview of what an agent-driven viz layer can do.
+
 ---
 
 ## 7. Where to go next
