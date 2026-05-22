@@ -247,7 +247,17 @@ function markDataFor(
 
 const DEFAULT_WIDTH = 640;
 const DEFAULT_HEIGHT = 400;
-const PADDING = { top: 24, right: 24, bottom: 40, left: 56 } as const;
+// PADDING.bottom must cover:
+//   - the x-axis tick line itself (1 px)
+//   - the tick mark (4 px below the axis)
+//   - the tick labels (font 11, hanging baseline → reaches ~+27 px from
+//     the axis)
+//   - the x-axis title (positioned at +32 from the axis, font 12,
+//     hanging baseline → reaches ~+44 px from the axis)
+// 40 px was sized for the ticks alone and silently clipped the title
+// bottom by ~4 px against the SVG viewBox. 48 gives a 4 px safety
+// margin under the lowest descender of the title text.
+const PADDING = { top: 24, right: 24, bottom: 48, left: 56 } as const;
 
 /** Estimate how much horizontal space the legend block will need (px).
  *  Returns 0 when no color encoding is present on any layer.
@@ -797,6 +807,51 @@ export function compileSpec(input: CompileInput): Scene {
       throw new Error(
         `Layer ${i}: per-layer 'data' overrides not yet supported in the multi-layer compiler`,
       );
+    }
+  }
+
+  // Encoding-field existence check.
+  //
+  // Failure mode this catches: an author writes `encoding: { x: "hour" }`
+  // but the schema column is `pickup_hour`. Previously the compiler
+  // silently returned `undefined` from `valueAt`, every row collapsed to
+  // the same empty-string band, and 12 bars stacked at the same X
+  // position looking like ONE bar. No error, no warning, just a wrong
+  // chart — exactly the class of bug the determinism contract is
+  // supposed to make impossible to ship.
+  //
+  // Skip the check when:
+  //   - rows is empty (no data yet — the schema may not be authoritative;
+  //     this is the case used by hierarchy/graph/grid data shapes and by
+  //     mark types that synthesize their own data, e.g. bezier).
+  //   - the channel value is an aggregate object without a field, like
+  //     `{ aggregate: "count" }` — fieldOf returns undefined and there's
+  //     nothing to validate.
+  //   - the mark is `geo-point`/`geo-region` (geo specs use a different
+  //     coordinate model and their own field-resolution path).
+  //
+  // The check covers x, y, color, size, opacity — the encoding channels
+  // that resolve to a row column. `tooltip`/`text` are intentionally
+  // permissive (downstream consumers handle missing fields by omitting
+  // the artifact). Geo channels (`lat`/`lon`/`region`) are also skipped
+  // because they live on geo marks whose field-resolution path is
+  // separate.
+  if (rows.length > 0) {
+    const validatedChannels = ["x", "y", "color", "size", "opacity"] as const;
+    const schemaNames = new Set(schema.map((c) => c.name));
+    for (let i = 0; i < spec.layers.length; i++) {
+      const l = spec.layers[i];
+      if (!l) continue;
+      if (l.mark === "geo-point" || l.mark === "geo-region") continue;
+      for (const ch of validatedChannels) {
+        const f = fieldOf(l.encoding[ch]);
+        if (f !== undefined && !schemaNames.has(f)) {
+          const available = schema.map((c) => c.name).join(", ");
+          throw new Error(
+            `Layer ${i} encoding.${ch} references field "${f}" which is not in the schema. Available columns: [${available || "(none)"}]`,
+          );
+        }
+      }
     }
   }
 

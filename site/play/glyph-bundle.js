@@ -24558,7 +24558,7 @@ function markDataFor(ctx, row, schema, rowIndex) {
 }
 var DEFAULT_WIDTH = 640;
 var DEFAULT_HEIGHT = 400;
-var PADDING = { top: 24, right: 24, bottom: 40, left: 56 };
+var PADDING = { top: 24, right: 24, bottom: 48, left: 56 };
 function estimateLegendWidth(spec, rows, schema) {
   if (rows.length === 0)
     return 0;
@@ -24864,6 +24864,24 @@ function compileSpec(input) {
   for (let i = 0; i < spec.layers.length; i++) {
     if (spec.layers[i]?.data !== void 0) {
       throw new Error(`Layer ${i}: per-layer 'data' overrides not yet supported in the multi-layer compiler`);
+    }
+  }
+  if (rows.length > 0) {
+    const validatedChannels = ["x", "y", "color", "size", "opacity"];
+    const schemaNames = new Set(schema.map((c) => c.name));
+    for (let i = 0; i < spec.layers.length; i++) {
+      const l = spec.layers[i];
+      if (!l)
+        continue;
+      if (l.mark === "geo-point" || l.mark === "geo-region")
+        continue;
+      for (const ch of validatedChannels) {
+        const f = fieldOf(l.encoding[ch]);
+        if (f !== void 0 && !schemaNames.has(f)) {
+          const available = schema.map((c) => c.name).join(", ");
+          throw new Error(`Layer ${i} encoding.${ch} references field "${f}" which is not in the schema. Available columns: [${available || "(none)"}]`);
+        }
+      }
     }
   }
   for (let i = 0; i < spec.layers.length; i++) {
@@ -27108,7 +27126,7 @@ function renderMark(m, interactive) {
         const dur = `${m.motion.durationMs}ms`;
         const begin = m.motion.beginMs !== void 0 && m.motion.beginMs !== 0 ? ` begin="${m.motion.beginMs}ms"` : "";
         const animateMotion = `<animateMotion dur="${dur}"${begin} repeatCount="indefinite" rotate="auto" keyTimes="0;0.5;1" keyPoints="0;1;0" calcMode="linear"><mpath href="${pathRef}" xlink:href="${pathRef}"/></animateMotion>`;
-        return `<circle cx="${m.cx}" cy="${m.cy}" r="${m.r}" fill="${esc(m.fill)}"${stroke}${sw}${op2}>${animateMotion}</circle>`;
+        return `<circle cx="0" cy="0" r="${m.r}" fill="${esc(m.fill)}"${stroke}${sw}${op2}>${animateMotion}</circle>`;
       }
       if (!interactive) {
         if (op2) {

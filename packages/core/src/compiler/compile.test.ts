@@ -119,6 +119,55 @@ describe("compileSpec — error cases", () => {
     };
     expect(() => compileSpec({ spec, rows, schema })).toThrow();
   });
+
+  it("throws when an encoding references a field that's not in the schema", () => {
+    // Regression test for the silent-degradation bug surfaced by the
+    // playground: user pastes `{layers:[{mark:"bar",encoding:{x:"hour",
+    // y:"rides"}}]}` but the example CSV has columns `pickup_hour,
+    // fare, rides`. Pre-fix behavior: compiler returned `undefined`
+    // from `valueAt("hour")`, every row collapsed to the empty-string
+    // band, and 12 bars stacked at the same X looking like ONE bar
+    // covering the full plot width. No error, no warning — wrong chart
+    // shipped silently. Now: throws with a clear message that names
+    // the bad field AND lists what columns DO exist.
+    const spec: GlyphSpec = {
+      data: { source: "x" },
+      layers: [{ mark: "bar", encoding: { x: "hour", y: "rides" } }],
+    };
+    const wrongSchema: import("./compile.js").CompileFieldInfo[] = [
+      { name: "pickup_hour", type: "BIGINT" },
+      { name: "rides", type: "BIGINT" },
+    ];
+    const wrongRows: ReadonlyArray<ReadonlyArray<unknown>> = [
+      [0, 42],
+      [1, 38],
+    ];
+    expect(() => compileSpec({ spec, rows: wrongRows, schema: wrongSchema })).toThrow(
+      /encoding\.x references field "hour" .* not in the schema.*Available columns: \[pickup_hour, rides\]/,
+    );
+  });
+
+  it("skips the field-existence check when rows is empty (different errors are still allowed)", () => {
+    // Specs that synthesize their own rows (hierarchy, graph, function
+    // shape) compile with rows=[] and a possibly-empty schema. The
+    // field-existence check must skip in that case so those code paths
+    // aren't broken. Other validation may still fire — we assert
+    // specifically that the message we'd emit for a missing field
+    // (`not in the schema`) is NOT the error raised.
+    const spec: GlyphSpec = {
+      data: { source: "x" },
+      layers: [{ mark: "bar", encoding: { x: "any_field", y: "any_other" } }],
+    };
+    let raised: Error | undefined;
+    try {
+      compileSpec({ spec, rows: [], schema: [] });
+    } catch (e) {
+      raised = e as Error;
+    }
+    // Whatever error fires (if any), it must NOT be the
+    // field-existence one — that's the contract this test pins.
+    expect(raised?.message ?? "").not.toMatch(/not in the schema/);
+  });
 });
 
 describe("compileSpec — determinism", () => {

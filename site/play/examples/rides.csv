@@ -1,4 +1,4 @@
-pickup_hour,fare,rides
+hour,fare,rides
 0,12.50,42
 1,11.20,38
 2,10.10,30
