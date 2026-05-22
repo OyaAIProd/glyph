@@ -114,6 +114,22 @@ The same `glyph_story` verb supports 5 recipes today (`sine`, `cosine`, `circle`
 
 **→ Full kid landing page** with sliders + prompt portal + the same demos in 3D via three.js: [`site/forkids.html`](./site/forkids.html) — open the file directly, or [view it inline via htmlpreview](https://htmlpreview.github.io/?https://github.com/seanhanca/glyph/blob/main/site/forkids.html). _([Live URL once GitHub Pages is enabled](https://seanhanca.github.io/glyph/forkids.html) — repo admin: **Settings → Pages → Source: GitHub Actions** to flip it on.)_
 
+## Where to go next
+
+Pick the path that matches what you want to do. Each is a separate front door — nothing here requires reading everything else first.
+
+| If you want to… | Go here |
+|-----------------|---------|
+| **Learn Glyph hands-on in 30 minutes** | [`docs/LEARN.md`](./docs/LEARN.md) — six short exercises, three of them need no install |
+| **Try Glyph in your browser, no install** | [The playground](https://seanhanca.github.io/glyph/play/) — paste a CSV, edit a spec, share via URL |
+| **Use Glyph from Claude / ChatGPT / Gemini** | The [Quickstart](#quickstart) below — one `npx` command and you're connected |
+| **Read the spec format** | [`packages/core/src/spec/types.ts`](./packages/core/src/spec/types.ts) and [`packages/core/dist/spec.schema.json`](./packages/core/dist/spec.schema.json) (autocomplete-ready) |
+| **Ask a question or show off a chart** | [GitHub Discussions](https://github.com/seanhanca/glyph/discussions) — Q&A, recipe ideas, gallery |
+| **File a bug** | [Bug report](https://github.com/seanhanca/glyph/issues/new?template=bug_report.yml) — include the spec |
+| **Request a feature** | [Feature](https://github.com/seanhanca/glyph/issues/new?template=feature_request.yml) · [MCP verb idea](https://github.com/seanhanca/glyph/issues/new?template=mcp_verb_idea.yml) · [Recipe idea](https://github.com/seanhanca/glyph/issues/new?template=recipe_idea.yml) |
+| **Send a PR** | [`CONTRIBUTING.md`](./CONTRIBUTING.md) — four contributor paths, choose your difficulty |
+| **Star ⭐ Glyph** | If the README demo wall made you smile, give the repo a star — it's how new contributors find us |
+
 ## Quickstart
 
 ### 1. Use it with Claude Code

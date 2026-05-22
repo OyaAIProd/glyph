@@ -1,0 +1,88 @@
+name: 🎨 glyph_story recipe idea
+description: A new natural-language pattern that glyph_story should match.
+title: "[recipe] "
+labels: ["joy-of-math", "recipe", "good-first-issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        `glyph_story({ intent: "..." })` matches natural-language intents to
+        deterministic recipes. The 0.2.0 set is **sine, cosine, circle,
+        parabola, vector field**. Adding a new recipe is **one object
+        literal** in [`packages/core/src/story/compose.ts`](https://github.com/seanhanca/glyph/blob/main/packages/core/src/story/compose.ts)
+        — no architectural surface, no schema changes. This is a great
+        first PR.
+
+        Tell us the prompt and the picture, and we'll guide you through
+        wiring it up.
+
+  - type: input
+    id: name
+    attributes:
+      label: Recipe name
+      description: Short, lowercase. Becomes the recipe id.
+      placeholder: "exponential decay"
+    validations:
+      required: true
+
+  - type: textarea
+    id: patterns
+    attributes:
+      label: Natural-language patterns
+      description: |
+        One per line. Case-insensitive substrings the recipe should match.
+        The composer is keyword-based, not LLM-based, so common synonyms
+        matter ("decay", "shrinking", "halving").
+      placeholder: |
+        exponential decay
+        halflife
+        radioactive decay
+        cooling curve
+    validations:
+      required: true
+
+  - type: textarea
+    id: visual
+    attributes:
+      label: What should the kid see?
+      description: |
+        Walk through the scenes. ≤ 3 scenes is ideal. Each scene gets
+        ~2.5 seconds. Captions ≤ 8 words for the "kid" audience.
+      placeholder: |
+        Scene 1: draw the curve y = e^(-x/2) over x in [0, 6]. (2.5s)
+        Scene 2: traveling dot rides the curve. (2.5s)
+        Scene 3: annotation at x=2 labels the halflife point. (1.5s)
+        Caption: "It gets smaller, never quite zero."
+    validations:
+      required: true
+
+  - type: textarea
+    id: math
+    attributes:
+      label: The math
+      description: |
+        For composable recipes, give the `data.shape: "function"` /
+        `"trajectory"` / `"streamline"` config. The composer uses these
+        as building blocks.
+      render: json
+      placeholder: |
+        {
+          "data": { "shape": "function", "expr": "exp(-x/2)",
+                    "x": { "min": 0, "max": 6, "samples": 120 } }
+        }
+
+  - type: input
+    id: audience
+    attributes:
+      label: Target audience
+      description: Default audience this recipe is composed for.
+      placeholder: "kid"
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I checked [`packages/core/src/story/compose.ts`](https://github.com/seanhanca/glyph/blob/main/packages/core/src/story/compose.ts) for a recipe that already covers this.
+          required: true
+        - label: I'm willing to send a PR if a maintainer leaves "good-first-issue" feedback.

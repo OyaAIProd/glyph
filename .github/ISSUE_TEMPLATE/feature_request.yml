@@ -1,0 +1,84 @@
+name: ✨ Feature request
+description: A new mark, encoding channel, audit rule, or subsystem.
+title: "[feat] "
+labels: ["feature", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Glyph's grammar is intentionally small — every new mark / channel /
+        rule adds compile-time surface and snapshot churn, so we're choosy.
+        The best feature requests answer: **why is this NOT a one-off
+        layer-by-layer trick the user can already do?**
+
+        If you're proposing a new MCP verb, use the [MCP-verb idea](https://github.com/seanhanca/glyph/issues/new?template=mcp_verb_idea.yml)
+        template instead. If you're proposing a new `glyph_story` recipe,
+        use the [recipe idea](https://github.com/seanhanca/glyph/issues/new?template=recipe_idea.yml)
+        template.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem?
+      description: |
+        One paragraph. What can't agents / users do today? Skip implementation
+        details — frame the gap from the spec author's perspective.
+      placeholder: |
+        Agents can't render a chord diagram via Glyph today. They reach
+        for D3 or Plotly and get back unverifiable JS. A first-class
+        `mark: "chord"` would close that loop with a deterministic SVG.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed spec shape
+      description: |
+        Sketch the JSON. It's OK if rough — we'll iterate. Aim to fit the
+        existing grammar (`mark`, `encoding`, `data.shape`, …) rather than
+        adding a parallel surface.
+      render: json
+      placeholder: |
+        {
+          "layers": [{
+            "mark": "chord",
+            "data": { "source": "<inline:relations>" },
+            "encoding": {
+              "source": "from",
+              "target": "to",
+              "value": "weight"
+            }
+          }]
+        }
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: |
+        How would you build this today with the existing surface?  If you
+        couldn't, say so — the gap itself is a useful signal.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope hint
+      description: How big do you think this is? (Maintainers may disagree, that's fine.)
+      options:
+        - "Tiny — one new option on an existing mark"
+        - "Small — a new mark or audit rule"
+        - "Medium — a new MCP verb or data shape"
+        - "Large — a new subsystem (renderer, runtime, viewer)"
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I searched existing issues + Discussions for this gap.
+          required: true
+        - label: I considered whether the existing grammar already supports this with a clever layer combo.
+          required: true

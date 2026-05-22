@@ -1,0 +1,11 @@
+# Funding sources surfaced in the "Sponsor this project" widget on the
+# repo's main page. Uncomment + fill the lines you want to enable.
+#
+# https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+# github: [seanhanca]
+# patreon: # custom username (no @)
+# open_collective: # https://opencollective.com/<slug>
+# ko_fi: # https://ko-fi.com/<slug>
+# tidelift: npm/@glyph/mcp   # if/when the project joins Tidelift
+# custom: ["https://your-sponsor-page.example/"]

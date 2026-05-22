@@ -1,0 +1,21 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Q&A and ideas — GitHub Discussions
+    url: https://github.com/seanhanca/glyph/discussions
+    about: |
+      Have a question? Want to brainstorm a new mark / recipe / MCP verb?
+      Want to show off a chart you built? Open a Discussion instead of an
+      Issue — Discussions are the right surface for open-ended threads
+      and they don't clutter the bug tracker.
+  - name: 🎨 Try Glyph in your browser — the playground
+    url: https://seanhanca.github.io/glyph/play/
+    about: |
+      Before filing an Issue, see if you can reproduce in the playground.
+      Click "Share URL" or "Save to Gist" and include the link in your
+      Issue — it's the fastest way for a maintainer to reproduce.
+  - name: 📚 Learn Glyph in 30 minutes
+    url: https://github.com/seanhanca/glyph/blob/main/docs/LEARN.md
+    about: |
+      New to Glyph? The Learn guide walks you through every key feature
+      hands-on, with animated SVGs you can click and inspect. Most
+      "how do I do X?" questions are answered there.

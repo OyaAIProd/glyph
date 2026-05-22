@@ -1,0 +1,90 @@
+name: 🐛 Bug report
+description: Something broke. The chart you got wasn't the chart you expected.
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Glyph's determinism contract means **most bugs
+        are reproducible from a single JSON spec**. Paste your spec below and
+        we'll bisect from there.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the unexpected output in one paragraph. If you have a screenshot or the rendered SVG, drop it in.
+      placeholder: |
+        I rendered a sine wave with `glyph_story` and the dot in the
+        traveler animation appears off-screen at the right edge instead
+        of bouncing back along the curve.
+    validations:
+      required: true
+
+  - type: textarea
+    id: spec
+    attributes:
+      label: The spec that triggers it
+      description: |
+        Paste the JSON spec (or the MCP verb args). If you reproduced in the
+        playground, paste the **Share URL**. Anything shorter than the
+        minimum spec that fails helps us a lot.
+      render: json
+      placeholder: |
+        {
+          "version": "glyph/0.1",
+          "data": { "shape": "function", "expr": "sin(x)",
+                    "x": { "min": -6.28, "max": 6.28, "samples": 200 } },
+          "layers": [{ "mark": "line", "encoding": { "x": "x", "y": "y" } }]
+        }
+    validations:
+      required: true
+
+  - type: input
+    id: glyph-version
+    attributes:
+      label: Glyph version
+      description: From `package.json` or `npx -y @glyph/mcp --version`.
+      placeholder: "0.2.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface?
+      description: Pick whichever you triggered the bug through.
+      multiple: true
+      options:
+        - "@glyph/core (compileSpec / renderSvg)"
+        - "@glyph/mcp (verb via Claude / ChatGPT / Gemini)"
+        - "@glyph/cli (`glyph render` / `check` / `diff`)"
+        - "@glyph/live (browser hydration)"
+        - "Playground (site/play/)"
+        - "forkids.html"
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: OS + Node version
+      description: e.g. "macOS 14.5, Node 22.10" — Glyph cares about cross-platform byte-identity, so platform matters.
+      placeholder: "macOS 14.5, Node 22.10"
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: One sentence is enough.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I searched existing issues + Discussions for the same problem.
+          required: true
+        - label: I included the spec (or playground URL) that reproduces.
+          required: true

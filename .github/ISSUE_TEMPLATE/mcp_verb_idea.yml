@@ -1,0 +1,89 @@
+name: 🤖 MCP verb idea
+description: A new agent-facing verb (or argument) on the MCP server.
+title: "[mcp] glyph_"
+labels: ["mcp", "feature", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Glyph ships **52 MCP verbs** today (`glyph_render`, `glyph_describe`,
+        `glyph_story`, `glyph_verify`, …). Every new verb is a permanent
+        agent-facing surface and shows up in `glyph_capabilities` forever, so
+        we vet them more carefully than internal functions.
+
+        **Bar to clear**: an agent can't do the same thing today by chaining
+        2–3 existing verbs. If they can, propose a richer argument on an
+        existing verb instead.
+
+  - type: input
+    id: name
+    attributes:
+      label: Proposed verb name
+      description: Lowercase, snake_case, `glyph_` prefix.
+      placeholder: "glyph_diff_charts"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What does it do?
+      description: |
+        One paragraph from the agent's perspective. "When called with X,
+        returns Y." Not from the implementer's perspective.
+      placeholder: |
+        When called with two handle_ids returned by previous glyph_render
+        calls, returns the structural diff between them — added/removed
+        layers, encoding-channel changes, and a deterministic comparison
+        summary an agent can paste back to the user.
+    validations:
+      required: true
+
+  - type: textarea
+    id: signature
+    attributes:
+      label: Proposed signature
+      description: TypeScript / JSON-Schema-ish input shape. Don't sweat exact shape — we'll iterate.
+      render: typescript
+      placeholder: |
+        glyph_diff_charts({
+          a_handle_id: string,
+          b_handle_id: string,
+          format?: "summary" | "json-patch" | "structured",
+        }) → {
+          summary: string,
+          changes: Array<{ path: string, kind: "added"|"removed"|"modified", … }>,
+        }
+    validations:
+      required: true
+
+  - type: textarea
+    id: alt-chain
+    attributes:
+      label: How would an agent do this today?
+      description: |
+        Describe the chain of existing verbs that approximates the goal.
+        Honest answer here is critical — if "chain `glyph_describe` then
+        ask the LLM" already gets 80% of the value, a new verb may not
+        be the right move.
+    validations:
+      required: true
+
+  - type: textarea
+    id: composes
+    attributes:
+      label: What does it compose with?
+      description: |
+        Which existing verbs feed into it (`handle_id` from `glyph_render`,
+        for example) and which feed off it (`suggestedFollowups` on
+        `glyph_explain`)?
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I read the existing verb list in README.md (the 52-verb table).
+          required: true
+        - label: I confirmed the proposed verb isn't a thin wrapper over an existing one.
+          required: true
