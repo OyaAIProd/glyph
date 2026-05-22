@@ -149,7 +149,17 @@ function rerender() {
       name: c.column_name ?? c.name,
       type: c.column_type ?? c.type ?? "VARCHAR",
     }));
-    const svg = compileAndRender(spec, dataset.rows, schema);
+    // duckdb-wasm's `queryRows` returns each row as an OBJECT keyed by
+    // column name (see site/play/duckdb.js — the `toArray().map(...
+    // Object.fromEntries)` shape is deliberate so the share-CSV writer
+    // can read `row[col]`). But @glyph/core's `compileSpec` expects
+    // rows as POSITIONAL value arrays, indexed by the matching slot in
+    // `schema`. Mismatch was silent — mark compilers read `row[fieldIdx]`
+    // which on an object returns `undefined`, so 12 rides rows → 0 bars,
+    // no error, just an empty chart. Convert here, against the same
+    // `schema` order the compiler is about to use.
+    const positionalRows = dataset.rows.map((row) => schema.map((col) => row[col.name]));
+    const svg = compileAndRender(spec, positionalRows, schema);
     chartHost.innerHTML = svg;
   } catch (e) {
     // Compile errors from @glyph/core (Zod paths in particular) can be
