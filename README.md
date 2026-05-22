@@ -112,7 +112,7 @@ Open `sine.svg` in any browser. Curve draws, dot travels, caption fades, annotat
 
 The same `glyph_story` verb supports 5 recipes today (`sine`, `cosine`, `circle`, `parabola`, `vector field`) and 3 audiences (`kid`, `high-school`, `adult`). Adding a recipe is one object literal in [`packages/core/src/story/compose.ts`](./packages/core/src/story/compose.ts) — no architectural surface, no LLM in the render loop, no surprise behavior in CI.
 
-**→ Full kid landing page** with sliders + prompt portal + the same demos in 3D via three.js: [`site/forkids.html`](./site/forkids.html) ([live](https://seanhanca.github.io/glyph/forkids.html))
+**→ Full kid landing page** with sliders + prompt portal + the same demos in 3D via three.js: [`site/forkids.html`](./site/forkids.html) — open the file directly, or [view it inline via htmlpreview](https://htmlpreview.github.io/?https://github.com/seanhanca/glyph/blob/main/site/forkids.html). _([Live URL once GitHub Pages is enabled](https://seanhanca.github.io/glyph/forkids.html) — repo admin: **Settings → Pages → Source: GitHub Actions** to flip it on.)_
 
 ## Quickstart
 
