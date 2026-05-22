@@ -85,7 +85,7 @@
 <header class="hero">
   <div class="container">
     <h1>Joy of Math</h1>
-    <p>Six interactive mathematical curves rendered live in your browser. Drag the sliders, watch the equations come alive. A taste of what <a href="https://github.com/seanhanca/glyph">Glyph</a> can become as an agent-driven viz layer for formulas + algorithms + datasets.</p>
+    <p>Nine interactive demos rendered live in your browser: six parametric curves, plus three fluid + PDE simulations (particle flow, wave ripples, reaction-diffusion). Drag the sliders, watch the equations come alive. A taste of what <a href="https://github.com/seanhanca/glyph">Glyph</a> can become as an agent-driven viz layer for formulas + algorithms + datasets.</p>
     <div class="hero-cta">
       <a class="btn btn-primary" href="#lissajous">Start with Lissajous ↓</a>
       <a class="btn btn-ghost" href="/glyph/play/">Try the playground</a>
@@ -245,13 +245,87 @@
 </section>
 
 <!-- ===========================================================
+     7. PARTICLE FLOW FIELD — Eulerian velocity field, Lagrangian trace
+     =========================================================== -->
+<section class="demo" id="flow-field">
+  <div class="container demo-grid">
+    <div class="demo-canvas" data-demo="flow-field">
+      <canvas></canvas>
+    </div>
+    <div class="demo-info">
+      <h2><span class="num">7</span>Particle Flow Field</h2>
+      <p class="lede">Thousands of particles drift through a velocity field defined by a stream function ψ(x, y, t). Particle velocity is the <em>curl</em> of ψ (incompressible flow — no sources or sinks). The result: gorgeous swirling patterns that reorganize as the field morphs.</p>
+      <div class="formula">v = ∇ × ψ &nbsp; where &nbsp; ψ = sin(k·x + ωt) · cos(k·y) + cos(k·x) · sin(k·y − ωt)</div>
+      <div class="controls">
+        <label><span class="lbl"><span>particles</span><strong id="lbl-flow-n">2000</strong></span><input id="flow-n" type="range" min="200" max="6000" step="200" value="2000"></label>
+        <label><span class="lbl"><span>field scale k</span><strong id="lbl-flow-k">2.0</strong></span><input id="flow-k" type="range" min="0.5" max="6" step="0.1" value="2"></label>
+        <label><span class="lbl"><span>flow speed ω</span><strong id="lbl-flow-w">0.5</strong></span><input id="flow-w" type="range" min="0" max="2" step="0.05" value="0.5"></label>
+        <label><span class="lbl"><span>trail persistence</span><strong id="lbl-flow-fade">94%</strong></span><input id="flow-fade" type="range" min="70" max="99" step="1" value="94"></label>
+      </div>
+      <p class="demo-note">This is the math behind every weather-map wind animation you've ever seen. NOAA / the Weather Channel / earth.nullschool.net all use the same Lagrangian-particles-on-Eulerian-field trick. Glyph already ships <code>mark: "streamline"</code> for the static version (RK4-integrated path lines); this demo is what a future <code>mark: "particle-flow"</code> could look like.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================================
+     8. WAVE EQUATION — drop a pebble, ripples interact
+     =========================================================== -->
+<section class="demo" id="waves">
+  <div class="container demo-grid">
+    <div class="demo-canvas" data-demo="waves">
+      <canvas></canvas>
+    </div>
+    <div class="demo-info">
+      <h2><span class="num">8</span>Wave Equation: 2D Ripples</h2>
+      <p class="lede">The same partial differential equation governs water surface waves, sound in air, light in a vacuum, and a vibrating drum head. <strong>Click anywhere</strong> to drop a pebble and watch the ripples propagate, reflect off the walls, and interfere with each other.</p>
+      <div class="formula">∂²u/∂t² = c² · ∇²u − γ · ∂u/∂t</div>
+      <div class="controls">
+        <label><span class="lbl"><span>wave speed c</span><strong id="lbl-wave-c">0.50</strong></span><input id="wave-c" type="range" min="0.1" max="0.7" step="0.01" value="0.5"></label>
+        <label><span class="lbl"><span>damping γ</span><strong id="lbl-wave-g">0.003</strong></span><input id="wave-g" type="range" min="0" max="0.05" step="0.001" value="0.003"></label>
+        <label><span class="lbl"><span>auto-drops / sec</span><strong id="lbl-wave-rate">0.5</strong></span><input id="wave-rate" type="range" min="0" max="3" step="0.1" value="0.5"></label>
+      </div>
+      <p class="demo-note">Solved by an explicit finite-difference scheme on a 240×240 grid: each cell's next state is computed from its 4 neighbors. The same algorithm scaled to 1024³ runs on every modern supercomputer doing climate / seismology / ocean simulation.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================================
+     9. REACTION-DIFFUSION — Gray-Scott, Turing patterns
+     =========================================================== -->
+<section class="demo" id="reaction-diffusion">
+  <div class="container demo-grid">
+    <div class="demo-canvas" data-demo="reaction-diffusion">
+      <canvas></canvas>
+    </div>
+    <div class="demo-info">
+      <h2><span class="num">9</span>Reaction-Diffusion: Turing Patterns</h2>
+      <p class="lede">Two chemicals U and V react and diffuse on the same grid. Despite starting from an almost-uniform field, the system spontaneously generates leopard spots, zebra stripes, fingerprint ridges, or coral worms — depending on just two parameters. Alan Turing's 1952 paper "The Chemical Basis of Morphogenesis" proved this math really does explain animal coats.</p>
+      <div class="formula">∂U/∂t = Dᵤ·∇²U − U·V² + F·(1 − U)<br>∂V/∂t = Dᵥ·∇²V + U·V² − (F + k)·V</div>
+      <div class="controls">
+        <label><span class="lbl"><span>feed rate F</span><strong id="lbl-rd-F">0.055</strong></span><input id="rd-F" type="range" min="0.01" max="0.1" step="0.001" value="0.055"></label>
+        <label><span class="lbl"><span>kill rate k</span><strong id="lbl-rd-k">0.062</strong></span><input id="rd-k" type="range" min="0.045" max="0.075" step="0.001" value="0.062"></label>
+        <div class="preset-row">
+          <button data-preset="0.062,0.062">spots (leopard)</button>
+          <button data-preset="0.029,0.057">stripes (zebra)</button>
+          <button data-preset="0.055,0.062">coral worms</button>
+          <button data-preset="0.039,0.058">fingerprint</button>
+          <button data-preset="0.018,0.051">mitosis</button>
+          <button data-preset="0.082,0.06">solitons</button>
+        </div>
+      </div>
+      <p class="demo-note">Same algorithm runs every animal-coat-pattern paper for the past 70 years. Vary F and k by 0.001 and you cross a phase boundary — leopard becomes zebra becomes labyrinth becomes self-replicating spots. Real morphogenesis is governed by ~50 such parameters; this 2-parameter toy already covers an astonishing range of biology.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================================
      What this means for Glyph
      =========================================================== -->
 <section class="demo" id="about">
   <div class="container" style="max-width:780px">
     <h2>What this means for Glyph</h2>
-    <p>Every curve on this page is a parametric formula. Most of them already compose as a <a href="https://github.com/seanhanca/glyph/blob/main/docs/LEARN.md">Glyph spec</a> — <code>data.shape: "trajectory"</code> with the <code>x(t), y(t)</code> formulas plugged in. The result: a byte-stable, deterministic SVG that an AI agent can author from English.</p>
-    <p>The pieces that <em>aren't</em> Glyph specs yet — iterative recurrences (curlicue), 3D field distortions (gravity lens), continuous slider-driven parameter sweeps — are exactly the surfaces a future Glyph extension would expose. Each one is a candidate for a <a href="https://github.com/seanhanca/glyph/issues/new?template=feature_request.yml">feature request</a>.</p>
+    <p>Most of the curves on this page are parametric formulas — Lissajous, hypotrochoid, Archimedean spiral, butterfly — and each compiles to a <a href="https://github.com/seanhanca/glyph/blob/main/docs/LEARN.md">Glyph spec</a> via <code>data.shape: "trajectory"</code> with the <code>x(t), y(t)</code> formulas plugged in. The result: byte-stable, deterministic SVG an AI agent can author from English.</p>
+    <p>The remaining demos live in a different regime — <strong>iterative recurrences</strong> (curlicue), <strong>field-driven advection</strong> (particle flow), <strong>PDE solvers</strong> (waves, reaction-diffusion), <strong>relativistic geodesics</strong> (gravity lens). Glyph's grammar doesn't model these <em>yet</em>. Each is a natural extension: a <code>data.shape: "recurrence"</code>, a <code>mark: "particle-flow"</code>, a <code>data.shape: "pde-solve"</code>. The page is a preview of what an agent-driven viz layer for math + physics + biology could compose, one feature request at a time.</p>
     <p>The bigger vision: Glyph as the viz layer agents reach for to render <em>any</em> formula, dataset, or algorithm. Grammar of graphics over math, not just bar charts.</p>
     <div class="hero-cta" style="margin-top:24px">
       <a class="btn btn-primary" href="https://github.com/seanhanca/glyph">⭐ Star on GitHub</a>

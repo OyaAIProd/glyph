@@ -259,7 +259,7 @@ own.)
 
 Full Joy of Math walk-through: [`docs/MATH.md`](./MATH.md) (existing).
 
-**More math beauty:** the [Joy of Math wow page](https://seanhanca.github.io/glyph/math/joy.html) renders six interactive parametric curves live in your browser — Lissajous, hypotrochoid, curlicue, Archimedean spiral, butterfly curve, and a gravitational-lens demo. Drag the sliders, watch the equations come alive. Most of these can already be expressed as a Glyph spec via `data.shape: "trajectory"`; the page is a preview of what an agent-driven viz layer can do.
+**More math beauty:** the [Joy of Math wow page](https://seanhanca.github.io/glyph/math/joy.html) renders nine interactive demos live in your browser — six parametric curves (Lissajous, hypotrochoid, curlicue, Archimedean spiral, butterfly, gravitational lens) plus three fluid / PDE simulations (particle flow field, 2D wave-equation ripples, Gray-Scott reaction-diffusion / Turing patterns). Drag the sliders, click the wave-ripples canvas to drop a stone, switch reaction-diffusion presets to see leopard spots become zebra stripes. Most of these can already be expressed as a Glyph spec via `data.shape: "trajectory"`; the page is a preview of what an agent-driven viz layer can do.
 
 ---
 

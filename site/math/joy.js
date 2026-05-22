@@ -478,6 +478,347 @@
     });
   }
 
+  // ============================================================
+  // FLUID + PDE DEMOS
+  // ============================================================
+
+  // ---------------- DEMO 7 — Particle Flow Field ----------------
+
+  /**
+   * Lagrangian particles drifting through an Eulerian velocity field.
+   *
+   * Stream function:
+   *   ψ(x, y, t) = sin(k·x + ω·t) · cos(k·y)
+   *              + cos(k·x) · sin(k·y − ω·t)
+   *
+   * Velocity is the CURL of ψ — guarantees incompressible (∇·v = 0)
+   * flow, which is what makes the resulting field swirl rather than
+   * have visible sources/sinks. Analytic derivatives:
+   *
+   *   ∂ψ/∂y = -k·sin(k·x + ω·t)·sin(k·y) + k·cos(k·x)·cos(k·y − ω·t)
+   *   ∂ψ/∂x =  k·cos(k·x + ω·t)·cos(k·y) − k·sin(k·x)·sin(k·y − ω·t)
+   *
+   * vx = ∂ψ/∂y,  vy = -∂ψ/∂x.
+   *
+   * Particles get periodic-boundary wrap so the field stays full.
+   */
+  function initFlowField(card) {
+    const stage = mountCanvas(card);
+    const { ctx } = stage;
+    const slN = bindSlider("flow-n", "lbl-flow-n");
+    const slK = bindSlider("flow-k", "lbl-flow-k", (v) => Number(v).toFixed(1));
+    const slW = bindSlider("flow-w", "lbl-flow-w", (v) => Number(v).toFixed(2));
+    const slFade = bindSlider("flow-fade", "lbl-flow-fade", (v) => v + "%");
+
+    const particles = []; // { x, y } in canvas-px
+    let lastCount = 0;
+
+    loop(card, (dt, t) => {
+      const { w, h } = stage;
+      // Persistence-trail fade (uniform RGBA fill on top of last frame)
+      const fadePct = Number(slFade.value) / 100;
+      ctx.fillStyle = `rgba(10,14,26,${1 - fadePct})`;
+      ctx.fillRect(0, 0, w, h);
+
+      // Resize particle pool if slider changed (avoid alloc churn).
+      const N = Number(slN.value);
+      if (N !== lastCount) {
+        if (N > particles.length) {
+          for (let i = particles.length; i < N; i++) {
+            particles.push({ x: Math.random() * w, y: Math.random() * h });
+          }
+        } else {
+          particles.length = N;
+        }
+        lastCount = N;
+      }
+
+      const k = Number(slK.value) * Math.PI / Math.max(w, h);
+      const omega = Number(slW.value);
+      const phase = omega * t;
+      const speed = 80; // px / unit-of-vel — tuned visually
+
+      ctx.lineWidth = 1;
+      ctx.lineCap = "round";
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        const kx = k * p.x;
+        const ky = k * p.y;
+        // Velocity = curl(ψ)
+        const vx =
+          -k * Math.sin(kx + phase) * Math.sin(ky) +
+          k * Math.cos(kx) * Math.cos(ky - phase);
+        const vy =
+          -(k * Math.cos(kx + phase) * Math.cos(ky) -
+            k * Math.sin(kx) * Math.sin(ky - phase));
+        const dx = (vx / k) * speed * dt;
+        const dy = (vy / k) * speed * dt;
+        // Color by direction angle — gives the swirls their character
+        const hue = (Math.atan2(vy, vx) * 180) / Math.PI + 180;
+        ctx.strokeStyle = `hsla(${hue},80%,65%,0.7)`;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        const nx = p.x + dx;
+        const ny = p.y + dy;
+        ctx.lineTo(nx, ny);
+        ctx.stroke();
+        // Periodic wrap so the field stays "full" without re-seeding
+        p.x = ((nx % w) + w) % w;
+        p.y = ((ny % h) + h) % h;
+      }
+    });
+  }
+
+  // ---------------- DEMO 8 — 2D Wave Equation ----------------
+
+  /**
+   * Discretized wave equation on a fixed-size grid. Two state buffers
+   * (current u and previous u_prev). At each step:
+   *
+   *   u_next = 2·u − u_prev + dt²·c²·∇²u − γ·(u − u_prev)
+   *
+   * Discrete laplacian uses 4-neighbor stencil. Boundaries are clamped
+   * to zero (rigid walls → ripples reflect). Click drops a Gaussian
+   * impulse. Render maps |u| → blue-to-cyan color ramp.
+   */
+  function initWaves(card) {
+    const stage = mountCanvas(card);
+    const { canvas, ctx } = stage;
+    const slC = bindSlider("wave-c", "lbl-wave-c", (v) => Number(v).toFixed(2));
+    const slG = bindSlider("wave-g", "lbl-wave-g", (v) => Number(v).toFixed(3));
+    const slRate = bindSlider("wave-rate", "lbl-wave-rate", (v) => Number(v).toFixed(1));
+
+    const GRID = 200;
+    let u = new Float32Array(GRID * GRID);
+    let uPrev = new Float32Array(GRID * GRID);
+    const buf = new Uint8ClampedArray(GRID * GRID * 4);
+    const img = new ImageData(buf, GRID, GRID);
+
+    /** Add a Gaussian impulse centered at (cx, cy) in grid coords. */
+    function impulse(cx, cy, strength) {
+      const r = 4;
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const x = Math.round(cx + dx);
+          const y = Math.round(cy + dy);
+          if (x < 1 || x >= GRID - 1 || y < 1 || y >= GRID - 1) continue;
+          const d2 = dx * dx + dy * dy;
+          u[y * GRID + x] += strength * Math.exp(-d2 / 4);
+        }
+      }
+    }
+
+    // Click → drop a stone where you click
+    canvas.addEventListener("pointerdown", (ev) => {
+      const rect = canvas.getBoundingClientRect();
+      const gx = ((ev.clientX - rect.left) / rect.width) * GRID;
+      const gy = ((ev.clientY - rect.top) / rect.height) * GRID;
+      impulse(gx, gy, 1.6);
+    });
+
+    let nextAutoDrop = 0;
+    let stepAccum = 0;
+    const STEP_DT = 1; // PDE time step (dimensionless)
+
+    loop(card, (dt, t) => {
+      // Auto-drops at the slider's rate
+      const rate = Number(slRate.value);
+      if (rate > 0 && t >= nextAutoDrop) {
+        impulse(
+          GRID * (0.2 + 0.6 * Math.random()),
+          GRID * (0.2 + 0.6 * Math.random()),
+          1.0,
+        );
+        nextAutoDrop = t + 1 / rate;
+      }
+
+      // Run the PDE forward at a fixed step rate so visuals are
+      // independent of the browser's frame timing.
+      const stepsPerFrame = 2;
+      stepAccum += dt;
+      while (stepAccum > 0) {
+        const c2 = Number(slC.value) * Number(slC.value);
+        const gamma = Number(slG.value);
+        for (let s = 0; s < stepsPerFrame; s++) {
+          const uNext = new Float32Array(GRID * GRID);
+          for (let yy = 1; yy < GRID - 1; yy++) {
+            const yOff = yy * GRID;
+            for (let xx = 1; xx < GRID - 1; xx++) {
+              const idx = yOff + xx;
+              const lap =
+                u[idx - 1] + u[idx + 1] + u[idx - GRID] + u[idx + GRID] - 4 * u[idx];
+              uNext[idx] =
+                2 * u[idx] - uPrev[idx] + c2 * lap - gamma * (u[idx] - uPrev[idx]);
+            }
+          }
+          uPrev = u;
+          u = uNext;
+        }
+        stepAccum -= STEP_DT / 60;
+      }
+
+      // Map u → color into ImageData
+      for (let i = 0; i < u.length; i++) {
+        // Map signed amplitude into a cyan→deep-blue divergent ramp.
+        const v = Math.tanh(u[i] * 1.4); // -1 .. 1
+        const off = i * 4;
+        if (v > 0) {
+          // crest: bright cyan
+          buf[off] = Math.round(50 + v * 130);
+          buf[off + 1] = Math.round(180 + v * 75);
+          buf[off + 2] = Math.round(220 + v * 35);
+        } else {
+          // trough: deep indigo
+          buf[off] = Math.round(20 - v * 30);
+          buf[off + 1] = Math.round(40 - v * 40);
+          buf[off + 2] = Math.round(80 - v * 60);
+        }
+        buf[off + 3] = 255;
+      }
+      // Paint grid to canvas (scaled up via drawImage off an offscreen
+      // canvas — cheaper than per-pixel scaling).
+      const { w, h } = stage;
+      // Reuse a single offscreen for the grid
+      if (!card._wavesOffscreen) {
+        const oc = document.createElement("canvas");
+        oc.width = GRID;
+        oc.height = GRID;
+        card._wavesOffscreen = oc;
+      }
+      card._wavesOffscreen.getContext("2d").putImageData(img, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(card._wavesOffscreen, 0, 0, w, h);
+    });
+  }
+
+  // ---------------- DEMO 9 — Reaction-Diffusion (Gray-Scott) ----------------
+
+  /**
+   * Gray-Scott reaction-diffusion model. Two species U, V on a grid:
+   *
+   *   ∂U/∂t = Dᵤ·∇²U − U·V² + F·(1 − U)
+   *   ∂V/∂t = Dᵥ·∇²V + U·V² − (F + k)·V
+   *
+   * Dᵤ = 1.0, Dᵥ = 0.5 (the diffusion-ratio that makes Turing
+   * patterns emerge). F (feed) and k (kill) are sliders. Different
+   * (F, k) regions of parameter space give wildly different patterns:
+   * spots, stripes, worms, mitosis-like self-replication, …
+   *
+   * Solved by explicit Euler on a fixed grid. Two ping-pong float32
+   * buffers per species (no allocation per step). Periodic boundaries
+   * — patterns wrap around the edges.
+   */
+  function initReactionDiffusion(card) {
+    const stage = mountCanvas(card);
+    const { canvas, ctx } = stage;
+    const slF = bindSlider("rd-F", "lbl-rd-F", (v) => Number(v).toFixed(3));
+    const slK = bindSlider("rd-k", "lbl-rd-k", (v) => Number(v).toFixed(3));
+    bindPresets(card, [slF, slK]);
+
+    const GRID = 160;
+    const SIZE = GRID * GRID;
+    let U = new Float32Array(SIZE);
+    let V = new Float32Array(SIZE);
+    let Un = new Float32Array(SIZE);
+    let Vn = new Float32Array(SIZE);
+    const buf = new Uint8ClampedArray(SIZE * 4);
+    const img = new ImageData(buf, GRID, GRID);
+
+    function reseed() {
+      U.fill(1);
+      V.fill(0);
+      // Drop several V-seed blobs so the field has somewhere to grow
+      for (let i = 0; i < 12; i++) {
+        const cx = Math.random() * GRID;
+        const cy = Math.random() * GRID;
+        for (let dy = -5; dy <= 5; dy++) {
+          for (let dx = -5; dx <= 5; dx++) {
+            const x = Math.round(cx + dx);
+            const y = Math.round(cy + dy);
+            if (x < 0 || y < 0 || x >= GRID || y >= GRID) continue;
+            const idx = y * GRID + x;
+            U[idx] = 0.5;
+            V[idx] = 0.25;
+          }
+        }
+      }
+    }
+    reseed();
+    // Reseed when the user clicks → lets them re-randomize without
+    // hunting for the F/k that boots a stuck pattern.
+    canvas.addEventListener("pointerdown", reseed);
+
+    const Du = 1.0, Dv = 0.5;
+
+    loop(card, (dt) => {
+      const F = Number(slF.value);
+      const k = Number(slK.value);
+
+      // Multiple sub-steps per visible frame; the explicit Euler PDE
+      // is unstable for large dt, but cheap, so we just take small
+      // steps. 6 sub-steps × 60 fps ≈ 360 steps/sec — enough for the
+      // patterns to evolve visibly without going unstable at typical
+      // (F, k).
+      for (let step = 0; step < 6; step++) {
+        for (let yy = 0; yy < GRID; yy++) {
+          // Periodic neighbors (wrap)
+          const yp = (yy - 1 + GRID) % GRID;
+          const yn = (yy + 1) % GRID;
+          for (let xx = 0; xx < GRID; xx++) {
+            const xp = (xx - 1 + GRID) % GRID;
+            const xn = (xx + 1) % GRID;
+            const idx = yy * GRID + xx;
+            const u = U[idx], v = V[idx];
+            // 5-point laplacian (centered − 4·self)
+            const lapU =
+              U[yp * GRID + xx] + U[yn * GRID + xx] + U[yy * GRID + xp] + U[yy * GRID + xn] - 4 * u;
+            const lapV =
+              V[yp * GRID + xx] + V[yn * GRID + xx] + V[yy * GRID + xp] + V[yy * GRID + xn] - 4 * v;
+            const uvv = u * v * v;
+            Un[idx] = u + Du * lapU - uvv + F * (1 - u);
+            Vn[idx] = v + Dv * lapV + uvv - (F + k) * v;
+          }
+        }
+        // Swap buffers (no allocation)
+        const tU = U;
+        U = Un;
+        Un = tU;
+        const tV = V;
+        V = Vn;
+        Vn = tV;
+      }
+
+      // Map V → grayscale-ish + accent colorize
+      for (let i = 0; i < SIZE; i++) {
+        const v = Math.max(0, Math.min(1, V[i]));
+        const off = i * 4;
+        // Pattern reads: V near 0 → indigo bg, V high → warm crests
+        if (v < 0.2) {
+          buf[off] = 12;
+          buf[off + 1] = 16;
+          buf[off + 2] = 32;
+        } else {
+          const tv = (v - 0.2) / 0.8;
+          // gradient: deep blue → cyan → gold
+          buf[off] = Math.round(40 + tv * 215);
+          buf[off + 1] = Math.round(70 + tv * 130);
+          buf[off + 2] = Math.round(200 - tv * 160);
+        }
+        buf[off + 3] = 255;
+      }
+      const { w, h } = stage;
+      if (!card._rdOffscreen) {
+        const oc = document.createElement("canvas");
+        oc.width = GRID;
+        oc.height = GRID;
+        card._rdOffscreen = oc;
+      }
+      card._rdOffscreen.getContext("2d").putImageData(img, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(card._rdOffscreen, 0, 0, w, h);
+    });
+  }
+
   // ---------------- boot ----------------
 
   const initializers = {
@@ -487,6 +828,9 @@
     archimedean: initArchimedean,
     butterfly: initButterfly,
     "gravity-lens": initGravityLens,
+    "flow-field": initFlowField,
+    waves: initWaves,
+    "reaction-diffusion": initReactionDiffusion,
   };
 
   function boot() {
