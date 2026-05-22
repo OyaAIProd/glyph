@@ -167,9 +167,10 @@ export function applyMissingPolicy(
 /** Count helper used by the AUDIT-10 pass — kept here so the audit
  *  module doesn't have to re-implement the "what counts as missing"
  *  rule. Same input cell-set as `applyMissingPolicy`. */
-export function countMissingY(
-  rows: ReadonlyArray<{ readonly y: unknown }>,
-): { readonly total: number; readonly missing: number } {
+export function countMissingY(rows: ReadonlyArray<{ readonly y: unknown }>): {
+  readonly total: number;
+  readonly missing: number;
+} {
   let missing = 0;
   for (const r of rows) {
     if (toFiniteNumber(r.y) === undefined) missing++;

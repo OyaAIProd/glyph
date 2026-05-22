@@ -10,7 +10,8 @@
       "*.svg",
       "site/play/glyph-bundle.js",
       "site/play/glyph-bundle.js.map",
-      "site/play/spec.schema.json"
+      "site/play/spec.schema.json",
+      "site/forkids-3d.js"
     ]
   },
   "formatter": {

@@ -83,9 +83,7 @@ export function brandKitToTheme(brand: BrandKit): ResolvedTheme {
     axis: brand.palette.surface.muted,
     grid: brand.palette.surface.border,
     marks: brand.palette.categorical,
-    ...(brand.palette.sequential !== undefined
-      ? { sequential: brand.palette.sequential }
-      : {}),
+    ...(brand.palette.sequential !== undefined ? { sequential: brand.palette.sequential } : {}),
     ...(brand.palette.diverging !== undefined ? { diverging: brand.palette.diverging } : {}),
   };
 }
@@ -154,20 +152,27 @@ export function parseColor(input: string): [number, number, number] | null {
       Number.parseInt(s.slice(5, 7), 16),
     ];
   }
-  // #rgb
+  // #rgb — the regex above guarantees s has 4 chars (#rgb), so the
+  // character accesses below are safe. Read into locals so biome's
+  // noNonNullAssertion rule sees no `!` in the body.
   if (/^#[0-9a-f]{3}$/.test(s)) {
-    const r = Number.parseInt(s[1]! + s[1]!, 16);
-    const g = Number.parseInt(s[2]! + s[2]!, 16);
-    const b = Number.parseInt(s[3]! + s[3]!, 16);
+    const c1 = s.charAt(1);
+    const c2 = s.charAt(2);
+    const c3 = s.charAt(3);
+    const r = Number.parseInt(c1 + c1, 16);
+    const g = Number.parseInt(c2 + c2, 16);
+    const b = Number.parseInt(c3 + c3, 16);
     return [r, g, b];
   }
-  // rgb(r,g,b) / rgba(r,g,b,a)
+  // rgb(r,g,b) / rgba(r,g,b,a) — destructure the regex match. The
+  // regex guarantees groups 1..3 are present when m is non-null.
   const m = s.match(/^rgba?\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)/);
   if (m) {
+    const [, r, g, b] = m as RegExpMatchArray & [string, string, string, string];
     return [
-      Math.min(255, Number.parseInt(m[1]!, 10)),
-      Math.min(255, Number.parseInt(m[2]!, 10)),
-      Math.min(255, Number.parseInt(m[3]!, 10)),
+      Math.min(255, Number.parseInt(r, 10)),
+      Math.min(255, Number.parseInt(g, 10)),
+      Math.min(255, Number.parseInt(b, 10)),
     ];
   }
   return null;
@@ -223,7 +228,7 @@ export function simulateDeuteranopia(rgb: [number, number, number]): [number, nu
   const [r, g, b] = rgb;
   const sr = 0.367_322 * r + 0.860_646 * g + -0.227_968 * b;
   const sg = 0.280_085 * r + 0.672_501 * g + 0.047_413 * b;
-  const sb = -0.011_820 * r + 0.042_940 * g + 0.968_881 * b;
+  const sb = -0.011_82 * r + 0.042_94 * g + 0.968_881 * b;
   return [
     Math.max(0, Math.min(255, sr)),
     Math.max(0, Math.min(255, sg)),
@@ -303,17 +308,19 @@ export function checkBrandContrast(brand: BrandKit): BrandContrastFailure | null
       const rgb = parseColor(c);
       if (!rgb) {
         throw new Error(
-          `checkBrandContrast: palette entry "${c}" is unparseable. ` +
-            "This is a schema/parser disagreement — BRAND_COLOR_RE in " +
-            "spec/schemas.ts and parseColor in render/brand.ts must stay in sync.",
+          `checkBrandContrast: palette entry "${c}" is unparseable. This is a schema/parser disagreement — BRAND_COLOR_RE in spec/schemas.ts and parseColor in render/brand.ts must stay in sync.`,
         );
       }
       sim.push(simulateDeuteranopia(rgb));
     }
     for (let i = 0; i < sim.length; i++) {
+      const a = sim[i];
+      const colorA = palette[i];
+      if (!a || !colorA) continue;
       for (let j = i + 1; j < sim.length; j++) {
-        const a = sim[i]!;
-        const b = sim[j]!;
+        const b = sim[j];
+        const colorB = palette[j];
+        if (!b || !colorB) continue;
         const dx = a[0] - b[0];
         const dy = a[1] - b[1];
         const dz = a[2] - b[2];
@@ -322,8 +329,8 @@ export function checkBrandContrast(brand: BrandKit): BrandContrastFailure | null
           // Report the unsimulated colors so the user sees the offending pair.
           return {
             kind: "color-blind",
-            a: palette[i]!,
-            b: palette[j]!,
+            a: colorA,
+            b: colorB,
             distance: d,
             threshold: DEUT_DISTANCE_THRESHOLD,
           };

@@ -70,8 +70,9 @@ describe("timeline examples — circle-circumference (joy PR E3)", () => {
     // svg.ts:357 (titleOffset = 32); captions now sit at +56 so they
     // clear the axis title. Extract every caption text's y attr and
     // assert none collides with the x-axis title's y.
-    const captionYs = [...svg.matchAll(/y="(\d+)"[^>]*>(?:First|The radius|Walk around)/g)]
-      .map((m) => Number.parseInt(m[1] ?? "0", 10));
+    const captionYs = [...svg.matchAll(/y="(\d+)"[^>]*>(?:First|The radius|Walk around)/g)].map(
+      (m) => Number.parseInt(m[1] ?? "0", 10),
+    );
     expect(captionYs.length).toBe(3);
     // The default x-axis title y is `plotArea.height + 32` from the
     // plotArea top; for a 400-tall canvas with default insets the

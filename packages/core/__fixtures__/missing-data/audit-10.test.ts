@@ -5,8 +5,8 @@
  * the policy is "skip" (or unset) AND > 5% of rows have a missing y.
  */
 import { describe, expect, it } from "vitest";
-import type { ColumnInfo } from "../../src/compute/engine.js";
 import { renderTimeAuditFindings } from "../../src/audit/index.js";
+import type { ColumnInfo } from "../../src/compute/engine.js";
 import type { GlyphSpec } from "../../src/spec/types.js";
 
 const schema: ColumnInfo[] = [

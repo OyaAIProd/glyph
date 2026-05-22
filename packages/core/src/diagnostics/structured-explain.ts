@@ -525,8 +525,7 @@ function buildChartTypeRationale(spec: GlyphSpec): ChartTypeRationale {
       alternatives: [
         {
           chartType: "heatmap",
-          tradeoff:
-            "Better when only magnitude matters (drops the directional information).",
+          tradeoff: "Better when only magnitude matters (drops the directional information).",
         },
         {
           chartType: "contour",

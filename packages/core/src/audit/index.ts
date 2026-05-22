@@ -323,10 +323,7 @@ function auditBrandContrast(out: AuditFinding[], spec: GlyphSpec): void {
     out.push({
       rule_id: "AUDIT-11",
       severity: "medium",
-      message:
-        `Brand surface contrast too low: ${failure.a} on ${failure.b} ` +
-        `has WCAG ratio ${failure.ratio.toFixed(2)} (threshold ${failure.threshold}). ` +
-        "Foreground and background are too close for WCAG-compliant text.",
+      message: `Brand surface contrast too low: ${failure.a} on ${failure.b} has WCAG ratio ${failure.ratio.toFixed(2)} (threshold ${failure.threshold}). Foreground and background are too close for WCAG-compliant text.`,
       suggestion:
         "Adjust palette.surface.fg or palette.surface.bg until contrastRatio(fg, bg) ≥ accessibility.minContrastRatio.",
       path: "/brand/palette/surface",
@@ -388,8 +385,8 @@ export type { Channel, Encoding, Layer };
 // The 5% threshold matches the bar in the moat doc: a single NaN in a
 // thousand rows isn't worth a finding; ten in a hundred is.
 
-import type { MissingPolicy } from "../spec/types.js";
 import { countMissingY } from "../compiler/missing-policy.js";
+import type { MissingPolicy } from "../spec/types.js";
 
 /** Minimum row-missing fraction at which AUDIT-10 fires. */
 const AUDIT_10_THRESHOLD = 0.05;
@@ -433,8 +430,7 @@ export function renderTimeAuditFindings(
     severity: "medium",
     message: `Chart silently dropped ${missing} of ${total} rows (${pct}%) due to missing y values. Set data.onMissing: "callout" to surface them.`,
     path: "/data/onMissing",
-    suggestion:
-      'Add `"onMissing": "callout"` to data, OR document the gap in an annotation layer.',
+    suggestion: 'Add `"onMissing": "callout"` to data, OR document the gap in an annotation layer.',
   });
   return out;
 }

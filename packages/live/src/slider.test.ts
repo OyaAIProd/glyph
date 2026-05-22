@@ -80,10 +80,8 @@ describe("attachSlider — event handler", () => {
   it("dispose() removes the wrapper + detaches the listener", () => {
     const root = mountContainer();
     const seen: number[] = [];
-    const handle = attachSlider(
-      root,
-      { field: "k", min: 0, max: 10, step: 1, value: 0 },
-      (v) => seen.push(v),
+    const handle = attachSlider(root, { field: "k", min: 0, max: 10, step: 1, value: 0 }, (v) =>
+      seen.push(v),
     );
     handle.dispose();
 

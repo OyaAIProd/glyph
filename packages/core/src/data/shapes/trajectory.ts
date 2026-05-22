@@ -130,13 +130,13 @@ export function integrateTrajectory(
     const k1x = evalDeriv(evaluator, spec.dxdt, { x, y, t: tPrev });
     const k1y = evalDeriv(evaluator, spec.dydt, { x, y, t: tPrev });
 
-    const x2 = x + (step * 0.5) * k1x;
-    const y2 = y + (step * 0.5) * k1y;
+    const x2 = x + step * 0.5 * k1x;
+    const y2 = y + step * 0.5 * k1y;
     const k2x = evalDeriv(evaluator, spec.dxdt, { x: x2, y: y2, t: tMid });
     const k2y = evalDeriv(evaluator, spec.dydt, { x: x2, y: y2, t: tMid });
 
-    const x3 = x + (step * 0.5) * k2x;
-    const y3 = y + (step * 0.5) * k2y;
+    const x3 = x + step * 0.5 * k2x;
+    const y3 = y + step * 0.5 * k2y;
     const k3x = evalDeriv(evaluator, spec.dxdt, { x: x3, y: y3, t: tMid });
     const k3y = evalDeriv(evaluator, spec.dydt, { x: x3, y: y3, t: tMid });
 
@@ -185,11 +185,7 @@ function validateTime(time: { min: number; max: number; samples: number }): void
  * see the failure immediately. Parse / unbound-identifier errors
  * also bubble (they were already fatal in `sampleFunction`).
  */
-function evalDeriv(
-  evaluator: Evaluator,
-  expr: string,
-  scope: Record<string, number>,
-): number {
+function evalDeriv(evaluator: Evaluator, expr: string, scope: Record<string, number>): number {
   try {
     return evaluator(expr, scope);
   } catch (e) {

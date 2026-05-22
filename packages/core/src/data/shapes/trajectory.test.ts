@@ -53,7 +53,10 @@ describe("integrateTrajectory", () => {
       time: { min: 0, max: 2 * Math.PI, samples: 1000 },
     });
     // Periodic: x and y must return near the starting point after 2π.
-    const last = rows[rows.length - 1]!;
+    // Pull through a defensive check rather than `rows[...]!` so biome's
+    // noNonNullAssertion stays on globally.
+    const last = rows[rows.length - 1];
+    if (!last) throw new Error("rows must be non-empty for this test");
     expect(last.x).toBeCloseTo(1, 8);
     expect(last.y).toBeCloseTo(0, 8);
     // Every row must agree with the closed-form solution
@@ -184,7 +187,7 @@ describe("integrateTrajectory", () => {
       time: { min: 0, max: 30, samples: 300 },
     });
     for (let i = 1; i < rows.length; i++) {
-      expect(rows[i]!.t).toBeGreaterThan(rows[i - 1]!.t);
+      expect(rows[i]?.t).toBeGreaterThan(rows[i - 1]?.t);
     }
   });
 });

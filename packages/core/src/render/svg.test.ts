@@ -82,7 +82,7 @@ describe("renderSvg — provenance seal (Moat PR1)", () => {
     },
   };
 
-  it("emits exactly one <metadata id=\"glyph-provenance\"> element", () => {
+  it('emits exactly one <metadata id="glyph-provenance"> element', () => {
     const out = renderSvg(sealed);
     const matches = out.match(/<metadata id="glyph-provenance"/g) ?? [];
     expect(matches.length).toBe(1);
@@ -90,9 +90,7 @@ describe("renderSvg — provenance seal (Moat PR1)", () => {
 
   it("the metadata payload parses as valid JSON", () => {
     const out = renderSvg(sealed);
-    const m = out.match(
-      /<metadata id="glyph-provenance"><!\[CDATA\[([\s\S]*?)\]\]><\/metadata>/,
-    );
+    const m = out.match(/<metadata id="glyph-provenance"><!\[CDATA\[([\s\S]*?)\]\]><\/metadata>/);
     expect(m).not.toBeNull();
     const parsed = JSON.parse(m?.[1] ?? "null");
     expect(parsed.format).toBe("glyph-provenance/1");

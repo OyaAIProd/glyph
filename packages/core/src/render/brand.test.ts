@@ -113,14 +113,13 @@ describe("contrastRatio (WCAG)", () => {
   });
 
   it("is symmetric (a vs b == b vs a)", () => {
-    expect(contrastRatio("#1d4ed8", "#ffffff")).toBeCloseTo(
-      contrastRatio("#ffffff", "#1d4ed8"),
-      6,
-    );
+    expect(contrastRatio("#1d4ed8", "#ffffff")).toBeCloseTo(contrastRatio("#ffffff", "#1d4ed8"), 6);
   });
 
   it("clears 4.5:1 for the default brand surface", () => {
-    expect(contrastRatio(baseBrand.palette.surface.fg, baseBrand.palette.surface.bg)).toBeGreaterThan(4.5);
+    expect(
+      contrastRatio(baseBrand.palette.surface.fg, baseBrand.palette.surface.bg),
+    ).toBeGreaterThan(4.5);
   });
 
   it("handles #rgb short form and rgb() functional form", () => {

@@ -305,9 +305,11 @@ function rollingWaveSurface(container) {
  */
 function boot() {
   const cards = document.querySelectorAll('[data-forkids-section="3d"] .wow-card');
-  cards.forEach((card) => {
+  // `for...of` over the NodeList (biome's noForEach rule prefers this
+  // shape — fewer callback frames, easier to step through in devtools).
+  for (const card of cards) {
     const canvas = card.querySelector(".wow-card__canvas");
-    if (!canvas) return;
+    if (!canvas) continue;
     const which = card.getAttribute("data-demo");
     try {
       if (which === "platonics") platonicCarousel(canvas);
@@ -320,7 +322,7 @@ function boot() {
       console.warn("forkids-3d demo failed:", which, err);
       card.setAttribute("data-fallback", "true");
     }
-  });
+  }
 }
 
 // The loader script in forkids.html injects this module after IO triggers.

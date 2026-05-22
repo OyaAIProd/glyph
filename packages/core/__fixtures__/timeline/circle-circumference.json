@@ -46,9 +46,27 @@
   "animation": {
     "kind": "timeline",
     "scenes": [
-      { "id": "draw", "begin_ms": 0, "duration_ms": 2000, "layers": [0], "caption": "First, draw a circle of radius 1" },
-      { "id": "radius", "begin_ms": 2000, "duration_ms": 1000, "layers": [1], "caption": "The radius is r" },
-      { "id": "circumference", "begin_ms": 3500, "duration_ms": 1500, "layers": [2], "caption": "Walk around the edge — that's 2πr" }
+      {
+        "id": "draw",
+        "begin_ms": 0,
+        "duration_ms": 2000,
+        "layers": [0],
+        "caption": "First, draw a circle of radius 1"
+      },
+      {
+        "id": "radius",
+        "begin_ms": 2000,
+        "duration_ms": 1000,
+        "layers": [1],
+        "caption": "The radius is r"
+      },
+      {
+        "id": "circumference",
+        "begin_ms": 3500,
+        "duration_ms": 1500,
+        "layers": [2],
+        "caption": "Walk around the edge — that's 2πr"
+      }
     ]
   }
 }

@@ -177,10 +177,13 @@ describe("compileSpec — line mark (PR19)", () => {
       // Insertion order is (3, 1, 2). After plot-area scaling that's
       // (largest, smallest, middle) in pixels. Crucially NOT sorted.
       expect(xs).toHaveLength(3);
-      const [first, second, third] = xs;
-      expect(first).toBeGreaterThan(second!);
-      expect(third!).toBeGreaterThan(second!);
-      expect(third!).toBeLessThan(first!);
+      // Destructure via a 3-tuple assertion so biome's
+      // noNonNullAssertion rule doesn't trip on the comparisons below.
+      // The toHaveLength(3) check above proves all three slots exist.
+      const [first, second, third] = xs as [number, number, number];
+      expect(first).toBeGreaterThan(second);
+      expect(third).toBeGreaterThan(second);
+      expect(third).toBeLessThan(first);
     });
 
     it("the area mark mirrors the same parametric carve-out", () => {
@@ -199,10 +202,13 @@ describe("compileSpec — line mark (PR19)", () => {
       const xs = [...d.matchAll(/[ML] (\d+(?:\.\d+)?) /g)]
         .map((m) => Number.parseFloat(m[1] ?? "0"))
         .slice(0, 3);
-      const [first, second, third] = xs;
-      expect(first).toBeGreaterThan(second!);
-      expect(third!).toBeGreaterThan(second!);
-      expect(third!).toBeLessThan(first!);
+      expect(xs).toHaveLength(3);
+      // Same 3-tuple assertion as the line variant above — the
+      // toHaveLength check is the guard biome needs.
+      const [first, second, third] = xs as [number, number, number];
+      expect(first).toBeGreaterThan(second);
+      expect(third).toBeGreaterThan(second);
+      expect(third).toBeLessThan(first);
     });
   });
 });

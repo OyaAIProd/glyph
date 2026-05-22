@@ -88,24 +88,18 @@ interface State {
  * Returns the new state; non-finite derivatives propagate via NaN so
  * the caller can terminate the streamline.
  */
-function rk4Step(
-  evaluator: Evaluator,
-  dxdt: string,
-  dydt: string,
-  state: State,
-  h: number,
-): State {
+function rk4Step(evaluator: Evaluator, dxdt: string, dydt: string, state: State, h: number): State {
   const { x, y } = state;
   const k1x = safeEval(evaluator, dxdt, { x, y });
   const k1y = safeEval(evaluator, dydt, { x, y });
 
-  const x2 = x + (h * 0.5) * k1x;
-  const y2 = y + (h * 0.5) * k1y;
+  const x2 = x + h * 0.5 * k1x;
+  const y2 = y + h * 0.5 * k1y;
   const k2x = safeEval(evaluator, dxdt, { x: x2, y: y2 });
   const k2y = safeEval(evaluator, dydt, { x: x2, y: y2 });
 
-  const x3 = x + (h * 0.5) * k2x;
-  const y3 = y + (h * 0.5) * k2y;
+  const x3 = x + h * 0.5 * k2x;
+  const y3 = y + h * 0.5 * k2y;
   const k3x = safeEval(evaluator, dxdt, { x: x3, y: y3 });
   const k3y = safeEval(evaluator, dydt, { x: x3, y: y3 });
 
@@ -127,11 +121,7 @@ function rk4Step(
  * gets a hard error because integration is the whole point; here a
  * NaN simply truncates one streamline and we keep going on the others.)
  */
-function safeEval(
-  evaluator: Evaluator,
-  expr: string,
-  scope: Record<string, number>,
-): number {
+function safeEval(evaluator: Evaluator, expr: string, scope: Record<string, number>): number {
   try {
     return evaluator(expr, scope);
   } catch (e) {
@@ -343,7 +333,12 @@ export const streamlineMarkCompiler: MarkCompiler = {
     // loop can keep its NaN-on-failure swallowing behavior (which
     // is the right policy mid-trajectory for divergent ODEs).
     if (seeds.length > 0) {
-      const probe = seeds[0]!;
+      // The `seeds.length > 0` guard above proves seeds[0] is defined,
+      // but biome's `noNonNullAssertion` rule can't see flow-narrowed
+      // proofs. Pull the value through a defensive check + bail rather
+      // than `seeds[0]!` so the rule stays on globally.
+      const probe = seeds[0];
+      if (!probe) throw new Error("streamline: internal — seed expected but missing");
       try {
         evaluator(cfg.dxdt, { x: probe.x, y: probe.y });
         evaluator(cfg.dydt, { x: probe.x, y: probe.y });

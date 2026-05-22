@@ -16,6 +16,7 @@
  *     non-interactive path so existing snapshots stay green.
  */
 
+import { roundPx } from "../compiler/scales.js";
 import type {
   MarkData,
   Scene,
@@ -24,7 +25,6 @@ import type {
   SceneMark,
   ScenePanel,
 } from "../scenegraph/types.js";
-import { roundPx } from "../compiler/scales.js";
 import { polylineLength } from "./path-length.js";
 import { renderProvenanceMetadata } from "./provenance.js";
 
@@ -607,9 +607,7 @@ export function renderSvg(scene: Scene): string {
   // Faceted scene: render each panel; the top-level marks/axes/grid are
   // unused (panels carry their own).
   if (scene.panels && scene.panels.length > 0) {
-    const panelStrs = scene.panels
-      .map((p) => renderPanel(p, interactive, labelColor))
-      .join("");
+    const panelStrs = scene.panels.map((p) => renderPanel(p, interactive, labelColor)).join("");
     return `${head}${desc}${provenance}${hoverStyle}${crossfilterStyle}${uncertaintyStyle}${bg}${title}${panelStrs}${uncertaintyOverlay}${legends}</svg>\n`;
   }
 
@@ -711,7 +709,9 @@ function buildTimelineCaptions(scene: Scene): string {
   if (!a || a.kind !== "timeline") return "";
   const captioned = a.scenes
     .map((s, i) => ({ s, i }))
-    .filter((e): e is { s: typeof e.s & { caption: string }; i: number } => e.s.caption !== undefined);
+    .filter(
+      (e): e is { s: typeof e.s & { caption: string }; i: number } => e.s.caption !== undefined,
+    );
   if (captioned.length === 0) return "";
   // E3 review IMPORTANT-1 fix: previous offset (+32) collided with the
   // x-axis title which also sits at `plotArea.y + plotArea.height + 32`

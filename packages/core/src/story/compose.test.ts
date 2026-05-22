@@ -13,11 +13,7 @@
 
 import { describe, expect, it } from "vitest";
 import { parseSpec } from "../spec/parse.js";
-import {
-  composeStory,
-  listStoryRecipes,
-  listStorySuggestions,
-} from "./compose.js";
+import { composeStory, listStoryRecipes, listStorySuggestions } from "./compose.js";
 
 describe("composeStory (Joy of Math E5)", () => {
   it("registers at least 5 recipes — sine, cosine, circle, parabola, vector field", () => {
@@ -82,9 +78,7 @@ describe("composeStory (Joy of Math E5)", () => {
 
   it("respects duration_ms — all scenes fit inside the budget", () => {
     const r = composeStory({ intent: "circle", duration_ms: 4000 });
-    const scenes = r.spec.animation && "scenes" in r.spec.animation
-      ? r.spec.animation.scenes
-      : [];
+    const scenes = r.spec.animation && "scenes" in r.spec.animation ? r.spec.animation.scenes : [];
     for (const s of scenes) {
       expect(s.begin_ms + s.duration_ms).toBeLessThanOrEqual(4000);
     }

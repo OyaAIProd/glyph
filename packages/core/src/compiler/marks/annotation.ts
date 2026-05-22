@@ -125,8 +125,7 @@ function resolveDataAnchor(
 ): { xv: number; yv: number } | undefined {
   if (rowIndex >= rows.length) {
     throw new Error(
-      `annotation: anchor.rowIndex ${rowIndex} is out of bounds (data has ${rows.length} rows). ` +
-        "Use anchor.kind = 'coord' to anchor outside the data row index.",
+      `annotation: anchor.rowIndex ${rowIndex} is out of bounds (data has ${rows.length} rows). Use anchor.kind = 'coord' to anchor outside the data row index.`,
     );
   }
   const row = rows[rowIndex];

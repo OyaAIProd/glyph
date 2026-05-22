@@ -333,10 +333,7 @@ function warnUnknownMathmlOnce(name: string): void {
   if (SUPPORTED_MATHML.has(name) || _warnedMathml.has(name)) return;
   _warnedMathml.add(name);
   console.warn(
-    `[glyph] math-text: MathML element <${name}> is not yet rendered with dedicated layout. ` +
-      `Its child content will appear inline. ` +
-      `Supported: ${[...SUPPORTED_MATHML].join(", ")}. ` +
-      `If you need <${name}>, please file an issue.`,
+    `[glyph] math-text: MathML element <${name}> is not yet rendered with dedicated layout. Its child content will appear inline. Supported: ${[...SUPPORTED_MATHML].join(", ")}. If you need <${name}>, please file an issue.`,
   );
 }
 
@@ -1091,9 +1088,7 @@ export const mathTextMarkCompiler: MarkCompiler = {
       const yIdx = schema.findIndex((c) => c.name === args.yField);
       if (xIdx < 0 || yIdx < 0) {
         throw new Error(
-          `math-text: encoding.x="${args.xField}" or encoding.y="${args.yField}" ` +
-            `not found in schema (got: ${schema.map((c) => c.name).join(", ")}). ` +
-            "Either fix the field names or set 'at: { x, y }' for fixed positioning.",
+          `math-text: encoding.x="${args.xField}" or encoding.y="${args.yField}" not found in schema (got: ${schema.map((c) => c.name).join(", ")}). Either fix the field names or set 'at: { x, y }' for fixed positioning.`,
         );
       }
       const firstRow = rows[0];

@@ -156,9 +156,10 @@ interface Recipe {
 // Caption helpers
 // ---------------------------------------------------------------------------
 
-function pickCaption(c: AudienceCaption | undefined, style: AudienceDefaults["captionStyle"]):
-  | string
-  | undefined {
+function pickCaption(
+  c: AudienceCaption | undefined,
+  style: AudienceDefaults["captionStyle"],
+): string | undefined {
   if (!c) return undefined;
   return c[style];
 }
@@ -175,7 +176,7 @@ function clampWords(text: string, maxWords: number): string {
 // ---------------------------------------------------------------------------
 
 const TAU = 6.283185307179586;
-const PI = 3.141592653589793;
+const PI = Math.PI;
 const HALF_PI = 1.5707963267948966;
 
 /**
@@ -269,8 +270,7 @@ function buildTrigRecipe(
         layers: [2],
         caption: {
           simple: opts.fn === "sin" ? "That's the peak!" : "There's the max!",
-          mathematical:
-            opts.fn === "sin" ? "Peak at x = π/2, y = 1" : "Max at x = 0, y = 1",
+          mathematical: opts.fn === "sin" ? "Peak at x = π/2, y = 1" : "Max at x = 0, y = 1",
           minimal: opts.fn === "sin" ? "Peak: (π/2, 1)" : "Max: (0, 1)",
         },
       },
@@ -539,10 +539,7 @@ function audienceFor(input: ComposeStoryInput): StoryAudience {
   return input.audience ?? "kid";
 }
 
-function themeFor(
-  input: ComposeStoryInput,
-  defaults: AudienceDefaults,
-): string {
+function themeFor(input: ComposeStoryInput, defaults: AudienceDefaults): string {
   return input.theme ?? defaults.theme;
 }
 

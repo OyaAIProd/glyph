@@ -1,23 +1,9 @@
 {
   "a_question": "Did Israel's first-mover vaccine rollout actually reduce mortality vs comparable peers?",
   "b_question": "How much of post-vaccine mortality reduction can be attributed to vaccines, given the simplistic counterfactual model?",
-  "countries_in_both": [
-    "Australia",
-    "Japan",
-    "South Korea",
-    "United Kingdom"
-  ],
-  "only_in_a": [
-    "Israel",
-    "United States"
-  ],
-  "only_in_b": [
-    "China",
-    "France",
-    "Germany",
-    "India",
-    "Italy"
-  ],
+  "countries_in_both": ["Australia", "Japan", "South Korea", "United Kingdom"],
+  "only_in_a": ["Israel", "United States"],
+  "only_in_b": ["China", "France", "Germany", "India", "Italy"],
   "agreement_note": "Countries in both WB1 (Israel vax-first) and WB4 (counterfactual lives saved) are the natural comparison set for vaccine-impact attribution \u2014 Israel + its high-income peers.",
   "conflict_note": "WB1 frames Israel's lives-saved-per-M (2477) as modest vs Italy/France/UK (~9000+); WB4 frames the same numbers as evidence that the counterfactual model itself is dominated by variant + reporting confounders, not vaccines per se. Same data, opposite reads."
 }

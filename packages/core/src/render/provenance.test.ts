@@ -12,11 +12,11 @@
 import { describe, expect, it } from "vitest";
 import type { GlyphSpec } from "../spec/types.js";
 import {
+  PROVENANCE_FORMAT,
   canonicalStringify,
   computeProvenance,
   diffProvenance,
   extractProvenanceFromSvg,
-  PROVENANCE_FORMAT,
   renderProvenanceMetadata,
 } from "./provenance.js";
 

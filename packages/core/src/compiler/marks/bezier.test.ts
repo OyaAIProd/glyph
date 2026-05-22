@@ -91,9 +91,9 @@ describe("deCasteljauLevels", () => {
   it("emits N-1 levels for an N-point input (cubic → 3 levels with 4, 3, 2 points)", () => {
     const lvls = deCasteljauLevels(CUBIC, 0.5);
     expect(lvls.length).toBe(3);
-    expect(lvls[0]!.length).toBe(4);
-    expect(lvls[1]!.length).toBe(3);
-    expect(lvls[2]!.length).toBe(2);
+    expect(lvls[0]?.length).toBe(4);
+    expect(lvls[1]?.length).toBe(3);
+    expect(lvls[2]?.length).toBe(2);
   });
 
   it("level 0 IS the control polygon (verbatim copy of the input)", () => {
@@ -119,12 +119,13 @@ describe("deCasteljauLevels", () => {
   it("the final two-point line's midpoint at t equals B(t)", () => {
     const t = 0.4;
     const lvls = deCasteljauLevels(CUBIC, t);
-    const last = lvls[lvls.length - 1]!;
-    expect(last.length).toBe(2);
-    // The de Casteljau terminal point is the linear interpolation of
-    // the final pair at the same `t`.
-    const a = last[0]!;
-    const b = last[1]!;
+    // The terminal level is guaranteed to be a 2-element line by the
+    // algorithm — assert via length check, then narrow via tuple cast
+    // so biome's noNonNullAssertion rule sees no `!` in the body.
+    expect(lvls.length).toBeGreaterThan(0);
+    const last = lvls[lvls.length - 1];
+    if (!last || last.length !== 2) throw new Error("de Casteljau terminal must be a 2-point line");
+    const [a, b] = last as [{ x: number; y: number }, { x: number; y: number }];
     const tip = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
     const bt = evaluateBezier(CUBIC, t);
     expect(Math.abs(tip.x - bt.x)).toBeLessThan(1e-12);

@@ -636,9 +636,7 @@ export const LayerSchema = z
     annotation: z
       .object({
         anchor: z.discriminatedUnion("kind", [
-          z
-            .object({ kind: z.literal("data"), rowIndex: z.number().int().nonnegative() })
-            .strict(),
+          z.object({ kind: z.literal("data"), rowIndex: z.number().int().nonnegative() }).strict(),
           z
             .object({
               kind: z.literal("coord"),
@@ -649,10 +647,7 @@ export const LayerSchema = z
         ]),
         text: z.string().min(1).max(200),
         arrow: z
-          .union([
-            z.literal("auto"),
-            z.object({ dx: z.number(), dy: z.number() }).strict(),
-          ])
+          .union([z.literal("auto"), z.object({ dx: z.number(), dy: z.number() }).strict()])
           .default("auto"),
         fontSize: z.number().positive().max(64).default(14),
         color: z.string().min(1).optional(),
@@ -683,10 +678,7 @@ export const LayerSchema = z
          *     the traveler reuses a sibling line layer's path).
          *   - `{ layerId }` — refers to a sibling layer by its `id`.
          */
-        follow: z.union([
-          z.literal("self"),
-          z.object({ layerId: z.string().min(1) }).strict(),
-        ]),
+        follow: z.union([z.literal("self"), z.object({ layerId: z.string().min(1) }).strict()]),
         /**
          * Animation duration in milliseconds. Falls back to
          * `spec.animation.duration_ms` when omitted (or 4000 ms when
@@ -846,13 +838,10 @@ export const LayerSchema = z
     message: "Layer with mark 'math-text' requires a non-empty 'expr' field.",
   })
   // E1 — annotation mark: require `annotation` when mark === "annotation".
-  .refine(
-    (l) => l.mark !== "annotation" || l.annotation !== undefined,
-    {
-      message: "Layer with mark 'annotation' requires an 'annotation' object.",
-      path: ["annotation"],
-    },
-  )
+  .refine((l) => l.mark !== "annotation" || l.annotation !== undefined, {
+    message: "Layer with mark 'annotation' requires an 'annotation' object.",
+    path: ["annotation"],
+  })
   // E1 — annotation mark: reject `annotation` on non-annotation marks so a
   // misplaced field doesn't silently get dropped by the bar / line / point
   // compilers (same footgun the math-text refine guards against).
@@ -877,8 +866,7 @@ export const LayerSchema = z
   // "line"` layer could declare a `streamline` block and the value
   // would silently parse but never render — a real footgun for agents.
   .refine(
-    (l) =>
-      l.mark !== "streamline" || (typeof l.streamline === "object" && l.streamline !== null),
+    (l) => l.mark !== "streamline" || (typeof l.streamline === "object" && l.streamline !== null),
     {
       message: "Layer with mark 'streamline' requires a 'streamline' config block.",
     },
@@ -889,13 +877,10 @@ export const LayerSchema = z
   // A5 — bezier mark: require config when mark="bezier" AND reject
   // the `bezier` config block on any other mark. Same gate shape as
   // the streamline pattern above.
-  .refine(
-    (l) => l.mark !== "bezier" || (typeof l.bezier === "object" && l.bezier !== null),
-    {
-      message: "Layer with mark 'bezier' requires a 'bezier' config block.",
-      path: ["bezier"],
-    },
-  )
+  .refine((l) => l.mark !== "bezier" || (typeof l.bezier === "object" && l.bezier !== null), {
+    message: "Layer with mark 'bezier' requires a 'bezier' config block.",
+    path: ["bezier"],
+  })
   .refine((l) => l.mark === "bezier" || l.bezier === undefined, {
     message: "Field 'bezier' is only valid when mark is 'bezier'.",
     path: ["bezier"],
@@ -1343,9 +1328,7 @@ export const GlyphSpecSchema = z
      *                        (chalkboard bg, signature blue). Resolved
      *                        through the BrandKit pipeline.
      */
-    theme: z
-      .union([z.enum(["light", "dark", "playground", "3b1b"]), ThemeConfigSchema])
-      .optional(),
+    theme: z.union([z.enum(["light", "dark", "playground", "3b1b"]), ThemeConfigSchema]).optional(),
     /**
      * Moat PR4 — compositional brand kit. When set, the renderer resolves
      * the legacy `theme:` tokens from `brand` first, then merges any

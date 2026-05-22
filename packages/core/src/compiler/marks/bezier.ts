@@ -154,10 +154,7 @@ export function evaluateBezier(points: ReadonlyArray<BezierPoint>, t: number): B
  * point and the last is exactly the last control point (both are
  * de Casteljau fixed points at t=0 / t=1).
  */
-export function sampleBezier(
-  points: ReadonlyArray<BezierPoint>,
-  samples: number,
-): BezierPoint[] {
+export function sampleBezier(points: ReadonlyArray<BezierPoint>, samples: number): BezierPoint[] {
   if (points.length < 2 || samples < 1) return [];
   const out: BezierPoint[] = new Array(samples + 1);
   for (let i = 0; i <= samples; i++) {
@@ -175,10 +172,7 @@ export function sampleBezier(
  * single-point N - 1 level is intentionally excluded (a single point
  * is not a polyline — the curve sample itself stands in for it).
  */
-export function deCasteljauLevels(
-  points: ReadonlyArray<BezierPoint>,
-  t: number,
-): BezierPoint[][] {
+export function deCasteljauLevels(points: ReadonlyArray<BezierPoint>, t: number): BezierPoint[][] {
   const levels: BezierPoint[][] = [];
   let cur: BezierPoint[] = points.map((p) => ({ x: p.x, y: p.y }));
   while (cur.length >= 2) {
@@ -242,7 +236,7 @@ export const bezierMarkCompiler: MarkCompiler = {
     if (!cfg) return;
     if (cfg.controlPoints.length < 2) return;
 
-    const curveStroke = cfg.stroke ?? (theme.marks[0] ?? theme.fg);
+    const curveStroke = cfg.stroke ?? theme.marks[0] ?? theme.fg;
     const curveFill = cfg.fill ?? "none";
     const curveWidth = cfg.strokeWidth ?? CURVE_STROKE_WIDTH;
     // Helper colors derived from theme. The control polygon + the

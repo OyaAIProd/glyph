@@ -15,7 +15,7 @@
  * contract a teacher / agent / kid can re-render and compare against.
  */
 import { describe, expect, it } from "vitest";
-import { compileSpec, type CompileFieldInfo } from "../../src/compiler/compile.js";
+import { type CompileFieldInfo, compileSpec } from "../../src/compiler/compile.js";
 import { renderSvg } from "../../src/render/svg.js";
 import { parseSpec } from "../../src/spec/parse.js";
 import { composeStory } from "../../src/story/compose.js";

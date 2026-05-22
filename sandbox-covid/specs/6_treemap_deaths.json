@@ -104,10 +104,7 @@
           "field": "depth",
           "type": "quantitative"
         },
-        "tooltip": [
-          "name",
-          "value"
-        ]
+        "tooltip": ["name", "value"]
       }
     }
   ],

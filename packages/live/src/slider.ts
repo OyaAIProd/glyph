@@ -231,9 +231,7 @@ export function bootSlidersFromSpec(
 
   const debounceMs = options.debounceMs ?? 16;
   const debounced =
-    debounceMs > 0
-      ? debounce(rerenderFn, debounceMs)
-      : { call: rerenderFn, cancel: () => {} };
+    debounceMs > 0 ? debounce(rerenderFn, debounceMs) : { call: rerenderFn, cancel: () => {} };
 
   const attached: AttachedSlider[] = [];
   for (const cfg of configs) {

@@ -75,7 +75,14 @@ function sha256Hex(bytes) {
       W[i] = (W[i - 16] + s0 + W[i - 7] + s1) >>> 0;
     }
 
-    let a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+    let a = H[0];
+    let b = H[1];
+    let c = H[2];
+    let d = H[3];
+    let e = H[4];
+    let f = H[5];
+    let g = H[6];
+    let h = H[7];
     for (let i = 0; i < 64; i++) {
       const S1 = rotr(6, e) ^ rotr(11, e) ^ rotr(25, e);
       const ch = (e & f) ^ (~e & g);
@@ -117,7 +124,9 @@ function sha256Hex(bytes) {
  */
 export function createHash(algorithm) {
   if (algorithm !== "sha256") {
-    throw new Error(`playground crypto shim: unsupported algorithm "${algorithm}" (only sha256 is wired)`);
+    throw new Error(
+      `playground crypto shim: unsupported algorithm "${algorithm}" (only sha256 is wired)`,
+    );
   }
   const chunks = [];
   return {
@@ -133,7 +142,9 @@ export function createHash(algorithm) {
     },
     digest(encoding) {
       if (encoding !== "hex") {
-        throw new Error(`playground crypto shim: unsupported digest encoding "${encoding}" (only "hex" is wired)`);
+        throw new Error(
+          `playground crypto shim: unsupported digest encoding "${encoding}" (only "hex" is wired)`,
+        );
       }
       let total = 0;
       for (const c of chunks) total += c.length;

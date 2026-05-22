@@ -2284,7 +2284,7 @@ describe("Glyph MCP server", () => {
         spec,
         rows,
         schema,
-        svg: "<svg xmlns=\"http://www.w3.org/2000/svg\"><rect/></svg>",
+        svg: '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>',
       });
       expect(r.isError).toBeFalsy();
       const out = JSON.parse(r.text);

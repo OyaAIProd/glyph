@@ -295,9 +295,7 @@ export const travelerMarkCompiler: MarkCompiler = {
       // annotation layer, or a degenerate layer with empty rows).
       const tgtId = opts.follow === "self" ? "self" : opts.follow.layerId;
       throw new Error(
-        `traveler: target layer '${tgtId}' has no x/y encoding to project, ` +
-          "or its rows produced no finite points. Only line-shaped layers " +
-          "(line/area/point with x+y encoding) can be followed.",
+        `traveler: target layer '${tgtId}' has no x/y encoding to project, or its rows produced no finite points. Only line-shaped layers (line/area/point with x+y encoding) can be followed.`,
       );
     }
     if (polyline.length < 2) {
@@ -306,8 +304,7 @@ export const travelerMarkCompiler: MarkCompiler = {
       // diagnostic so the agent's debug path is consistent.
       const tgtId = opts.follow === "self" ? "self" : opts.follow.layerId;
       throw new Error(
-        `traveler: target layer '${tgtId}' projected only ${polyline.length} ` +
-          "finite point(s); need at least 2 for a path the head can follow.",
+        `traveler: target layer '${tgtId}' projected only ${polyline.length} finite point(s); need at least 2 for a path the head can follow.`,
       );
     }
     const d = polylineToD(polyline);
@@ -343,9 +340,7 @@ export const travelerMarkCompiler: MarkCompiler = {
       }
       if (collisions > 1) {
         throw new Error(
-          `traveler: id "${explicitId}" is used by ${collisions} layers in this spec. ` +
-            "Layer / traveler ids must be unique because <mpath> resolves to the first " +
-            "match in document order.",
+          `traveler: id "${explicitId}" is used by ${collisions} layers in this spec. Layer / traveler ids must be unique because <mpath> resolves to the first match in document order.`,
         );
       }
     }

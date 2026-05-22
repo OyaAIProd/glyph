@@ -8,9 +8,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { compileSpec } from "../../src/compiler/compile.js";
+import type { ColumnInfo } from "../../src/compute/engine.js";
 import { renderSvg } from "../../src/render/svg.js";
 import { parseSpec } from "../../src/spec/parse.js";
-import type { ColumnInfo } from "../../src/compute/engine.js";
 
 const fixtureUrl = new URL("./skip-default.json", import.meta.url);
 const fixturePath = fileURLToPath(fixtureUrl);

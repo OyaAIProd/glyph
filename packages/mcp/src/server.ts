@@ -64,8 +64,8 @@ import {
   composeStory,
   decomposeVariance,
   detectAnomalies,
-  diffSpecs,
   diffProvenance,
+  diffSpecs,
   explainHandle,
   extractProvenanceFromSvg,
   getCapabilities,
@@ -3426,7 +3426,10 @@ export function createServer(state: ServerState = new ServerState()): {
           return {
             isError: true,
             content: [
-              { type: "text" as const, text: `glyph_verify: spec invalid: ${parsed.error.message}` },
+              {
+                type: "text" as const,
+                text: `glyph_verify: spec invalid: ${parsed.error.message}`,
+              },
             ],
           };
         }
@@ -3443,7 +3446,7 @@ export function createServer(state: ServerState = new ServerState()): {
                       {
                         field: "(missing seal)",
                         expected: "glyph-provenance/1 metadata block",
-                        actual: "no <metadata id=\"glyph-provenance\"> element in SVG",
+                        actual: 'no <metadata id="glyph-provenance"> element in SVG',
                       },
                     ],
                   },
@@ -3478,11 +3481,7 @@ export function createServer(state: ServerState = new ServerState()): {
             content: [
               {
                 type: "text" as const,
-                text: JSON.stringify(
-                  { valid: mismatches.length === 0, mismatches },
-                  null,
-                  2,
-                ),
+                text: JSON.stringify({ valid: mismatches.length === 0, mismatches }, null, 2),
               },
             ],
           };

@@ -111,10 +111,7 @@ function sha256Hex(s: string): string {
 export function computeProvenance(input: ProvenanceInput): ProvenanceBlock {
   const { spec, rows, schema, scales, libraryVersion, includeTimestamp } = input;
   const specHash = sha256Hex(canonicalStringify(spec));
-  const dataHash =
-    rows.length === 0
-      ? null
-      : sha256Hex(canonicalStringify({ rows, schema }));
+  const dataHash = rows.length === 0 ? null : sha256Hex(canonicalStringify({ rows, schema }));
   const scaleDigest = sha256Hex(
     canonicalStringify({
       xDomain: scales.xDomain ?? null,
@@ -160,9 +157,7 @@ export function renderProvenanceMetadata(block: ProvenanceBlock): string {
  * a re-rendered spec.
  */
 export function extractProvenanceFromSvg(svg: string): ProvenanceBlock | null {
-  const m = svg.match(
-    /<metadata id="glyph-provenance"><!\[CDATA\[([\s\S]*?)\]\]><\/metadata>/,
-  );
+  const m = svg.match(/<metadata id="glyph-provenance"><!\[CDATA\[([\s\S]*?)\]\]><\/metadata>/);
   if (!m || !m[1]) return null;
   try {
     const parsed = JSON.parse(m[1]) as ProvenanceBlock;

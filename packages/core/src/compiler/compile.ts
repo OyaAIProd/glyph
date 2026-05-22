@@ -11,6 +11,7 @@
  *   - Default colors are picked deterministically from a small fixed palette.
  */
 
+import { LIBRARY_VERSION } from "../capabilities.js";
 import { type ContourGrid, marchingSquares, segmentsToPathD } from "../contour/index.js";
 import {
   type FunctionDataSpec,
@@ -38,10 +39,8 @@ import {
   partitionLayout,
   squarifiedTreemap,
 } from "../layout/hierarchy.js";
-import { LIBRARY_VERSION } from "../capabilities.js";
 import { brandKitToTheme, mergeBrandWithTheme } from "../render/brand.js";
-import { PLAYGROUND_BRAND, THREEBLUEONE_BROWN_BRAND } from "../themes/index.js";
-import { computeProvenance, type ProvenanceScales } from "../render/provenance.js";
+import { type ProvenanceScales, computeProvenance } from "../render/provenance.js";
 import type {
   AxisTick,
   LegendEntry,
@@ -64,13 +63,14 @@ import type {
   HierarchyNode,
   InteractiveConfig,
 } from "../spec/types.js";
+import type { MissingPolicy } from "../spec/types.js";
+import { PLAYGROUND_BRAND, THREEBLUEONE_BROWN_BRAND } from "../themes/index.js";
 import { getMarkCompiler, registerMark } from "./mark-registry.js";
 // Moat PR3 — failure-aware rendering. buildBars / buildPoints / buildLines /
 // buildAreas thread the policy through `applyMissingPolicy` instead of
 // inline `Number.isFinite(yv)` filters, so the "callout" + "interpolate"
 // semantics stay in one helper.
 import { applyMissingPolicy } from "./missing-policy.js";
-import type { MissingPolicy } from "../spec/types.js";
 // Side-effect imports: each mark module registers itself with the registry
 // at module-load. The vector-field mark is the first PR3 user; future
 // math marks (math-text, streamline, ...) plug in the same way.
@@ -1102,101 +1102,145 @@ export function compileSpec(input: CompileInput): Scene {
     // letting us record the per-layer count after the body runs
     // (regardless of which branch took the early exit).
     ((): void => {
-    const enc = layer.encoding;
-    const xField = fieldOf(enc.x);
-    const yField = fieldOf(enc.y);
-    const ySide = ySideOfLayer(enc);
-    const yScale = (ySide === "right" ? rightY : leftY)?.scale ?? leftY?.scale;
-    // Math PR3 — leaf mark dispatch goes through the mark registry. The
-    // spec-shape gates BELOW (yScale/xField/yField presence; band-x for
-    // bar+boxplot) remain inline because they're preconditions, not mark
-    // work. Each registered compiler is a thin trampoline into the
-    // matching private build* function with identical argument order so
-    // byte output stays identical to the pre-registry path.
-    if (layer.mark === "rule") {
-      // Rule needs only one side; its y/x encoding may be missing.
-      const ruleYScale = yField ? yScale : undefined;
-      getMarkCompiler("rule").compile({
-        layer,
-        spec,
-        rows,
-        schema,
-        theme,
-        xScale,
-        yScale: ruleYScale,
-        xField: xField ?? "",
-        yField: yField ?? "",
-        ctx: undefined,
-        plotArea,
-        out: marks,
-      });
-      return;
-    }
-    if (layer.mark === "geo-region") {
-      getMarkCompiler("geo-region").compile({
-        layer,
-        spec,
-        rows,
-        schema,
-        theme,
-        xScale,
-        yScale,
-        xField: xField ?? "",
-        yField: yField ?? "",
-        ctx: undefined,
-        plotArea,
-        out: marks,
-      });
-      return;
-    }
-    if (layer.mark === "heatmap") {
-      // Heatmap bypasses the y-quantitative requirement of the regular path.
-      getMarkCompiler("heatmap").compile({
-        layer,
-        spec,
-        rows,
-        schema,
-        theme,
-        xScale,
-        yScale,
-        xField: xField ?? "",
-        yField: yField ?? "",
-        ctx: undefined,
-        plotArea,
-        out: marks,
-      });
-      return;
-    }
-    if (layer.mark === "math-text") {
-      // Math PR4 — math-text doesn't consume `ctx` (no tooltips on glyph
-      // shards) so dispatch explicitly with ctx: undefined. The registry's
-      // compiler reads layer.expr / fontSize / color / align / at off the
-      // layer record directly. Dispatched BEFORE the xField/yField gate
-      // because math-text supports an explicit `at: { x, y }` anchor that
-      // makes the encoding-x/y fields optional (use case: chart titles).
-      if (!yScale) return;
-      getMarkCompiler("math-text").compile({
-        layer,
-        spec,
-        rows,
-        schema,
-        theme,
-        xScale,
-        yScale,
-        xField: xField ?? "",
-        yField: yField ?? "",
-        ctx: undefined,
-        plotArea,
-        out: marks,
-      });
-      return;
-    }
-    if (!yScale || !xField || !yField) return;
-    if (layer.mark === "boxplot") {
-      if (xScale.type !== "band") {
-        throw new Error("boxplot mark requires a band x scale");
+      const enc = layer.encoding;
+      const xField = fieldOf(enc.x);
+      const yField = fieldOf(enc.y);
+      const ySide = ySideOfLayer(enc);
+      const yScale = (ySide === "right" ? rightY : leftY)?.scale ?? leftY?.scale;
+      // Math PR3 — leaf mark dispatch goes through the mark registry. The
+      // spec-shape gates BELOW (yScale/xField/yField presence; band-x for
+      // bar+boxplot) remain inline because they're preconditions, not mark
+      // work. Each registered compiler is a thin trampoline into the
+      // matching private build* function with identical argument order so
+      // byte output stays identical to the pre-registry path.
+      if (layer.mark === "rule") {
+        // Rule needs only one side; its y/x encoding may be missing.
+        const ruleYScale = yField ? yScale : undefined;
+        getMarkCompiler("rule").compile({
+          layer,
+          spec,
+          rows,
+          schema,
+          theme,
+          xScale,
+          yScale: ruleYScale,
+          xField: xField ?? "",
+          yField: yField ?? "",
+          ctx: undefined,
+          plotArea,
+          out: marks,
+        });
+        return;
       }
-      getMarkCompiler("boxplot").compile({
+      if (layer.mark === "geo-region") {
+        getMarkCompiler("geo-region").compile({
+          layer,
+          spec,
+          rows,
+          schema,
+          theme,
+          xScale,
+          yScale,
+          xField: xField ?? "",
+          yField: yField ?? "",
+          ctx: undefined,
+          plotArea,
+          out: marks,
+        });
+        return;
+      }
+      if (layer.mark === "heatmap") {
+        // Heatmap bypasses the y-quantitative requirement of the regular path.
+        getMarkCompiler("heatmap").compile({
+          layer,
+          spec,
+          rows,
+          schema,
+          theme,
+          xScale,
+          yScale,
+          xField: xField ?? "",
+          yField: yField ?? "",
+          ctx: undefined,
+          plotArea,
+          out: marks,
+        });
+        return;
+      }
+      if (layer.mark === "math-text") {
+        // Math PR4 — math-text doesn't consume `ctx` (no tooltips on glyph
+        // shards) so dispatch explicitly with ctx: undefined. The registry's
+        // compiler reads layer.expr / fontSize / color / align / at off the
+        // layer record directly. Dispatched BEFORE the xField/yField gate
+        // because math-text supports an explicit `at: { x, y }` anchor that
+        // makes the encoding-x/y fields optional (use case: chart titles).
+        if (!yScale) return;
+        getMarkCompiler("math-text").compile({
+          layer,
+          spec,
+          rows,
+          schema,
+          theme,
+          xScale,
+          yScale,
+          xField: xField ?? "",
+          yField: yField ?? "",
+          ctx: undefined,
+          plotArea,
+          out: marks,
+        });
+        return;
+      }
+      if (!yScale || !xField || !yField) return;
+      if (layer.mark === "boxplot") {
+        if (xScale.type !== "band") {
+          throw new Error("boxplot mark requires a band x scale");
+        }
+        getMarkCompiler("boxplot").compile({
+          layer,
+          spec,
+          rows,
+          schema,
+          theme,
+          xScale,
+          yScale,
+          xField,
+          yField,
+          ctx: undefined,
+          plotArea,
+          out: marks,
+        });
+        return;
+      }
+      if (layer.mark === "text") {
+        getMarkCompiler("text").compile({
+          layer,
+          spec,
+          rows,
+          schema,
+          theme,
+          xScale,
+          yScale,
+          xField,
+          yField,
+          ctx: undefined,
+          plotArea,
+          out: marks,
+        });
+        return;
+      }
+      if (layer.mark === "bar" && xScale.type !== "band") {
+        throw new Error("bar mark requires a band x scale");
+      }
+      const ctx: MarkCtx = {
+        interactive: spec.interactive,
+        xField,
+        yField,
+        colorField: fieldOf(enc.color),
+        tooltip: enc.tooltip,
+      };
+      // bar / point / line / area / vector-field all route via the registry.
+      getMarkCompiler(layer.mark).compile({
         layer,
         spec,
         rows,
@@ -1206,54 +1250,10 @@ export function compileSpec(input: CompileInput): Scene {
         yScale,
         xField,
         yField,
-        ctx: undefined,
+        ctx,
         plotArea,
         out: marks,
       });
-      return;
-    }
-    if (layer.mark === "text") {
-      getMarkCompiler("text").compile({
-        layer,
-        spec,
-        rows,
-        schema,
-        theme,
-        xScale,
-        yScale,
-        xField,
-        yField,
-        ctx: undefined,
-        plotArea,
-        out: marks,
-      });
-      return;
-    }
-    if (layer.mark === "bar" && xScale.type !== "band") {
-      throw new Error("bar mark requires a band x scale");
-    }
-    const ctx: MarkCtx = {
-      interactive: spec.interactive,
-      xField,
-      yField,
-      colorField: fieldOf(enc.color),
-      tooltip: enc.tooltip,
-    };
-    // bar / point / line / area / vector-field all route via the registry.
-    getMarkCompiler(layer.mark).compile({
-      layer,
-      spec,
-      rows,
-      schema,
-      theme,
-      xScale,
-      yScale,
-      xField,
-      yField,
-      ctx,
-      plotArea,
-      out: marks,
-    });
     })();
     layerMarkCounts.push(marks.length - __layerStart);
   }
@@ -1440,9 +1440,7 @@ export function compileSpec(input: CompileInput): Scene {
     plotArea,
     axes,
     marks,
-    ...(isDefaultLight
-      ? {}
-      : { textPrimary: theme.fg, textMuted: theme.fg }),
+    ...(isDefaultLight ? {} : { textPrimary: theme.fg, textMuted: theme.fg }),
     ...(spec.title ? { title: spec.title } : {}),
     ...(sceneSchema ? { schema: sceneSchema } : {}),
     ...(legends.length > 0 ? { legends } : {}),
@@ -2488,7 +2486,9 @@ function buildLines(
   // solid + dashed sub-paths.
   for (const [groupKey, ptsRaw] of groups) {
     if (ptsRaw.length < 2) continue;
-    const pts: PolyPoint[] = preserveOrder ? ptsRaw.slice() : ptsRaw.slice().sort((a, b) => a.x - b.x);
+    const pts: PolyPoint[] = preserveOrder
+      ? ptsRaw.slice()
+      : ptsRaw.slice().sort((a, b) => a.x - b.x);
     const idx = colorField ? Math.max(0, colorDomain.indexOf(groupKey)) : 0;
     const stroke = theme.marks[idx % theme.marks.length] ?? "#000";
     const hasInterp = pts.some((p) => p.interpolated);
@@ -3042,7 +3042,7 @@ function roundToSig(v: number, n: number): number {
   if (!Number.isFinite(v) || v === 0) return v;
   const d = Math.ceil(Math.log10(Math.abs(v)));
   const power = n - d;
-  const m = Math.pow(10, power);
+  const m = 10 ** power;
   return Math.round(v * m) / m;
 }
 
