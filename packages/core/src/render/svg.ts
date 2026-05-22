@@ -166,6 +166,20 @@ function renderMark(m: SceneMark, interactive: boolean): string {
         // symmetric circle but lets future arrow-shaped travelers
         // orient correctly.
         //
+        // `keyTimes="0;0.5;1" keyPoints="0;1;0"` makes the dot **bounce**
+        // along the path: in the first half of each loop it rides start→
+        // end (path fraction 0 → 1), in the second half it rides end→
+        // start (1 → 0), then the loop repeats. Without this
+        // reparameterization a one-way `repeatCount="indefinite"` would
+        // snap the dot from path-end back to path-start at every cycle
+        // boundary — visible to the viewer as the dot "disappearing on
+        // the right and reappearing on the left" instead of riding the
+        // wave continuously. The bounce keeps the dot on the curve at
+        // all times. For open paths (sine wave, parabola, …) this is the
+        // natural visual; for closed paths (circle) the bounce reverses
+        // direction at each lap which still looks coherent because the
+        // start and end points coincide.
+        //
         // Both `href` (SVG 2) and `xlink:href` (SVG 1.1) are emitted so the
         // motion reference resolves in every browser that ever shipped
         // SMIL. xlink:href is the historical form (still required by
@@ -173,7 +187,7 @@ function renderMark(m: SceneMark, interactive: boolean): string {
         // forward-compatible replacement. Including both is the
         // belt-and-suspenders pattern recommended by MDN's SMIL docs.
         const animateMotion =
-          `<animateMotion dur="${dur}"${begin} repeatCount="indefinite" rotate="auto">` +
+          `<animateMotion dur="${dur}"${begin} repeatCount="indefinite" rotate="auto" keyTimes="0;0.5;1" keyPoints="0;1;0" calcMode="linear">` +
           `<mpath href="${pathRef}" xlink:href="${pathRef}"/></animateMotion>`;
         return `<circle cx="${m.cx}" cy="${m.cy}" r="${m.r}" fill="${esc(m.fill)}"${stroke}${sw}${op}>${animateMotion}</circle>`;
       }

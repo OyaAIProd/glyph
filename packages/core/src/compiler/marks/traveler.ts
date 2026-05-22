@@ -368,24 +368,40 @@ export const travelerMarkCompiler: MarkCompiler = {
 
     // Trail circles (if requested). K is computed from N * trail.length
     // where N is the polyline sample count, then capped at 12 so a
-    // chart with 1000 samples doesn't emit 200 SMIL elements. The
-    // tail starts at the largest negative `begin` offset and the head
-    // sits at zero offset so all trail dots loop in sync with the
-    // head circle.
+    // chart with 1000 samples doesn't emit 200 SMIL elements.
+    //
+    // Phase plan (every dot loops on the same `dur` animateMotion that
+    // bounces forward→back along the path via keyTimes/keyPoints in the
+    // renderer — see svg.ts). The head leads by `tailWindow` ms, and
+    // each trail dot is progressively further behind:
+    //
+    //   - Head's `beginMs = -tailWindow` → at document t=0 the head's
+    //     internal animation clock reads `tailWindow`, so the head is
+    //     already `tailWindow`-worth of progress into its first
+    //     forward stroke and visibly leading.
+    //   - Trail i=1 (closest to head): `beginMs ≈ -tailWindow + (1/K)*tailWindow`,
+    //     so its internal clock at t=0 reads `tailWindow*(1 - 1/K)` —
+    //     just behind the head along the same forward stroke.
+    //   - Trail i=K (furthest tail): `beginMs = 0`, so its internal
+    //     clock at t=0 reads 0 — sitting at the very start of the path,
+    //     the natural anchor for the comet's tail.
+    //
+    // Result: a comet whose head leads and whose dim tail lags behind
+    // along the bounce trajectory, on every cycle, forever. The old
+    // sign convention (-tailWindow*i/K) put trail dots AHEAD of the
+    // head — wrong direction for a comet — and only worked at all
+    // because the renderer didn't bounce; with bouncing the wrong-
+    // direction trail is visibly broken.
     if (opts.trail && opts.trail.length > 0) {
       const N = polyline.length;
       const K = Math.min(12, Math.max(0, Math.round(N * opts.trail.length)));
       if (K > 0) {
-        // Each trail circle is offset by (i/K * tail-window) ms behind
-        // the head, where tail-window is a fraction of the loop dur
-        // matching trail.length. SMIL's `begin` accepts negative
-        // offsets to mean "this animation already started N ms ago at
-        // t=0" — that's how the tail appears already laid out at the
-        // start frame.
         const tailWindowMs = opts.durationMs * opts.trail.length;
         for (let i = 1; i <= K; i++) {
-          // i=1 → closest to head, i=K → furthest tail.
-          const offsetMs = -Math.round((tailWindowMs * i) / K);
+          // i=1 → closest to head, i=K → furthest tail. We want trail
+          // i=K at beginMs=0 (anchored at path start) and trail i=1 at
+          // beginMs just less negative than the head's -tailWindow.
+          const offsetMs = -Math.round(tailWindowMs - (tailWindowMs * i) / K);
           const opacity = opts.trail.fade
             ? roundOpacity(TRAIL_FADE_MAX - ((TRAIL_FADE_MAX - TRAIL_FADE_MIN) * i) / K)
             : TRAIL_FADE_MAX;
@@ -407,7 +423,12 @@ export const travelerMarkCompiler: MarkCompiler = {
       }
     }
 
-    // Head circle. Emitted LAST so it paints on top of the trail.
+    // Head circle. Emitted LAST so it paints on top of the trail. The
+    // head's `beginMs = -tailWindow` puts it `tailWindow` ms ahead of
+    // the i=K trail dot (which has `beginMs = 0`), giving the comet
+    // its leading edge.
+    const tailWindowMs =
+      opts.trail && opts.trail.length > 0 ? opts.durationMs * opts.trail.length : 0;
     const head: SceneMark = {
       type: "circle",
       cx: first.x,
@@ -417,6 +438,7 @@ export const travelerMarkCompiler: MarkCompiler = {
       motion: {
         pathId,
         durationMs: opts.durationMs,
+        ...(tailWindowMs > 0 ? { beginMs: -tailWindowMs } : {}),
       },
     };
     out.push(head);
