@@ -11,7 +11,8 @@
       "site/play/glyph-bundle.js",
       "site/play/glyph-bundle.js.map",
       "site/play/spec.schema.json",
-      "site/forkids-3d.js"
+      "site/forkids-3d.js",
+      "packages/core/__fixtures__/story/sine-wave-for-an-8yo.json"
     ]
   },
   "formatter": {
