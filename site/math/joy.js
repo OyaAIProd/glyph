@@ -21,8 +21,6 @@
  */
 
 (() => {
-  "use strict";
-
   // ---------------- shared helpers ----------------
 
   /** Map a hex color to a 0..1 RGB triple (for gradient stops). */
@@ -45,7 +43,8 @@
   function mountCanvas(host) {
     const canvas = host.querySelector("canvas");
     const ctx = canvas.getContext("2d", { alpha: true, desynchronized: true });
-    let w = 0, h = 0;
+    let w = 0;
+    let h = 0;
     function fit() {
       const rect = host.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -53,14 +52,23 @@
       h = rect.height;
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
-      canvas.style.width = w + "px";
-      canvas.style.height = h + "px";
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // ALL drawing uses CSS px.
     }
     fit();
     const ro = new ResizeObserver(fit);
     ro.observe(host);
-    return { canvas, ctx, get w() { return w; }, get h() { return h; } };
+    return {
+      canvas,
+      ctx,
+      get w() {
+        return w;
+      },
+      get h() {
+        return h;
+      },
+    };
   }
 
   /**
@@ -136,7 +144,9 @@
     loop(card, (dt, t) => {
       const { w, h } = stage;
       ctx.clearRect(0, 0, w, h);
-      const cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.42;
+      const cx = w / 2;
+      const cy = h / 2;
+      const R = Math.min(w, h) * 0.42;
       const a = Number(slA.value);
       const b = Number(slB.value);
       let delta = Number(slD.value);
@@ -186,7 +196,8 @@
     loop(card, (dt, t) => {
       const { w, h } = stage;
       ctx.clearRect(0, 0, w, h);
-      const cx = w / 2, cy = h / 2;
+      const cx = w / 2;
+      const cy = h / 2;
       const R = Number(slR.value);
       const r = Math.max(0.1, Number(slr.value));
       const d = Number(sld.value);
@@ -203,7 +214,8 @@
       const N = Math.min(8000, 600 * turns);
       for (let i = 0; i <= N; i++) {
         const u = (i / N) * Math.PI * 2 * turns;
-        let x, y;
+        let x;
+        let y;
         if (epi) {
           x = (R + r) * Math.cos(u) - d * Math.cos(((R + r) / r) * u);
           y = (R + r) * Math.sin(u) - d * Math.sin(((R + r) / r) * u);
@@ -219,7 +231,8 @@
       ctx.stroke();
       // Moving dot at one position along the parameter
       const dotU = t * 1.5;
-      let dx, dy;
+      let dx;
+      let dy;
       if (epi) {
         dx = (R + r) * Math.cos(dotU) - d * Math.cos(((R + r) / r) * dotU);
         dy = (R + r) * Math.sin(dotU) - d * Math.sin(((R + r) / r) * dotU);
@@ -254,7 +267,8 @@
     loop(card, (dt, t) => {
       const { w, h } = stage;
       ctx.clearRect(0, 0, w, h);
-      const cx = w / 2, cy = h / 2;
+      const cx = w / 2;
+      const cy = h / 2;
       const theta = Number(slT.value);
       const N = Number(slN.value);
       const tOff = t * 0.5;
@@ -262,14 +276,20 @@
       // first measure extent, then rescale to fit the canvas.
       const xs = new Float32Array(N + 1);
       const ys = new Float32Array(N + 1);
-      let xMin = 0, xMax = 0, yMin = 0, yMax = 0;
-      let x = 0, y = 0;
-      xs[0] = 0; ys[0] = 0;
+      let xMin = 0;
+      let xMax = 0;
+      let yMin = 0;
+      let yMax = 0;
+      let x = 0;
+      let y = 0;
+      xs[0] = 0;
+      ys[0] = 0;
       for (let i = 1; i <= N; i++) {
         const angle = theta * i * i + tOff;
         x += Math.cos(angle);
         y += Math.sin(angle);
-        xs[i] = x; ys[i] = y;
+        xs[i] = x;
+        ys[i] = y;
         if (x < xMin) xMin = x;
         if (x > xMax) xMax = x;
         if (y < yMin) yMin = y;
@@ -306,7 +326,8 @@
     loop(card, (dt, t) => {
       const { w, h } = stage;
       ctx.clearRect(0, 0, w, h);
-      const cx = w / 2, cy = h / 2;
+      const cx = w / 2;
+      const cy = h / 2;
       const a = Number(slA.value);
       const b = Number(slB.value);
       const turns = Number(slT.value);
@@ -337,14 +358,16 @@
   function initButterfly(card) {
     const stage = mountCanvas(card);
     const { ctx } = stage;
-    const slSpd = bindSlider("butter-spd", "lbl-butter-spd", (v) => Number(v).toFixed(1) + "×");
-    const slFade = bindSlider("butter-fade", "lbl-butter-fade", (v) => v + "%");
+    const slSpd = bindSlider("butter-spd", "lbl-butter-spd", (v) => `${Number(v).toFixed(1)}×`);
+    const slFade = bindSlider("butter-fade", "lbl-butter-fade", (v) => `${v}%`);
 
     let trailT = 0;
-    let prevX = null, prevY = null;
+    let prevX = null;
+    let prevY = null;
     loop(card, (dt) => {
       const { w, h } = stage;
-      const cx = w / 2, cy = h / 2;
+      const cx = w / 2;
+      const cy = h / 2;
       const scale = Math.min(w, h) * 0.12;
       // Fade the previous frame's content to leave a persistence trail.
       const fadePct = Number(slFade.value) / 100;
@@ -359,7 +382,7 @@
       for (let i = 0; i < steps; i++) {
         trailT += dt * 0.4 * spd; // 0.4 ≈ wing-pass rate
         const t = trailT;
-        const f = Math.exp(Math.cos(t)) - 2 * Math.cos(4 * t) - Math.pow(Math.sin(t / 12), 5);
+        const f = Math.exp(Math.cos(t)) - 2 * Math.cos(4 * t) - Math.sin(t / 12) ** 5;
         const x = cx + scale * Math.sin(t) * f;
         const y = cy - scale * Math.cos(t) * f;
         if (prevX !== null) {
@@ -393,18 +416,19 @@
     const stage = mountCanvas(card);
     const { ctx } = stage;
     const slM = bindSlider("grav-mass", "lbl-grav-mass", (v) =>
-      v === "0" ? "0" : `${(Math.pow(10, Number(v) / 20) * 100).toFixed(0)} M☉`,
+      v === "0" ? "0" : `${(10 ** (Number(v) / 20) * 100).toFixed(0)} M☉`,
     );
     const slB = bindSlider("grav-b", "lbl-grav-b", (v) => Number(v).toFixed(2));
     const slR = bindSlider("grav-rays", "lbl-grav-rays");
 
     loop(card, (dt, t) => {
       const { w, h } = stage;
-      const cx = w / 2, cy = h / 2;
+      const cx = w / 2;
+      const cy = h / 2;
       // Convert slider mass to a dimensionless lens strength.
       // (No real units; tuned visually so the slider sweeps from "no
       // deflection" at 0 to "Einstein ring" near the high end.)
-      const M = Math.pow(Number(slM.value) / 100, 1.6) * 0.16; // 0 .. 0.16 (canvas units)
+      const M = (Number(slM.value) / 100) ** 1.6 * 0.16; // 0 .. 0.16 (canvas units)
       const bShift = Number(slB.value);
       const rayCount = Number(slR.value);
       // Background gradient → space-like vibe.
@@ -429,7 +453,7 @@
         }
       }
       // --- Lens mass (visible disk) -----------------------------
-      const massR = Math.max(6, 18 * Math.pow(M / 0.16, 0.4));
+      const massR = Math.max(6, 18 * (M / 0.16) ** 0.4);
       const lensGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, massR * 2.4);
       lensGrad.addColorStop(0, "rgba(251,191,36,0.9)");
       lensGrad.addColorStop(0.6, "rgba(251,113,133,0.35)");
@@ -450,7 +474,7 @@
       ctx.strokeStyle = "rgba(96,165,250,0.85)";
       for (let i = 0; i < rayCount; i++) {
         // distribute rays vertically around cy + bShift
-        const span = (h * 0.7);
+        const span = h * 0.7;
         const yOff = (i - (rayCount - 1) / 2) * (span / Math.max(1, rayCount - 1));
         const yStart = cy + yOff + bShift * span * 0.5;
         const b = yStart - cy; // signed impact parameter
@@ -504,14 +528,35 @@
    */
   function initFlowField(card) {
     const stage = mountCanvas(card);
-    const { ctx } = stage;
+    const { canvas, ctx } = stage;
     const slN = bindSlider("flow-n", "lbl-flow-n");
     const slK = bindSlider("flow-k", "lbl-flow-k", (v) => Number(v).toFixed(1));
     const slW = bindSlider("flow-w", "lbl-flow-w", (v) => Number(v).toFixed(2));
-    const slFade = bindSlider("flow-fade", "lbl-flow-fade", (v) => v + "%");
+    const slFade = bindSlider("flow-fade", "lbl-flow-fade", (v) => `${v}%`);
 
     const particles = []; // { x, y } in canvas-px
     let lastCount = 0;
+
+    // Click → spawn a fresh burst of ~80 particles at the cursor so
+    // the user can "release a tracer here and watch it ride the flow."
+    // This is the streamline-discovery interaction: drop a marker, see
+    // the local field's character.
+    canvas.addEventListener("pointerdown", (ev) => {
+      const rect = canvas.getBoundingClientRect();
+      const cx = (ev.clientX - rect.left) * (stage.w / rect.width);
+      const cy = (ev.clientY - rect.top) * (stage.h / rect.height);
+      const burst = 80;
+      for (let i = 0; i < burst; i++) {
+        // Gaussian-ish scatter around the click so the seeds aren't
+        // perfectly co-located (otherwise they trace the same path).
+        const r = Math.random() * 6;
+        const a = Math.random() * Math.PI * 2;
+        particles.push({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) });
+      }
+      // Cap so unrestricted clicking doesn't unbound the array.
+      const maxN = Number(slN.value) + 800;
+      if (particles.length > maxN) particles.splice(0, particles.length - maxN);
+    });
 
     loop(card, (dt, t) => {
       const { w, h } = stage;
@@ -533,7 +578,7 @@
         lastCount = N;
       }
 
-      const k = Number(slK.value) * Math.PI / Math.max(w, h);
+      const k = (Number(slK.value) * Math.PI) / Math.max(w, h);
       const omega = Number(slW.value);
       const phase = omega * t;
       const speed = 80; // px / unit-of-vel — tuned visually
@@ -546,11 +591,11 @@
         const ky = k * p.y;
         // Velocity = curl(ψ)
         const vx =
-          -k * Math.sin(kx + phase) * Math.sin(ky) +
-          k * Math.cos(kx) * Math.cos(ky - phase);
-        const vy =
-          -(k * Math.cos(kx + phase) * Math.cos(ky) -
-            k * Math.sin(kx) * Math.sin(ky - phase));
+          -k * Math.sin(kx + phase) * Math.sin(ky) + k * Math.cos(kx) * Math.cos(ky - phase);
+        const vy = -(
+          k * Math.cos(kx + phase) * Math.cos(ky) -
+          k * Math.sin(kx) * Math.sin(ky - phase)
+        );
         const dx = (vx / k) * speed * dt;
         const dy = (vy / k) * speed * dt;
         // Color by direction angle — gives the swirls their character
@@ -608,12 +653,16 @@
       }
     }
 
-    // Click → drop a stone where you click
+    // Click → drop a stone where you click. We also record the time
+    // of the most recent user click so the on-canvas hint pulse can
+    // fade itself out once the user has discovered the interaction.
+    let lastUserClick = Number.NEGATIVE_INFINITY;
     canvas.addEventListener("pointerdown", (ev) => {
       const rect = canvas.getBoundingClientRect();
       const gx = ((ev.clientX - rect.left) / rect.width) * GRID;
       const gy = ((ev.clientY - rect.top) / rect.height) * GRID;
       impulse(gx, gy, 1.6);
+      lastUserClick = performance.now() / 1000;
     });
 
     let nextAutoDrop = 0;
@@ -624,11 +673,7 @@
       // Auto-drops at the slider's rate
       const rate = Number(slRate.value);
       if (rate > 0 && t >= nextAutoDrop) {
-        impulse(
-          GRID * (0.2 + 0.6 * Math.random()),
-          GRID * (0.2 + 0.6 * Math.random()),
-          1.0,
-        );
+        impulse(GRID * (0.2 + 0.6 * Math.random()), GRID * (0.2 + 0.6 * Math.random()), 1.0);
         nextAutoDrop = t + 1 / rate;
       }
 
@@ -645,10 +690,8 @@
             const yOff = yy * GRID;
             for (let xx = 1; xx < GRID - 1; xx++) {
               const idx = yOff + xx;
-              const lap =
-                u[idx - 1] + u[idx + 1] + u[idx - GRID] + u[idx + GRID] - 4 * u[idx];
-              uNext[idx] =
-                2 * u[idx] - uPrev[idx] + c2 * lap - gamma * (u[idx] - uPrev[idx]);
+              const lap = u[idx - 1] + u[idx + 1] + u[idx - GRID] + u[idx + GRID] - 4 * u[idx];
+              uNext[idx] = 2 * u[idx] - uPrev[idx] + c2 * lap - gamma * (u[idx] - uPrev[idx]);
             }
           }
           uPrev = u;
@@ -688,6 +731,37 @@
       card._wavesOffscreen.getContext("2d").putImageData(img, 0, 0);
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(card._wavesOffscreen, 0, 0, w, h);
+
+      // ----- Click-hint overlay --------------------------------------
+      // Mobile users (and anyone who didn't read the caption) need a
+      // visible "tap here" affordance. Pulse a translucent ring at the
+      // canvas center for the first 8 seconds after page load AND
+      // whenever the user has been idle for > 12 seconds — fades
+      // immediately as soon as they click.
+      const tSinceClick = t - lastUserClick;
+      const showHint = lastUserClick === Number.NEGATIVE_INFINITY ? t < 8 : tSinceClick > 12;
+      if (showHint) {
+        const pulse = 0.5 + 0.5 * Math.sin(t * 3); // 0..1, ~2 Hz
+        const r = 24 + pulse * 18;
+        ctx.save();
+        ctx.globalAlpha = 0.4 + pulse * 0.3;
+        ctx.strokeStyle = "#fbbf24";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(w / 2, h / 2, r, 0, Math.PI * 2);
+        ctx.stroke();
+        // Center dot + caption
+        ctx.fillStyle = "#fbbf24";
+        ctx.beginPath();
+        ctx.arc(w / 2, h / 2, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 0.85;
+        ctx.fillStyle = "#fde68a";
+        ctx.font = "13px -apple-system, system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("click anywhere to drop a stone", w / 2, h / 2 + r + 18);
+        ctx.restore();
+      }
     });
   }
 
@@ -713,7 +787,28 @@
     const { canvas, ctx } = stage;
     const slF = bindSlider("rd-F", "lbl-rd-F", (v) => Number(v).toFixed(3));
     const slK = bindSlider("rd-k", "lbl-rd-k", (v) => Number(v).toFixed(3));
-    bindPresets(card, [slF, slK]);
+
+    // Preset transitions are LERP-ed over ~1.5 s so the bifurcation
+    // between regimes (spots → stripes, etc.) is visible as the
+    // pattern morphs in place. Without this the user just sees a
+    // hard jump; with it, the phase boundary becomes the point of the
+    // demo. Each click sets a target; the per-frame update walks the
+    // sliders toward that target and dispatches "input" events so the
+    // labels track.
+    const LERP_MS = 1500;
+    let lerpState = null; // { fStart, kStart, fEnd, kEnd, t0 }
+    card.querySelectorAll("button[data-preset]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const vals = btn.getAttribute("data-preset").split(",").map(Number);
+        lerpState = {
+          fStart: Number(slF.value),
+          kStart: Number(slK.value),
+          fEnd: vals[0],
+          kEnd: vals[1],
+          t0: performance.now(),
+        };
+      });
+    });
 
     const GRID = 160;
     const SIZE = GRID * GRID;
@@ -748,9 +843,26 @@
     // hunting for the F/k that boots a stuck pattern.
     canvas.addEventListener("pointerdown", reseed);
 
-    const Du = 1.0, Dv = 0.5;
+    const Du = 1.0;
+    const Dv = 0.5;
 
     loop(card, (dt) => {
+      // Drive any in-progress preset lerp toward its target. The PDE
+      // step reads from the slider values, so updating the sliders
+      // smoothly is what produces the visible morph.
+      if (lerpState) {
+        const elapsed = performance.now() - lerpState.t0;
+        const u = Math.min(1, elapsed / LERP_MS);
+        // Smoothstep ease so the morph starts and ends gracefully.
+        const e = u * u * (3 - 2 * u);
+        const newF = lerpState.fStart + (lerpState.fEnd - lerpState.fStart) * e;
+        const newK = lerpState.kStart + (lerpState.kEnd - lerpState.kStart) * e;
+        slF.value = String(newF);
+        slK.value = String(newK);
+        document.getElementById("lbl-rd-F").textContent = newF.toFixed(3);
+        document.getElementById("lbl-rd-k").textContent = newK.toFixed(3);
+        if (u >= 1) lerpState = null;
+      }
       const F = Number(slF.value);
       const k = Number(slK.value);
 
@@ -768,7 +880,8 @@
             const xp = (xx - 1 + GRID) % GRID;
             const xn = (xx + 1) % GRID;
             const idx = yy * GRID + xx;
-            const u = U[idx], v = V[idx];
+            const u = U[idx];
+            const v = V[idx];
             // 5-point laplacian (centered − 4·self)
             const lapU =
               U[yp * GRID + xx] + U[yn * GRID + xx] + U[yy * GRID + xp] + U[yy * GRID + xn] - 4 * u;

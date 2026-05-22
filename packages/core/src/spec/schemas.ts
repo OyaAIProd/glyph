@@ -229,6 +229,54 @@ export const TrajectoryDataSchema = z
   })
   .strict();
 
+/**
+ * RFC 2026-05-22 — `data.shape: "recurrence"` — iterative function
+ * shape for curlicue curves, the logistic map, IFS attractors, and
+ * any system whose forward evolution is "compute next from previous"
+ * rather than continuous.
+ *
+ * Walks `state_{n+1} = f(state_n, n, ...params)` for `steps` steps
+ * and emits one row per step. Row n=0 holds the initial condition
+ * verbatim; rows 1..N-1 are computed. The schema column order is
+ * `[n, ...state]` so `animation.kind: "scrub"` with
+ * `frame_field: "n"` steps through the recurrence one iteration at
+ * a time — same orthogonality trick `trajectory` uses with `t`.
+ *
+ * `state` keys, `initial` keys, and `step` keys must form the same
+ * set (per-step refine below enforces this). `n` is reserved as the
+ * step-index identifier in the step expressions and can't double as
+ * a state variable.
+ */
+export const RecurrenceDataSchema = z
+  .object({
+    shape: z.literal("recurrence"),
+    state: z.array(z.string().min(1)).min(1),
+    initial: z.record(z.number().refine(Number.isFinite, "initial values must be finite")),
+    step: z.record(z.string().min(1)),
+    params: z.record(z.number().refine(Number.isFinite, "params values must be finite")).optional(),
+    steps: z.number().int().min(2).max(200_000),
+  })
+  .strict()
+  .refine(
+    (r) => {
+      const stateSet = new Set(r.state);
+      if (stateSet.size !== r.state.length) return false; // duplicates
+      if (stateSet.has("n")) return false; // reserved
+      const initKeys = Object.keys(r.initial);
+      const stepKeys = Object.keys(r.step);
+      if (initKeys.length !== r.state.length || stepKeys.length !== r.state.length) return false;
+      for (const name of r.state) {
+        if (!(name in r.initial)) return false;
+        if (!(name in r.step)) return false;
+      }
+      return true;
+    },
+    {
+      message:
+        "recurrence data: state, initial, and step must all reference the same variable names; `n` is reserved",
+    },
+  );
+
 export const DataSourceSchema = z
   .object({
     /**
@@ -282,6 +330,17 @@ export const DataSourceSchema = z
      */
     trajectory: TrajectoryDataSchema.optional(),
     /**
+     * RFC 2026-05-22 — `data.shape: "recurrence"`. Iterative
+     * difference equation walked for N integer steps. Different from
+     * `trajectory` (continuous ODE via RK4) and `function` (sampled
+     * scalar / parametric curve): emits exactly `steps` rows where
+     * row n holds the state after n iterations of the user-supplied
+     * step function. Use for curlicue curves, logistic-map orbits,
+     * IFS attractors — anything where the natural evolution is
+     * x_{n+1} = f(x_n, n).
+     */
+    recurrence: RecurrenceDataSchema.optional(),
+    /**
      * Moat PR3 — failure-aware rendering policy for rows whose
      * y-encoded value is null / undefined / NaN.
      *
@@ -312,8 +371,9 @@ export const DataSourceSchema = z
       d.graph !== undefined ||
       d.grid !== undefined ||
       d.function !== undefined ||
-      d.trajectory !== undefined,
-    "data needs a 'source', 'hierarchy', 'graph', 'grid', 'function', or 'trajectory'",
+      d.trajectory !== undefined ||
+      d.recurrence !== undefined,
+    "data needs a 'source', 'hierarchy', 'graph', 'grid', 'function', 'trajectory', or 'recurrence'",
   );
 
 // ---------------------------------------------------------------------------

@@ -117,7 +117,7 @@
           <button data-preset="1,1,0.7854">1:1 ellipse</button>
         </div>
       </div>
-      <p class="demo-note">The phase δ ticks forward continuously — at δ = 0 the figure-eight is "open", at δ = π/2 it pinches into a vertical line, then back. This is the underlying physics of any two harmonic oscillators sharing a screen.</p>
+      <p class="demo-note">The phase δ ticks forward continuously — at δ = 0 the figure-eight is "open", at δ = π/2 it pinches into a vertical line, then back. This is the underlying physics of any two harmonic oscillators sharing a screen. <strong>This curve is already a Glyph spec</strong> — see <a href="https://github.com/seanhanca/glyph/blob/main/packages/core/__fixtures__/math/lissajous.json">__fixtures__/math/lissajous.json</a>, byte-locked in CI.</p>
     </div>
   </div>
 </section>
@@ -146,7 +146,7 @@
           <button data-preset="5,1,3,1">5-cusp epi</button>
         </div>
       </div>
-      <p class="demo-note">Set <code>R = 1, r = 1, d = 1</code> in epitrochoid mode and you've drawn a perfect <strong>cardioid</strong> — the antenna-radiation pattern of every directional microphone on Earth.</p>
+      <p class="demo-note">Set <code>R = 1, r = 1, d = 1</code> in epitrochoid mode and you've drawn a perfect <strong>cardioid</strong> — the antenna-radiation pattern of every directional microphone on Earth. <strong>This is already a Glyph spec</strong> — the 5:3 rosette preset is locked at <a href="https://github.com/seanhanca/glyph/blob/main/packages/core/__fixtures__/math/hypotrochoid-rosette.json">__fixtures__/math/hypotrochoid-rosette.json</a>.</p>
     </div>
   </div>
 </section>
@@ -217,7 +217,7 @@
         <label><span class="lbl"><span>animation speed</span><strong id="lbl-butter-spd">1.0×</strong></span><input id="butter-spd" type="range" min="0.1" max="3" step="0.1" value="1"></label>
         <label><span class="lbl"><span>trail persistence</span><strong id="lbl-butter-fade">98%</strong></span><input id="butter-fade" type="range" min="80" max="100" step="1" value="98"></label>
       </div>
-      <p class="demo-note">The butterfly emerges scene by scene — the pen draws six wings as t crosses the periodic structure of cos(4t). When the trace completes a full loop (t = 12π) the figure is whole.</p>
+      <p class="demo-note">The butterfly emerges scene by scene — the pen draws six wings as t crosses the periodic structure of cos(4t). When the trace completes a full loop (t = 12π) the figure is whole. <strong>This is already a Glyph spec</strong> — locked byte-stable at <a href="https://github.com/seanhanca/glyph/blob/main/packages/core/__fixtures__/math/butterfly.json">__fixtures__/math/butterfly.json</a> (without the trail-fade animation; static SVG of the full curve).</p>
     </div>
   </div>
 </section>
@@ -254,7 +254,7 @@
     </div>
     <div class="demo-info">
       <h2><span class="num">7</span>Particle Flow Field</h2>
-      <p class="lede">Thousands of particles drift through a velocity field defined by a stream function ψ(x, y, t). Particle velocity is the <em>curl</em> of ψ (incompressible flow — no sources or sinks). The result: gorgeous swirling patterns that reorganize as the field morphs.</p>
+      <p class="lede">Thousands of particles drift through a velocity field defined by a stream function ψ(x, y, t). Particle velocity is the <em>curl</em> of ψ (incompressible flow — no sources or sinks). The result: gorgeous swirling patterns that reorganize as the field morphs. <strong>Click anywhere on the canvas</strong> to release a fresh burst of 80 tracer particles right there.</p>
       <div class="formula">v = ∇ × ψ &nbsp; where &nbsp; ψ = sin(k·x + ωt) · cos(k·y) + cos(k·x) · sin(k·y − ωt)</div>
       <div class="controls">
         <label><span class="lbl"><span>particles</span><strong id="lbl-flow-n">2000</strong></span><input id="flow-n" type="range" min="200" max="6000" step="200" value="2000"></label>

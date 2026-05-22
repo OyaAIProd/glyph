@@ -1,0 +1,29 @@
+{
+  "version": "glyph/0.1",
+  "title": "Butterfly curve (Temple H. Fay, 1989)",
+  "data": {
+    "function": {
+      "shape": "function",
+      "parameter": { "name": "t", "min": 0, "max": 37.69911184307752, "samples": 1500 },
+      "xExpr": "sin(t) * (exp(cos(t)) - 2*cos(4*t) - sin(t/12)*sin(t/12)*sin(t/12)*sin(t/12)*sin(t/12))",
+      "yExpr": "cos(t) * (exp(cos(t)) - 2*cos(4*t) - sin(t/12)*sin(t/12)*sin(t/12)*sin(t/12)*sin(t/12))"
+    }
+  },
+  "layers": [
+    {
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "x",
+          "type": "quantitative",
+          "scale": { "domain": [-4, 4] }
+        },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "scale": { "domain": [-3.5, 4.5] }
+        }
+      }
+    }
+  ]
+}

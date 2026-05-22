@@ -20,6 +20,11 @@ import {
   sampleFunction,
 } from "../data/shapes/function.js";
 import {
+  type RecurrenceDataSpec,
+  type RecurrenceRow,
+  iterateRecurrence,
+} from "../data/shapes/recurrence.js";
+import {
   type TrajectoryDataSpec,
   type TrajectoryRow,
   integrateTrajectory,
@@ -733,6 +738,59 @@ function materializeTrajectoryInput(input: CompileInput): CompileInput {
   };
 }
 
+/**
+ * RFC 2026-05-22 — Materialize a `data.shape: "recurrence"` spec
+ * into row + schema form. Structurally a sibling of
+ * `materializeTrajectoryInput`: skip DuckDB, iterate the recurrence
+ * via `iterateRecurrence`, swap `spec.data.recurrence` for the
+ * trajectory sentinel source so line / area marks preserve insertion
+ * order (closed walks like curlicues would zigzag if sorted by x).
+ *
+ * Schema order: `n` first, then the state variables in their declared
+ * `spec.state` order. `n`-first is the orthogonality contract with
+ * `animation.kind: "scrub"` and `frame_field: "n"` — same trick the
+ * function shape uses with parameter columns and the trajectory shape
+ * uses with `t`.
+ *
+ * Determinism: pure function of the spec. Every step expression goes
+ * through the same `expr-eval` evaluator function / trajectory use.
+ * Same input → byte-identical rows across runs and platforms.
+ */
+function materializeRecurrenceInput(input: CompileInput): CompileInput {
+  const { spec } = input;
+  const rec = spec.data?.recurrence as RecurrenceDataSpec | undefined;
+  if (!rec) {
+    throw new Error("materializeRecurrenceInput called without spec.data.recurrence");
+  }
+  const sampledRows = iterateRecurrence(rec);
+  const stateNames = rec.state;
+  // Schema is `[n, ...state]` — `n` first so animation.frame_field
+  // resolves through the existing schema lookup with no compiler
+  // changes. State variables follow in their declared order.
+  const schema: CompileFieldInfo[] = [
+    { name: "n", type: "BIGINT" },
+    ...stateNames.map((name) => ({ name, type: "DOUBLE" as const })),
+  ];
+  const rows: ReadonlyArray<unknown>[] = sampledRows.map((r: RecurrenceRow) => [
+    r.n,
+    ...stateNames.map((name) => r[name] as number),
+  ]);
+  return {
+    ...input,
+    spec: {
+      ...spec,
+      // Drop spec.data.recurrence so the recursive compileSpec call
+      // falls through to the normal tabular path. The TRAJECTORY_SOURCE
+      // sentinel tells line / area marks to skip the x-sort — a
+      // curlicue (or any recurrence with a non-monotone state) would
+      // otherwise render as a zigzag.
+      data: { source: TRAJECTORY_SOURCE },
+    },
+    rows,
+    schema,
+  };
+}
+
 export function compileSpec(input: CompileInput): Scene {
   const { spec, rows, schema } = input;
   // Faceted specs split into multiple panels; handle that upfront before
@@ -776,6 +834,15 @@ export function compileSpec(input: CompileInput): Scene {
   // schema column.
   if (spec.data?.trajectory) {
     return compileSpec(materializeTrajectoryInput(input));
+  }
+  // RFC 2026-05-22 — `data.shape: "recurrence"`. Iterates the
+  // user-supplied step function for N steps and routes the
+  // synthesized (n, ...state) rows through the normal compile
+  // pipeline. Same orthogonality story as trajectory + function:
+  // `animation.kind: "scrub"` with `frame_field: "n"` composes with
+  // zero compiler changes because `n` is just another schema column.
+  if (spec.data?.recurrence) {
+    return compileSpec(materializeRecurrenceInput(input));
   }
   const width = spec.width ?? DEFAULT_WIDTH;
   const height = spec.height ?? DEFAULT_HEIGHT;
