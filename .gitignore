@@ -33,3 +33,12 @@ bindings/python/.mypy_cache/
 # committed for the same reason — Monaco fetches it at runtime for spec
 # autocomplete + validation, so it must be served from the static site.
 site/play/glyph-bundle.js.map
+
+# Local scratch directory — sample CSVs and experimental sketches devs
+# drop in while iterating. Never shipped, never tested in CI.
+sandbox/
+
+# Python bindings: every `__pycache__/` under the tree (the existing
+# entries above only covered specific paths — this catches subdirs like
+# bindings/python/tests/__pycache__/ that pytest creates per test file).
+**/__pycache__/

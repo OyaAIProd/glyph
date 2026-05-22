@@ -1,13 +1,13 @@
 # Glyph
 
-> Deterministic charts for AI agents. Embedded DuckDB. 50 MCP verbs. Byte-stable SVG.
+> Deterministic charts for AI agents. Embedded DuckDB. 52 MCP verbs. Byte-stable SVG.
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-679%20passing-brightgreen.svg)](#status)
+[![Tests](https://img.shields.io/badge/tests-819%20passing-brightgreen.svg)](#status)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](#requirements)
 [![No telemetry](https://img.shields.io/badge/telemetry-none-brightgreen.svg)](#license)
 
-A TypeScript chart-and-compute library where charts are JSON specs an LLM can author, diff, and patch. Compilation is a pure function. SVG output is identical across runs, OSes, and Node versions. The 50-verb MCP server is the primary API.
+A TypeScript chart-and-compute library where charts are JSON specs an LLM can author, diff, and patch. Compilation is a pure function. SVG output is identical across runs, OSes, and Node versions. The 52-verb MCP server is the primary API.
 
 **[Try Glyph in your browser →](https://seanhanca.github.io/glyph/play/)** — paste a CSV, edit a spec, watch the chart + audit findings + trust score update live. Share via URL or GitHub Gist. No install.
 
@@ -215,7 +215,7 @@ Glyph collapses these:
 - **11 mark types**: `bar`, `line`, `point`, `area`, `rule`, `arc`, `treemap`, `sunburst`, `force`, `contour`, `text`
 - **4 data shapes**: tabular, hierarchy, graph, grid
 - **2 renderers**: SVG (server) and Canvas (browser), sharing one scene graph
-- **50 MCP verbs** for agents to chain
+- **52 MCP verbs** for agents to chain
 - **Embedded DuckDB** — query a chart's underlying view without a server round-trip
 - **Built-in chart auditor** — 8 rules catching deceptive charts at compile time (truncated axes, dual-y mismatch, log-zero, small-n, ...)
 - **Uncertainty rendering** — low-n samples auto-hatch and ship a confidence badge
@@ -318,7 +318,7 @@ Every box is a pure function: same input, same output, no global state. The MCP 
 | ---------------------------------- | ------------- | --------- | ------- | ----------- | ----------- | ------------- |
 | Deterministic byte-stable output   | no            | partial   | no      | no          | no          | **yes**       |
 | Embedded SQL engine                | no            | no        | no      | proprietary | proprietary | **DuckDB**    |
-| MCP server (agent-native)          | no            | no        | no      | no          | no          | **50 verbs**  |
+| MCP server (agent-native)          | no            | no        | no      | no          | no          | **52 verbs**  |
 | Built-in chart auditor             | no            | no        | no      | no          | no          | **8 rules**   |
 | Uncertainty rendering by default   | no            | no        | bars    | no          | no          | **yes**       |
 | Cross-process chart lineage        | no            | no        | no      | in-product  | in-product  | **gdf://**    |
@@ -336,7 +336,7 @@ Full 16-row matrix at [`site/index.html#compare`](./site/index.html).
 | `@glyph/core`            | Compiler, scene graph, SVG renderer             | `npm i @glyph/core`          |
 | `@glyph/duckdb`          | DuckDB-backed materializer                      | `npm i @glyph/duckdb`        |
 | `@glyph/canvas`          | Canvas renderer (same scene graph as SVG)       | `npm i @glyph/canvas`        |
-| `@glyph/mcp`             | MCP server, 50 verbs                            | `npx -y @glyph/mcp`          |
+| `@glyph/mcp`             | MCP server, 52 verbs                            | `npx -y @glyph/mcp`          |
 | `@glyph/cli`             | `glyph diff` and friends                        | `npm i -g @glyph/cli`        |
 | `@glyph/live`            | Browser-side hydration for interactive specs    | `npm i @glyph/live`          |
 | `@glyph/preview-server`  | Local preview for Cursor / Jupyter              | `npm i @glyph/preview-server`|
@@ -357,7 +357,7 @@ Full 16-row matrix at [`site/index.html#compare`](./site/index.html).
 
 - v0.0.20 on `main`
 - 679 tests passing
-- 50 MCP verbs
+- 52 MCP verbs
 - 7 packages
 - 11 mark types, 4 data shapes
 - Linux / macOS / Windows × Node 20 / 22 — green on every push
