@@ -58,16 +58,27 @@ describe("end-to-end snapshots", () => {
       if (!parsed.ok) {
         throw new Error(`Bad spec ${file}: ${parsed.error.message}`);
       }
-      // Phase 0: rewrite top-level data.source to be repo-relative.
-      const spec = {
+      // We need TWO views of the spec:
+      //   1. `materializeSpec` needs an ABSOLUTE `data.source` to find
+      //      the CSV on disk (each OS resolves the relative path
+      //      against a different absolute prefix).
+      //   2. `compileSpec` should see the ORIGINAL `data.source` so
+      //      the provenance `specHash` is stable across platforms — an
+      //      absolute path includes the runner's home / build dir,
+      //      which differs between macOS (`/Users/...`),
+      //      Linux (`/home/runner/...`), and Windows (`D:\\a\\...`).
+      //      Without this split, the same spec rendered on three
+      //      runners produced three different specHashes, breaking
+      //      the determinism contract the baselines lock.
+      const specForMaterialize = {
         ...parsed.spec,
         data: parsed.spec.data
           ? { ...parsed.spec.data, source: join(specsDir, parsed.spec.data.source) }
           : undefined,
       };
-      const m = await materializeSpec(engine, spec);
+      const m = await materializeSpec(engine, specForMaterialize);
       const scene = compileSpec({
-        spec,
+        spec: parsed.spec,
         rows: m.result.rows,
         schema: m.handle.schema,
       });
