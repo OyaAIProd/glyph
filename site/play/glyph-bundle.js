@@ -4447,10 +4447,7 @@ var LayerSchema = external_exports.object({
       }).strict()
     ]),
     text: external_exports.string().min(1).max(200),
-    arrow: external_exports.union([
-      external_exports.literal("auto"),
-      external_exports.object({ dx: external_exports.number(), dy: external_exports.number() }).strict()
-    ]).default("auto"),
+    arrow: external_exports.union([external_exports.literal("auto"), external_exports.object({ dx: external_exports.number(), dy: external_exports.number() }).strict()]).default("auto"),
     fontSize: external_exports.number().positive().max(64).default(14),
     color: external_exports.string().min(1).optional(),
     highlight: external_exports.boolean().default(true)
@@ -4477,10 +4474,7 @@ var LayerSchema = external_exports.object({
      *     the traveler reuses a sibling line layer's path).
      *   - `{ layerId }` — refers to a sibling layer by its `id`.
      */
-    follow: external_exports.union([
-      external_exports.literal("self"),
-      external_exports.object({ layerId: external_exports.string().min(1) }).strict()
-    ]),
+    follow: external_exports.union([external_exports.literal("self"), external_exports.object({ layerId: external_exports.string().min(1) }).strict()]),
     /**
      * Animation duration in milliseconds. Falls back to
      * `spec.animation.duration_ms` when omitted (or 4000 ms when
@@ -5307,6 +5301,25 @@ function niceTicks(d0, d1, count = 5) {
     ticks.push(roundPx(v));
   }
   return { domain: [roundPx(niceMin), roundPx(niceMax)], ticks };
+}
+
+// packages/core/dist/capabilities.js
+var LIBRARY_VERSION = "0.0.0";
+var SUPPORTED_MARKS = ["bar", "point", "line", "area"];
+var SUPPORTED_STATS = ["count", "sum", "mean"];
+var SUPPORTED_RENDERERS = ["svg"];
+var SUPPORTED_ENGINES = ["duckdb-node"];
+function getCapabilities(extras = {}) {
+  return {
+    libraryVersion: LIBRARY_VERSION,
+    specVersions: SUPPORTED_SPEC_VERSIONS,
+    defaultSpecVersion: DEFAULT_SPEC_VERSION,
+    marks: SUPPORTED_MARKS,
+    stats: SUPPORTED_STATS,
+    renderers: SUPPORTED_RENDERERS,
+    engines: SUPPORTED_ENGINES,
+    ...extras.mcpTools ? { mcpTools: extras.mcpTools } : {}
+  };
 }
 
 // packages/core/dist/contour/index.js
@@ -7797,25 +7810,6 @@ function flattenArcs(node) {
   return out;
 }
 
-// packages/core/dist/capabilities.js
-var LIBRARY_VERSION = "0.0.0";
-var SUPPORTED_MARKS = ["bar", "point", "line", "area"];
-var SUPPORTED_STATS = ["count", "sum", "mean"];
-var SUPPORTED_RENDERERS = ["svg"];
-var SUPPORTED_ENGINES = ["duckdb-node"];
-function getCapabilities(extras = {}) {
-  return {
-    libraryVersion: LIBRARY_VERSION,
-    specVersions: SUPPORTED_SPEC_VERSIONS,
-    defaultSpecVersion: DEFAULT_SPEC_VERSION,
-    marks: SUPPORTED_MARKS,
-    stats: SUPPORTED_STATS,
-    renderers: SUPPORTED_RENDERERS,
-    engines: SUPPORTED_ENGINES,
-    ...extras.mcpTools ? { mcpTools: extras.mcpTools } : {}
-  };
-}
-
 // packages/core/dist/render/brand.js
 function brandKitToTheme(brand) {
   return {
@@ -7852,17 +7846,21 @@ function parseColor(input) {
     ];
   }
   if (/^#[0-9a-f]{3}$/.test(s)) {
-    const r = Number.parseInt(s[1] + s[1], 16);
-    const g = Number.parseInt(s[2] + s[2], 16);
-    const b = Number.parseInt(s[3] + s[3], 16);
+    const c1 = s.charAt(1);
+    const c2 = s.charAt(2);
+    const c3 = s.charAt(3);
+    const r = Number.parseInt(c1 + c1, 16);
+    const g = Number.parseInt(c2 + c2, 16);
+    const b = Number.parseInt(c3 + c3, 16);
     return [r, g, b];
   }
   const m = s.match(/^rgba?\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)/);
   if (m) {
+    const [, r, g, b] = m;
     return [
-      Math.min(255, Number.parseInt(m[1], 10)),
-      Math.min(255, Number.parseInt(m[2], 10)),
-      Math.min(255, Number.parseInt(m[3], 10))
+      Math.min(255, Number.parseInt(r, 10)),
+      Math.min(255, Number.parseInt(g, 10)),
+      Math.min(255, Number.parseInt(b, 10))
     ];
   }
   return null;
@@ -7920,9 +7918,15 @@ function checkBrandContrast(brand) {
       sim.push(simulateDeuteranopia(rgb));
     }
     for (let i = 0; i < sim.length; i++) {
+      const a = sim[i];
+      const colorA = palette[i];
+      if (!a || !colorA)
+        continue;
       for (let j = i + 1; j < sim.length; j++) {
-        const a = sim[i];
         const b = sim[j];
+        const colorB = palette[j];
+        if (!b || !colorB)
+          continue;
         const dx = a[0] - b[0];
         const dy = a[1] - b[1];
         const dz = a[2] - b[2];
@@ -7930,8 +7934,8 @@ function checkBrandContrast(brand) {
         if (d < DEUT_DISTANCE_THRESHOLD) {
           return {
             kind: "color-blind",
-            a: palette[i],
-            b: palette[j],
+            a: colorA,
+            b: colorB,
             distance: d,
             threshold: DEUT_DISTANCE_THRESHOLD
           };
@@ -7941,64 +7945,6 @@ function checkBrandContrast(brand) {
   }
   return null;
 }
-
-// packages/core/dist/themes/playground.js
-var PLAYGROUND_BRAND = {
-  format: "glyph-brand/1",
-  palette: {
-    // Tailwind-derived primary-toy ramp. Purple (#a855f7) was dropped
-    // because it collapses with blue (#3b82f6) under deuteranopia
-    // simulation; pink (#ec4899) keeps the same "fun" feel while
-    // surviving AUDIT-11's pair-distance check.
-    categorical: ["#ef4444", "#3b82f6", "#facc15", "#22c55e", "#ec4899", "#f97316"],
-    surface: {
-      bg: "#fefce8",
-      // warm cream
-      fg: "#1f2937",
-      // soft black
-      muted: "#6b7280",
-      border: "#e5e7eb"
-    }
-  },
-  typography: {
-    fontFamily: '"Comic Neue", "Segoe Print", system-ui, sans-serif',
-    fontSize: 14,
-    titleScale: 1.4
-  },
-  spacing: { unit: 6, plotMargin: 5 },
-  accessibility: { minContrastRatio: 4.5, colorBlindSafe: true }
-};
-
-// packages/core/dist/themes/threeblueone-brown.js
-var THREEBLUEONE_BROWN_BRAND = {
-  format: "glyph-brand/1",
-  palette: {
-    // E4 review IMPORTANT-2 fix — the original palette's `#fb7185`
-    // pink vs `#34d399` green pair sat 29.05 units apart under
-    // Machado-2009 deuteranopia (threshold 25), only 4 units of
-    // headroom. Swapped the green to `#10b981` (a darker emerald)
-    // which widens the min-pair distance to ~38, giving 13 units
-    // of headroom. Palette pair invariant locked by the AUDIT-11
-    // test in presets.test.ts; this widening just gives the agent
-    // room to tweak without instantly breaking the gate.
-    categorical: ["#3b6fb8", "#facc15", "#fb7185", "#10b981", "#a78bfa"],
-    surface: {
-      bg: "#1c2638",
-      // chalkboard
-      fg: "#e8e6df",
-      // chalk white
-      muted: "#94a3b8",
-      border: "#334155"
-    }
-  },
-  typography: {
-    fontFamily: '"Cardo", "Computer Modern", Georgia, serif',
-    fontSize: 14,
-    titleScale: 1.3
-  },
-  spacing: { unit: 5, plotMargin: 5 },
-  accessibility: { minContrastRatio: 4.5, colorBlindSafe: true }
-};
 
 // scripts/playground-crypto-shim.mjs
 var K = new Uint32Array([
@@ -8105,7 +8051,14 @@ function sha256Hex(bytes) {
       const s1 = rotr(17, W[i - 2]) ^ rotr(19, W[i - 2]) ^ W[i - 2] >>> 10;
       W[i] = W[i - 16] + s0 + W[i - 7] + s1 >>> 0;
     }
-    let a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+    let a = H[0];
+    let b = H[1];
+    let c = H[2];
+    let d = H[3];
+    let e = H[4];
+    let f = H[5];
+    let g = H[6];
+    let h = H[7];
     for (let i = 0; i < 64; i++) {
       const S1 = rotr(6, e) ^ rotr(11, e) ^ rotr(25, e);
       const ch = e & f ^ ~e & g;
@@ -8139,7 +8092,9 @@ function sha256Hex(bytes) {
 }
 function createHash(algorithm) {
   if (algorithm !== "sha256") {
-    throw new Error(`playground crypto shim: unsupported algorithm "${algorithm}" (only sha256 is wired)`);
+    throw new Error(
+      `playground crypto shim: unsupported algorithm "${algorithm}" (only sha256 is wired)`
+    );
   }
   const chunks = [];
   return {
@@ -8155,7 +8110,9 @@ function createHash(algorithm) {
     },
     digest(encoding) {
       if (encoding !== "hex") {
-        throw new Error(`playground crypto shim: unsupported digest encoding "${encoding}" (only "hex" is wired)`);
+        throw new Error(
+          `playground crypto shim: unsupported digest encoding "${encoding}" (only "hex" is wired)`
+        );
       }
       let total = 0;
       for (const c of chunks) total += c.length;
@@ -8177,6 +8134,13 @@ function canonicalStringify(value) {
     return "null";
   if (typeof value === "bigint")
     return JSON.stringify(`N:${value.toString()}`);
+  if (typeof value === "number") {
+    if (!Number.isFinite(value))
+      return "null";
+    if (Number.isInteger(value))
+      return JSON.stringify(value);
+    return JSON.stringify(Number(value.toPrecision(14)));
+  }
   if (typeof value !== "object")
     return JSON.stringify(value);
   if (Array.isArray(value)) {
@@ -8253,6 +8217,64 @@ function diffProvenance(expected, actual) {
   }
   return mismatches;
 }
+
+// packages/core/dist/themes/playground.js
+var PLAYGROUND_BRAND = {
+  format: "glyph-brand/1",
+  palette: {
+    // Tailwind-derived primary-toy ramp. Purple (#a855f7) was dropped
+    // because it collapses with blue (#3b82f6) under deuteranopia
+    // simulation; pink (#ec4899) keeps the same "fun" feel while
+    // surviving AUDIT-11's pair-distance check.
+    categorical: ["#ef4444", "#3b82f6", "#facc15", "#22c55e", "#ec4899", "#f97316"],
+    surface: {
+      bg: "#fefce8",
+      // warm cream
+      fg: "#1f2937",
+      // soft black
+      muted: "#6b7280",
+      border: "#e5e7eb"
+    }
+  },
+  typography: {
+    fontFamily: '"Comic Neue", "Segoe Print", system-ui, sans-serif',
+    fontSize: 14,
+    titleScale: 1.4
+  },
+  spacing: { unit: 6, plotMargin: 5 },
+  accessibility: { minContrastRatio: 4.5, colorBlindSafe: true }
+};
+
+// packages/core/dist/themes/threeblueone-brown.js
+var THREEBLUEONE_BROWN_BRAND = {
+  format: "glyph-brand/1",
+  palette: {
+    // E4 review IMPORTANT-2 fix — the original palette's `#fb7185`
+    // pink vs `#34d399` green pair sat 29.05 units apart under
+    // Machado-2009 deuteranopia (threshold 25), only 4 units of
+    // headroom. Swapped the green to `#10b981` (a darker emerald)
+    // which widens the min-pair distance to ~38, giving 13 units
+    // of headroom. Palette pair invariant locked by the AUDIT-11
+    // test in presets.test.ts; this widening just gives the agent
+    // room to tweak without instantly breaking the gate.
+    categorical: ["#3b6fb8", "#facc15", "#fb7185", "#10b981", "#a78bfa"],
+    surface: {
+      bg: "#1c2638",
+      // chalkboard
+      fg: "#e8e6df",
+      // chalk white
+      muted: "#94a3b8",
+      border: "#334155"
+    }
+  },
+  typography: {
+    fontFamily: '"Cardo", "Computer Modern", Georgia, serif',
+    fontSize: 14,
+    titleScale: 1.3
+  },
+  spacing: { unit: 5, plotMargin: 5 },
+  accessibility: { minContrastRatio: 4.5, colorBlindSafe: true }
+};
 
 // packages/core/dist/compiler/mark-registry.js
 var registry = /* @__PURE__ */ new Map();
@@ -24007,9 +24029,9 @@ var travelerMarkCompiler = {
       const N = polyline.length;
       const K2 = Math.min(12, Math.max(0, Math.round(N * opts.trail.length)));
       if (K2 > 0) {
-        const tailWindowMs = opts.durationMs * opts.trail.length;
+        const tailWindowMs2 = opts.durationMs * opts.trail.length;
         for (let i = 1; i <= K2; i++) {
-          const offsetMs = -Math.round(tailWindowMs * i / K2);
+          const offsetMs = -Math.round(tailWindowMs2 - tailWindowMs2 * i / K2);
           const opacity = opts.trail.fade ? roundOpacity(TRAIL_FADE_MAX - (TRAIL_FADE_MAX - TRAIL_FADE_MIN) * i / K2) : TRAIL_FADE_MAX;
           const trailMark = {
             type: "circle",
@@ -24028,6 +24050,7 @@ var travelerMarkCompiler = {
         }
       }
     }
+    const tailWindowMs = opts.trail && opts.trail.length > 0 ? opts.durationMs * opts.trail.length : 0;
     const head = {
       type: "circle",
       cx: first.x,
@@ -24036,7 +24059,8 @@ var travelerMarkCompiler = {
       fill: opts.color,
       motion: {
         pathId,
-        durationMs: opts.durationMs
+        durationMs: opts.durationMs,
+        ...tailWindowMs > 0 ? { beginMs: -tailWindowMs } : {}
       }
     };
     out.push(head);
@@ -24198,6 +24222,8 @@ var streamlineMarkCompiler = {
     const seeds = generateSeeds(cfg, domain);
     if (seeds.length > 0) {
       const probe = seeds[0];
+      if (!probe)
+        throw new Error("streamline: internal \u2014 seed expected but missing");
       try {
         evaluator(cfg.dxdt, { x: probe.x, y: probe.y });
         evaluator(cfg.dydt, { x: probe.x, y: probe.y });
@@ -24366,7 +24392,7 @@ var bezierMarkCompiler = {
       return;
     if (cfg.controlPoints.length < 2)
       return;
-    const curveStroke = cfg.stroke ?? (theme.marks[0] ?? theme.fg);
+    const curveStroke = cfg.stroke ?? theme.marks[0] ?? theme.fg;
     const curveFill = cfg.fill ?? "none";
     const curveWidth = cfg.strokeWidth ?? CURVE_STROKE_WIDTH;
     const helperStroke = theme.axis;
@@ -26495,7 +26521,7 @@ function roundToSig(v, n) {
     return v;
   const d = Math.ceil(Math.log10(Math.abs(v)));
   const power = n - d;
-  const m = Math.pow(10, power);
+  const m = 10 ** power;
   return Math.round(v * m) / m;
 }
 function interpolateRgb(a, b, t) {
@@ -27081,7 +27107,7 @@ function renderMark(m, interactive) {
         const pathRef = `#${m.motion.pathId}`;
         const dur = `${m.motion.durationMs}ms`;
         const begin = m.motion.beginMs !== void 0 && m.motion.beginMs !== 0 ? ` begin="${m.motion.beginMs}ms"` : "";
-        const animateMotion = `<animateMotion dur="${dur}"${begin} repeatCount="indefinite" rotate="auto"><mpath href="${pathRef}" xlink:href="${pathRef}"/></animateMotion>`;
+        const animateMotion = `<animateMotion dur="${dur}"${begin} repeatCount="indefinite" rotate="auto" keyTimes="0;0.5;1" keyPoints="0;1;0" calcMode="linear"><mpath href="${pathRef}" xlink:href="${pathRef}"/></animateMotion>`;
         return `<circle cx="${m.cx}" cy="${m.cy}" r="${m.r}" fill="${esc(m.fill)}"${stroke}${sw}${op2}>${animateMotion}</circle>`;
       }
       if (!interactive) {

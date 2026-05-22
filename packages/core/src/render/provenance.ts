@@ -85,6 +85,25 @@ export interface ProvenanceInput {
 export function canonicalStringify(value: unknown): string {
   if (value === null || value === undefined) return "null";
   if (typeof value === "bigint") return JSON.stringify(`N:${value.toString()}`);
+  // Numbers go through a precision-clamp before JSON.stringify so the
+  // hash output is identical across platforms. JavaScript `Math.sin`,
+  // `Math.cos`, `Math.exp`, etc. are NOT bit-exact across libm
+  // implementations (IEEE 754 specifies arithmetic operations but not
+  // transcendental functions), so `sin(x)` on macOS can differ in the
+  // last 2–3 bits from `sin(x)` on Linux for the same `x`. That bit-
+  // level drift never reaches the rendered SVG path (the renderer
+  // rounds to 8 decimals via `roundPx`) but it WOULD propagate into the
+  // dataHash if we hashed the raw f64. Clamping to 14 significant
+  // digits keeps every visually-meaningful precision bit while
+  // discarding the platform-dependent tail. NaN / ±Infinity surface as
+  // `null` to match JSON.stringify; integers and short decimals are
+  // unaffected (toPrecision is a no-op when the input already has
+  // fewer significant digits than the precision argument).
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return "null";
+    if (Number.isInteger(value)) return JSON.stringify(value);
+    return JSON.stringify(Number(value.toPrecision(14)));
+  }
   if (typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) {
     const parts = value.map((v) => canonicalStringify(v));
