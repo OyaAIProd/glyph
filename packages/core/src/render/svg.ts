@@ -189,7 +189,20 @@ function renderMark(m: SceneMark, interactive: boolean): string {
         const animateMotion =
           `<animateMotion dur="${dur}"${begin} repeatCount="indefinite" rotate="auto" keyTimes="0;0.5;1" keyPoints="0;1;0" calcMode="linear">` +
           `<mpath href="${pathRef}" xlink:href="${pathRef}"/></animateMotion>`;
-        return `<circle cx="${m.cx}" cy="${m.cy}" r="${m.r}" fill="${esc(m.fill)}"${stroke}${sw}${op}>${animateMotion}</circle>`;
+        // `<animateMotion>` adds a `translate(pathX, pathY)` transform to
+        // the element. For a `<circle>`, that transform composes with
+        // the intrinsic `cx`/`cy` — so a circle authored at
+        // `cx=116, cy=192` with a path starting at `(116, 192)` lands
+        // at `(232, 384)` at t=0, NOT `(116, 192)`. Visible bug: dots
+        // trace the wave shape but offset by the path's first point,
+        // so they "move but not on the lines."
+        //
+        // Emit `cx=0 cy=0` whenever `motion` is set so the path
+        // coordinates ARE the dot's absolute position. The compiler's
+        // `m.cx` / `m.cy` are still the path's first point (used by
+        // every other branch — non-interactive, interactive, tooltip),
+        // we just drop them here.
+        return `<circle cx="0" cy="0" r="${m.r}" fill="${esc(m.fill)}"${stroke}${sw}${op}>${animateMotion}</circle>`;
       }
       if (!interactive) {
         if (op) {
